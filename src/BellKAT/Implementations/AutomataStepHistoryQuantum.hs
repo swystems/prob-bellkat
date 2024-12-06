@@ -24,7 +24,13 @@ import qualified BellKAT.Implementations.AutomataExecution as AE
 import           BellKAT.Implementations.AutomataExecution (ExecutionParams)
 import           BellKAT.Utils.NonEmpty
 
-data AutomatonChoice = ACNormal | ACEmbedded
+-- | `AutomatonChoice` defines how non-deterministic transitions are handled by the automaton
+data AutomatonChoice 
+    -- | `ACNormal` has non-determinism represented as parallel transitions
+    = ACNormal 
+    -- | `ACEmbedded` has non-determinism represented via intrinsic non-determinism
+    -- (`ChoiceSemigroup`) of the action
+    | ACEmbedded
 
 type family AutomatonFromChoice (ac :: AutomatonChoice) where
     AutomatonFromChoice 'ACNormal = HyperMagicNFA

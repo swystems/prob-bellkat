@@ -18,8 +18,14 @@ import           BellKAT.Utils.Choice
 import           BellKAT.Utils.PartialNDEndo
 import           BellKAT.Utils.UnorderedTree    (UTree (..))
 
-data FunctionDup = FDUse | FDTimely 
+-- | `FunctionDup` describes how the dup should be interpreted by the step
+data FunctionDup 
+    -- | `FDUse` uses `processDup` to handle the duplication
+    = FDUse 
+    -- | `FDTimely` essentially equivalent du always using `DupKind { dupBefore = False, dupAfter = True }`
+    | FDTimely 
 
+-- | `FunctionStep` represents one step of the execution as: H -> M(H x H) (aka `PartialNDEndo`)
 newtype FunctionStep (dup :: FunctionDup) (test :: Type -> Type) tag = FunctionStep
     { executeFunctionStep :: PartialNDEndo (History tag)
     } deriving newtype (Semigroup)

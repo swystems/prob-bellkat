@@ -54,9 +54,9 @@ data BellPair = Location :~: Location
 
 infix 9 :~:
 
--- | how BPs are displayed
 instance Show BellPair where
     show (l1 :~: l2) = name l1 <> "~" <> name l2
+
 instance Eq BellPair where
     l1 :~: l2 == l1' :~: l2' = sort [l1, l2] == sort [l2', l1']
 
@@ -66,6 +66,7 @@ instance Ord BellPair where
 hasLocation :: Location -> BellPair -> Bool
 hasLocation l (l1 :~: l2) = l == l1 || l == l2
 
+-- | DupKind controls when the nodes in the histories are duplicated
 data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool }
 
 instance Semigroup DupKind where

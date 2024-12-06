@@ -1,4 +1,5 @@
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE DeriveFunctor #-}
 module BellKAT.Definitions.Policy where
 
 import           Data.Functor.Contravariant (Predicate (..))
@@ -37,13 +38,14 @@ data Policy a
     = APAtomic a
     | APSequence (Policy a) (Policy a)
     | APParallel (Policy a) (Policy a)
-    deriving stock (Show)
+    deriving stock (Show, Functor)
 
 data OneRoundPolicy a
     = ORPAtomic a
     | ORPSequence (OneRoundPolicy a) (OneRoundPolicy a)
     | ORPParallel (OneRoundPolicy a) (OneRoundPolicy a)
     | ORPChoice (OneRoundPolicy a) (OneRoundPolicy a)
+    deriving stock Functor
 
 instance Show a => Show (OneRoundPolicy a) where
     showsPrec _ (ORPAtomic x) = shows x
@@ -60,7 +62,7 @@ data FullPolicy a
     | FPParallel (FullPolicy a) (FullPolicy a)
     | FPOne
     | FPChoice (FullPolicy a) (FullPolicy a)
-    deriving stock (Show)
+    deriving stock (Show, Functor)
 
 data StarPolicy a
     = SPAtomic a
@@ -70,16 +72,7 @@ data StarPolicy a
     | SPOne
     | SPStar (StarPolicy a)
     | SPChoice (StarPolicy a) (StarPolicy a)
-    deriving stock (Show)
-
-instance Functor StarPolicy where
-    fmap f (SPAtomic x) = SPAtomic (f x)
-    fmap f (SPSequence x y) = SPSequence (fmap f x) (fmap f y)
-    fmap f (SPParallel x y) = SPParallel (fmap f x) (fmap f y)
-    fmap f (SPOrdered x y) = SPOrdered (fmap f x) (fmap f y)
-    fmap _ SPOne = SPOne
-    fmap f (SPStar x) = SPStar (fmap f x)
-    fmap f (SPChoice x y) = SPChoice (fmap f x) (fmap f y)
+    deriving stock (Show, Functor)
 
 instance Semigroup (Policy a) where
     (<>) = APSequence
@@ -126,16 +119,23 @@ instance ChoiceSemigroup (StarPolicy a) where
 instance OrderedSemigroup (StarPolicy a) where
     (<.>) = SPOrdered
 
-data Atomic test tag = AAction (TaggedAction tag) | ATest (test tag)
+data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)
 
-instance {-# OVERLAPPING #-} HasDupKinds (Atomic test tag) where
+hoistAct :: (a tag -> b tag) -> Atomic a test tag -> Atomic b test tag
+hoistAct f (AAction x) = AAction (f x)
+hoistAct _ (ATest t) = ATest t
+
+instance {-# OVERLAPPING #-} HasDupKinds (act tag) => HasDupKinds (Atomic act test tag) where
     modifyDupKinds f (AAction ta) = AAction (modifyDupKinds f ta)
     modifyDupKinds _ (ATest t) = ATest t
 
-type Normal p tag = p (TaggedAction tag)
-type NormalWithTests p test tag = p (Atomic test tag)
-type Ordered p test tag = p (NonEmpty (Atomic test tag))
+type GNormal p act tag = p (act tag)
+type GNormalWithTests p act test tag = p (Atomic act test tag)
+type GOrdered p act test tag = p (NonEmpty (Atomic act test tag))
+type Normal p tag = GNormal p TaggedAction tag
+type NormalWithTests p test tag = GNormalWithTests p TaggedAction test tag
+type Ordered p test tag = GOrdered p TaggedAction test tag
 
 -- * Testing definitions
 

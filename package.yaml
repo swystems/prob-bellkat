@@ -37,6 +37,7 @@ library:
     - BellKAT.Drawing
     - BellKAT.Definitions
     - BellKAT.PolicyEmbeddings
+    - BellKAT.ActionEmbeddings
     - BellKAT.Definitions.Core
     - BellKAT.Definitions.Structures
     - BellKAT.Definitions.Policy

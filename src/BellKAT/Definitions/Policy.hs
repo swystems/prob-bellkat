@@ -122,10 +122,6 @@ instance OrderedSemigroup (StarPolicy a) where
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)
 
-hoistAct :: (a tag -> b tag) -> Atomic a test tag -> Atomic b test tag
-hoistAct f (AAction x) = AAction (f x)
-hoistAct _ (ATest t) = ATest t
-
 instance {-# OVERLAPPING #-} HasDupKinds (act tag) => HasDupKinds (Atomic act test tag) where
     modifyDupKinds f (AAction ta) = AAction (modifyDupKinds f ta)
     modifyDupKinds _ (ATest t) = ATest t

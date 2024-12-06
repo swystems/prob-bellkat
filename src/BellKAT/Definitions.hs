@@ -34,52 +34,49 @@ import qualified BellKAT.Implementations.AtomicOneStepHistoryQuantum  as AOSHQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
 applyPolicy :: Ord tag => Normal Policy tag -> History tag -> Set (History tag)
-applyPolicy = HQ.execute . meaning . fmap simpleActionMeaning
+applyPolicy = HQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyPolicyTimely :: Ord tag => Normal Policy tag -> History tag -> Set (History tag)
-applyPolicyTimely = THQ.execute . meaning . fmap simpleActionMeaning
+applyPolicyTimely = THQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyPolicySteps :: (Ord tag) => Normal Policy tag -> History tag -> Set (History tag)
-applyPolicySteps  = SHQ.execute HQ.execute . meaning . fmap simpleActionMeaning
+applyPolicySteps  = SHQ.execute HQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyOrderedPolicy 
     :: (Ord tag, Show tag) 
     => Ordered Policy BellPairsPredicate tag -> History tag -> Set (History tag)
 applyOrderedPolicy = 
-    SHQ.execute IOSHQ.execute . meaning
-    . (fmap . fmap) (hoistAct simpleActionMeaning)
+    SHQ.execute IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyFullOrderedPolicy 
     :: (Ord tag, Show tag) 
     => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyFullOrderedPolicy = SHQ.execute IOSHQ.execute . meaning 
-    . (fmap . fmap) (hoistAct simpleActionMeaning)
+applyFullOrderedPolicy = SHQ.execute IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyFullOrderedPolicyAuto 
     :: (Ord tag, Show tag, Default tag) 
     => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyFullOrderedPolicyAuto = ASHQ.executeE IOSHQ.execute . meaning 
-    . (fmap . fmap) (hoistAct simpleActionMeaning)
+applyFullOrderedPolicyAuto = 
+    ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarOrderedPolicy 
     :: (Ord tag, Show tag, Default tag) 
     => Ordered StarPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyStarOrderedPolicy = 
-    ASHQ.executeE IOSHQ.execute . meaning . (fmap . fmap) (hoistAct simpleActionMeaning)
+applyStarOrderedPolicy = ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarPolicy 
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
     => NormalWithTests StarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy = 
     ASHQ.execute AOSHQ.execute . meaning 
-    . fmap (hoistAct simpleActionMeaning) . setDupKinds (DupKind True False)
+        . desugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
 applyStarPolicyH
     :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
     => NormalWithTests StarPolicy test tag -> History tag -> Set (History tag)
 applyStarPolicyH = 
     ASHQ.executeE IOSHQ.execute . meaning 
-    . fmap (hoistAct simpleActionMeaning) . setDupKinds (DupKind True False)
+    . desugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
 applyStarPolicyWithValidity
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
@@ -89,18 +86,17 @@ applyStarPolicyWithValidity
     -> Maybe (Set (TaggedBellPairs tag))
 applyStarPolicyWithValidity isValid = 
     ASHQ.executeWith (def { ASHQ.isValidState = isValid }) AOSHQ.execute 
-    . meaning  . fmap (hoistAct simpleActionMeaning)
+    . meaning  . desugarActions simpleActionMeaning
 
 applyOneStepPolicyPartial 
     :: (Ord tag, Show tag) 
     => Normal OneRoundPolicy tag -> History tag -> Set (Partial (History tag))
-applyOneStepPolicyPartial = 
-    IOSHQ.executePartial . meaning . fmap simpleActionMeaning
+applyOneStepPolicyPartial = IOSHQ.executePartial . meaning . desugarActions simpleActionMeaning
 
 applyOneStepPolicy 
     :: (Ord tag, Show tag) 
     => Normal OneRoundPolicy tag -> History tag -> Set (History tag)
-applyOneStepPolicy = IOSHQ.execute . meaning . fmap simpleActionMeaning
+applyOneStepPolicy = IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarOrderedPolicyBounded 
     :: (Ord tag, Show tag, Default tag) 
@@ -108,7 +104,7 @@ applyStarOrderedPolicyBounded
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
     . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) IOSHQ.execute
-    . meaning . (fmap . fmap) (hoistAct simpleActionMeaning)
+    . meaning . desugarActions simpleActionMeaning
   where
     handleExecutionError :: Maybe a -> a
     handleExecutionError Nothing = error "couldn't execute"

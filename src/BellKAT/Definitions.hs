@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 module BellKAT.Definitions
     ( module BellKAT.Definitions.Core
     , module BellKAT.Definitions.Structures
@@ -45,32 +44,32 @@ applyPolicySteps  = SHQ.execute HQ.execute . meaning
 applyOrderedPolicy 
     :: (Ord tag, Show tag) 
     => Ordered Policy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyOrderedPolicy = SHQ.execute (IOSHQ.execute @'IOSHQ.FDUse) . meaning
+applyOrderedPolicy = SHQ.execute IOSHQ.execute . meaning
 
 applyFullOrderedPolicy 
     :: (Ord tag, Show tag) 
     => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyFullOrderedPolicy = SHQ.execute (IOSHQ.execute @'IOSHQ.FDUse) . meaning
+applyFullOrderedPolicy = SHQ.execute IOSHQ.execute . meaning
 
 applyFullOrderedPolicyAuto 
     :: (Ord tag, Show tag, Default tag) 
     => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyFullOrderedPolicyAuto = ASHQ.executeE (IOSHQ.execute @'IOSHQ.FDUse) . meaning
+applyFullOrderedPolicyAuto = ASHQ.executeE IOSHQ.execute . meaning
 
 applyStarOrderedPolicy 
     :: (Ord tag, Show tag, Default tag) 
     => Ordered StarPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
-applyStarOrderedPolicy = ASHQ.executeE (IOSHQ.execute @'IOSHQ.FDUse) . meaning
+applyStarOrderedPolicy = ASHQ.executeE IOSHQ.execute . meaning
 
 applyStarPolicy 
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
     => NormalWithTests StarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
-applyStarPolicy = ASHQ.execute AOSHQ.execute . meaning 
+applyStarPolicy = ASHQ.execute AOSHQ.execute . meaning . setDupKinds (DupKind True False)
 
 applyStarPolicyH
-    :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep 'IOSHQ.FDTimely test tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
     => NormalWithTests StarPolicy test tag -> History tag -> Set (History tag)
-applyStarPolicyH = ASHQ.executeE (IOSHQ.execute @'IOSHQ.FDTimely) . meaning
+applyStarPolicyH = ASHQ.executeE IOSHQ.execute . meaning . setDupKinds (DupKind True False)
 
 applyStarPolicyWithValidity
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
@@ -84,19 +83,19 @@ applyStarPolicyWithValidity isValid =
 applyOneStepPolicyPartial 
     :: (Ord tag, Show tag) 
     => Normal OneRoundPolicy tag -> History tag -> Set (Partial (History tag))
-applyOneStepPolicyPartial = (IOSHQ.executePartial @'IOSHQ.FDUse) . meaning
+applyOneStepPolicyPartial = IOSHQ.executePartial . meaning
 
 applyOneStepPolicy 
     :: (Ord tag, Show tag) 
     => Normal OneRoundPolicy tag -> History tag -> Set (History tag)
-applyOneStepPolicy = (IOSHQ.execute @'IOSHQ.FDUse) . meaning
+applyOneStepPolicy = IOSHQ.execute . meaning
 
 applyStarOrderedPolicyBounded 
     :: (Ord tag, Show tag, Default tag) 
     => Ordered StarPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
-    . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) (IOSHQ.execute @'IOSHQ.FDUse)
+    . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) IOSHQ.execute
     . meaning
   where
     handleExecutionError :: Maybe a -> a

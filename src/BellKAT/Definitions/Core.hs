@@ -7,6 +7,7 @@ module BellKAT.Definitions.Core (
     hasLocation,
     History(..),
     DupKind(..),
+    HasDupKinds(..),
     Test(..),
     BellPairsPredicate(..),
     RestrictedTest,  
@@ -69,6 +70,15 @@ hasLocation l (l1 :~: l2) = l == l1 || l == l2
 -- | DupKind controls when the nodes in the histories are duplicated
 data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool }
 
+class HasDupKinds a where
+    modifyDupKinds :: (DupKind -> DupKind) -> a -> a
+
+    setDupKinds :: DupKind -> a -> a
+    setDupKinds dk = modifyDupKinds (const dk)
+
+instance (HasDupKinds a, Functor f) => HasDupKinds (f a) where
+    modifyDupKinds f = fmap (modifyDupKinds f)
+
 instance Semigroup DupKind where
     (DupKind x y) <> (DupKind x' y') = DupKind (x || x') (y || y')
 
@@ -80,9 +90,13 @@ data CreateBellPairArgs tag = CreateBellPairArgs
     , cbpOutputBP    :: BellPair -- ^ a produced (output) `BellPair`
     , cbpInputBPs    :: [BellPair] -- ^ a multiset of required (input) `BellPair`s
     , cbpProbability :: Maybe Double -- ^ probability of failure for operations that may fail
-    , cbtNewTag      :: tag
-    , cbtDup         :: DupKind
+    , cbpNewTag      :: tag
+    , cbpDup         :: DupKind
     }
+
+instance HasDupKinds (CreateBellPairArgs tag) where
+  setDupKinds dk cbp = cbp { cbpDup = dk }
+  modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
 instance Show1 CreateBellPairArgs where
   liftShowsPrec _ _ _ _ = shows "cbp"

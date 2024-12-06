@@ -1,11 +1,9 @@
 {-# LANGUAGE OverloadedLists       #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE UndecidableInstances  #-}
 module BellKAT.Implementations.InterleavingOneStepHistoryQuantum
     ( InterleavingOneStepPolicy(..)
     , FunctionStep (..)
-    , FunctionDup(..)
     , FreeStep
     , execute
     , executePartial
@@ -17,7 +15,6 @@ import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Set                     (Set)
 import qualified Data.Set                     as Set
 import           Data.Functor.Classes
-
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Choice
@@ -89,14 +86,14 @@ sequenceAfterDecomposition q (Right (x, xs)) = Right (x, Sequence xs q)
 instance CreatesBellPairs a t =>  CreatesBellPairs (InterleavingOneStepPolicy a) t where
     tryCreateBellPairFrom = Atomic . tryCreateBellPairFrom
 
-instance (Ord t, CreatesBellPairs (FunctionStep dup test t) t) 
-  => Quantum (InterleavingOneStepPolicy (FunctionStep dup test t)) t
+instance (Ord t, CreatesBellPairs (FunctionStep test t) t) 
+  => Quantum (InterleavingOneStepPolicy (FunctionStep test t)) t
 
 instance (Ord tag, Show tag, Tests a test tag) => Tests (InterleavingOneStepPolicy a) test tag where
   test = Atomic . test
 
-instance (Ord tag, Show tag, Test test, CreatesBellPairs (FunctionStep dup test tag) tag) 
-  => TestsQuantum (InterleavingOneStepPolicy (FunctionStep dup test tag)) test tag where
+instance (Ord tag, Show tag, Test test, CreatesBellPairs (FunctionStep test tag) tag) 
+  => TestsQuantum (InterleavingOneStepPolicy (FunctionStep test tag)) test tag where
 
 instance {-# OVERLAPPING #-} (Show1 f, Show a) => Show (Compose InterleavingOneStepPolicy f a) where
     showsPrec d  (Compose x) = liftShowsPrec (liftShowsPrec showsPrec showList) (liftShowList showsPrec showList) d x
@@ -121,14 +118,14 @@ instance (Show t, Ord t, Tests (a t) test t) => Tests (Compose InterleavingOneSt
 instance (Show t, Ord t, Tests (a t) test t, CreatesBellPairs (a t) t)
   => TestsQuantum (Compose InterleavingOneStepPolicy a t) test t where
 
-executeOneStepPolicy :: (Ord tag) => InterleavingOneStepPolicy (FunctionStep dup test tag) -> FunctionStep dup test tag
+executeOneStepPolicy :: (Ord tag) => InterleavingOneStepPolicy (FunctionStep test tag) -> FunctionStep test tag
 executeOneStepPolicy (Atomic x) = x
 executeOneStepPolicy (Sequence p q)  = executeOneStepPolicy p <> executeOneStepPolicy q
 executeOneStepPolicy (Choice p q)  = executeOneStepPolicy p <+> executeOneStepPolicy q
 
 executePartial 
-    :: forall dup test tag. Ord tag 
-    => Compose InterleavingOneStepPolicy (FunctionStep dup test) tag 
+    :: forall test tag. Ord tag 
+    => Compose InterleavingOneStepPolicy (FunctionStep test) tag 
     -> History tag 
     -> Set (Partial (History tag))
 executePartial (Compose osp) = applyPartialNDEndo (executeFunctionStep (executeOneStepPolicy osp))
@@ -139,10 +136,10 @@ executeFree
 executeFree = 
      execute 
      . Compose 
-     . fmap (runFreeStep :: FreeStep test tag -> FunctionStep 'FDUse BellPairsPredicate tag) 
+     . fmap (runFreeStep :: FreeStep test tag -> FunctionStep BellPairsPredicate tag) 
      . getCompose 
 
 execute 
-    :: forall dup test t. (Ord t)
-    => Compose InterleavingOneStepPolicy (FunctionStep dup test) t -> History t -> Set (History t)
-execute p = Set.map unchoose . (executePartial @dup) p
+    :: forall test t. (Ord t)
+    => Compose InterleavingOneStepPolicy (FunctionStep test) t -> History t -> Set (History t)
+execute p = Set.map unchoose . executePartial p

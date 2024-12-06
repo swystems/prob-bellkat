@@ -29,6 +29,9 @@ data TaggedAction t = TaggedAction
 instance Show t => Show (TaggedAction t) where
     show ta = "_:" <> show (taAction ta) <> ":" <> show (taTag ta)
 
+instance {-# OVERLAPPING #-} HasDupKinds (TaggedAction t) where
+    modifyDupKinds f ta = ta { taDup = f (taDup ta) }
+
 -- | Define a language for policies, where `a` is the type of an atomic action
 data Policy a
     = APAtomic a
@@ -68,6 +71,15 @@ data StarPolicy a
     | SPStar (StarPolicy a)
     | SPChoice (StarPolicy a) (StarPolicy a)
     deriving stock (Show)
+
+instance Functor StarPolicy where
+    fmap f (SPAtomic x) = SPAtomic (f x)
+    fmap f (SPSequence x y) = SPSequence (fmap f x) (fmap f y)
+    fmap f (SPParallel x y) = SPParallel (fmap f x) (fmap f y)
+    fmap f (SPOrdered x y) = SPOrdered (fmap f x) (fmap f y)
+    fmap _ SPOne = SPOne
+    fmap f (SPStar x) = SPStar (fmap f x)
+    fmap f (SPChoice x y) = SPChoice (fmap f x) (fmap f y)
 
 instance Semigroup (Policy a) where
     (<>) = APSequence
@@ -116,6 +128,10 @@ instance OrderedSemigroup (StarPolicy a) where
 
 data Atomic test tag = AAction (TaggedAction tag) | ATest (test tag)
     deriving stock (Show)
+
+instance {-# OVERLAPPING #-} HasDupKinds (Atomic test tag) where
+    modifyDupKinds f (AAction ta) = AAction (modifyDupKinds f ta)
+    modifyDupKinds _ (ATest t) = ATest t
 
 type Normal p tag = p (TaggedAction tag)
 type NormalWithTests p test tag = p (Atomic test tag)

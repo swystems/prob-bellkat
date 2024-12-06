@@ -4,7 +4,6 @@
 module BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FunctionStep
     ( FunctionStep (..)
     , PartialNDEndo (..)
-    , FunctionDup (..)
     ) where
 
 import           Data.Kind
@@ -18,26 +17,19 @@ import           BellKAT.Utils.Choice
 import           BellKAT.Utils.PartialNDEndo
 import           BellKAT.Utils.UnorderedTree    (UTree (..))
 
--- | `FunctionDup` describes how the dup should be interpreted by the step
-data FunctionDup 
-    -- | `FDUse` uses `processDup` to handle the duplication
-    = FDUse 
-    -- | `FDTimely` essentially equivalent du always using `DupKind { dupBefore = False, dupAfter = True }`
-    | FDTimely 
-
 -- | `FunctionStep` represents one step of the execution as: H -> M(H x H) (aka `PartialNDEndo`)
-newtype FunctionStep (dup :: FunctionDup) (test :: Type -> Type) tag = FunctionStep
+newtype FunctionStep (test :: Type -> Type) tag = FunctionStep
     { executeFunctionStep :: PartialNDEndo (History tag)
     } deriving newtype (Semigroup)
 
-instance Show1 (FunctionStep dup test) where
+instance Show1 (FunctionStep test) where
   liftShowsPrec _ _ _ _ = shows "FunctionStep [\\h -> ..]"
 
-instance Ord tag => ChoiceSemigroup (FunctionStep dup test tag) where
+instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
     (FunctionStep p) <+> (FunctionStep q) = FunctionStep . PartialNDEndo $
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
-instance (Ord tag) => CreatesBellPairs (FunctionStep 'FDUse test tag) tag where
+instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
     tryCreateBellPairFrom (CreateBellPairArgs pt bp bps prob t dk) =
         FunctionStep . PartialNDEndo $ \h@(History ts) ->
             case findTreeRootsNDP bellPair bps (bellPairTag >$< pt) ts of
@@ -52,21 +44,6 @@ instance (Ord tag) => CreatesBellPairs (FunctionStep 'FDUse test tag) tag where
                 | partial <- partialNewTs
                 ]
 
-instance (Ord tag) => CreatesBellPairs (FunctionStep 'FDTimely test tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs pt bp bps prob t _dk) =
-        FunctionStep . PartialNDEndo $ \h@(History ts) ->
-            case findTreeRootsNDP bellPair bps (bellPairTag >$< pt) ts of
-            [] -> [chooseNoneOf h]
-            partialNewTs ->
-                mconcat
-                [ case prob of
-                    Nothing -> [ History <$> mapChosen (Mset.singleton . Node (TaggedBellPair bp t)) partial ]
-                    Just _  -> [ History <$> mapChosen (Mset.singleton . Node (TaggedBellPair bp t)) partial
-                                , History <$> partial { chosen = [] }
-                                ]
-                | partial <- partialNewTs
-                ]
-
-instance (Ord tag, Test test) => Tests (FunctionStep dup test tag) test tag where
+instance (Ord tag, Test test) => Tests (FunctionStep test tag) test tag where
   test t = FunctionStep . PartialNDEndo $ \h@(History ts) ->
     if getBPsPredicate (toBPsPredicate t) (Mset.map rootLabel ts) then [ chooseNoneOf h ] else []

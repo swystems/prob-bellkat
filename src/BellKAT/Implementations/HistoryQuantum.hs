@@ -5,7 +5,6 @@
 module BellKAT.Implementations.HistoryQuantum (HistoryQuantum, execute) where
 
 import           Data.Foldable              (toList)
-import           Data.Functor.Contravariant ((>$<))
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 
@@ -44,16 +43,16 @@ instance Ord t => ParallelSemigroup (HistoryQuantum t) where
         }
 
 instance Ord t => CreatesBellPairs (HistoryQuantum t) t where
-    tryCreateBellPairFrom (CreateBellPairArgs pt bp bps prob t dk) = HistoryQuantum
-        { requiredRoots = [(bps, pt)]
+    tryCreateBellPairFrom (CreateBellPairArgs tIn bp bps prob tOut dk) = HistoryQuantum
+        { requiredRoots = [(bps, Predicate (== tIn))]
         , execute = \h@(History ts) ->
-            case findTreeRootsNDP bellPair bps (bellPairTag >$< pt) ts of
+            case findTreeRootsNDP bellPair bps (Predicate $ (== tIn) . bellPairTag) ts of
                 [] -> [h]
                 partialTsNews ->
                     mconcat
                     [ case prob of
-                        Nothing -> [History tsRest <> [processDup dk (TaggedBellPair bp t) tsNew]]
-                        Just _ -> [History tsRest <> [processDup dk (TaggedBellPair bp t) tsNew], History tsRest]
+                        Nothing -> [History tsRest <> [processDup dk (TaggedBellPair bp tOut) tsNew]]
+                        Just _ -> [History tsRest <> [processDup dk (TaggedBellPair bp tOut) tsNew], History tsRest]
                     | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
                     ]
         }

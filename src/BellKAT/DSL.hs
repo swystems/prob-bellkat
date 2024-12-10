@@ -69,33 +69,33 @@ instance DSLTestFunctions (WithTests StarPolicy test (Maybe tag)) test tag where
     test t = SPAtomic (ATest t)
 
 instance DSLFunctions (Simple Policy (Maybe tag)) where
-    defaultTagged a = APAtomic $ TaggedAction mempty a Nothing mempty
+    defaultTagged a = APAtomic $ TaggedAction def a Nothing mempty
 
     APAtomic (TaggedAction p a t _) .% dk = APAtomic $ TaggedAction p a t dk
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests Policy test (Maybe tag)) where
-    defaultTagged a = APAtomic [ AAction (TaggedAction mempty a Nothing mempty) ]
+    defaultTagged a = APAtomic [ AAction (TaggedAction def a Nothing mempty) ]
 
     APAtomic (AAction (TaggedAction p a t _) :| []) .% dk = APAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (Simple StarPolicy (Maybe tag)) where
-    defaultTagged a = SPAtomic $ TaggedAction mempty a Nothing mempty
+    defaultTagged a = SPAtomic $ TaggedAction def a Nothing mempty
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (WithTests StarPolicy test (Maybe tag)) where
-    defaultTagged a = SPAtomic $ AAction $ TaggedAction mempty a Nothing mempty
+    defaultTagged a = SPAtomic $ AAction $ TaggedAction def a Nothing mempty
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
-    defaultTagged a = FPAtomic [ AAction (TaggedAction mempty a Nothing mempty) ]
+    defaultTagged a = FPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
 
     FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests StarPolicy test (Maybe tag)) where
-    defaultTagged a = SPAtomic [ AAction (TaggedAction mempty a Nothing mempty) ]
+    defaultTagged a = SPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
 
     SPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = SPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
@@ -135,15 +135,6 @@ dupA = DupKind { dupBefore = False, dupAfter = True }
 dupB :: DupKind
 dupB = DupKind { dupBefore = True, dupAfter = False }
 
-class PredicateLike p t where
-    toPredicate :: p -> t -> Bool
-
-instance PredicateLike (t -> Bool) t where
-    toPredicate = id
-
-instance (Eq t, Foldable f) => PredicateLike (f t) t where
-    toPredicate ts = (`elem` ts)
-
 class Taggable a t | a -> t where
     (.~) :: a -> t -> a
 
@@ -171,9 +162,9 @@ instance Taggable (UTree (TaggedBellPair (Maybe t))) t where
 orP :: Predicate t -> Predicate t -> Predicate t
 orP (Predicate f) (Predicate g) = Predicate ((||) <$> f <*> g)
 
-(?~) :: PredicateLike p t => p -> Simple Policy (Maybe t) -> Simple Policy (Maybe t)
-p ?~ APAtomic (TaggedAction _ a t dupKind) = APAtomic $
-    TaggedAction (Predicate $ maybe True $ toPredicate p) a t dupKind
+(?~) :: t -> Simple Policy (Maybe t) -> Simple Policy (Maybe t)
+tIn ?~ APAtomic (TaggedAction _ a tOut dupKind) = 
+    APAtomic $ TaggedAction (Just tIn) a tOut dupKind
 _ ?~ p                           = p
 
 

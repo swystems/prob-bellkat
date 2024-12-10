@@ -14,7 +14,6 @@ module BellKAT.Definitions.Structures
     , subjectTo
     ) where
 
-import           Data.Functor.Contravariant (Predicate (..))
 import           Data.Orphans ()
 
 import           BellKAT.Definitions.Core

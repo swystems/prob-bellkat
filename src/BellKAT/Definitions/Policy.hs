@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 module BellKAT.Definitions.Policy where
 
-import           Data.Functor.Contravariant (Predicate (..))
 import           Test.QuickCheck            hiding (choose)
 import           Data.List.NonEmpty         (NonEmpty)
 
@@ -21,14 +20,14 @@ data Action
     deriving stock (Show)
 
 data TaggedAction t = TaggedAction
-    { taTagPredicate :: Predicate t
-    , taAction       :: Action
-    , taTag          :: t
-    , taDup          :: DupKind
+    { taTagIn  :: t
+    , taAction :: Action
+    , taTagOut :: t
+    , taDup    :: DupKind
     }
 
 instance Show t => Show (TaggedAction t) where
-    show ta = "_:" <> show (taAction ta) <> ":" <> show (taTag ta)
+    show ta = "_:" <> show (taAction ta) <> ":" <> show (taTagOut ta)
 
 instance {-# OVERLAPPING #-} HasDupKinds (TaggedAction t) where
     modifyDupKinds f ta = ta { taDup = f (taDup ta) }
@@ -150,8 +149,8 @@ instance Arbitrary Action where
 
 instance (Arbitrary t, Eq t) => Arbitrary (TaggedAction t) where
   arbitrary = do
-    predicate :: [t] <- arbitrary
-    TaggedAction (Predicate (`elem` predicate)) <$> arbitrary <*> arbitrary <*> arbitrary
+    predicate <- arbitrary
+    TaggedAction predicate <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance (Arbitrary a) => Arbitrary (Policy a) where
     arbitrary = do

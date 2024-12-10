@@ -10,6 +10,7 @@ module BellKAT.Definitions.Core (
     HasDupKinds(..),
     Test(..),
     BellPairsPredicate(..),
+    Predicate(..),
     RestrictedTest,  
     createRestrictedTest,
     (.+.),
@@ -86,11 +87,11 @@ instance Monoid DupKind where
     mempty = DupKind False False
 
 data CreateBellPairArgs tag = CreateBellPairArgs
-    { cbpPredicate   :: Predicate tag
+    { cbpTagIn       :: tag -- ^ tag for input `BellPair`s
     , cbpOutputBP    :: BellPair -- ^ a produced (output) `BellPair`
     , cbpInputBPs    :: [BellPair] -- ^ a multiset of required (input) `BellPair`s
     , cbpProbability :: Maybe Double -- ^ probability of failure for operations that may fail
-    , cbpNewTag      :: tag
+    , cbpTagOut      :: tag
     , cbpDup         :: DupKind
     }
 

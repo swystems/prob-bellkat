@@ -13,7 +13,6 @@ import           BellKAT.Test.QuickCheck
 import           BellKAT.Utils.UnorderedTree
 
 import           Control.Monad              (unless)
-import           Data.Functor.Contravariant (Predicate (..))
 import           Data.Monoid                (Sum (..))
 import           Data.Default
 import           Data.Set                   (Set)
@@ -59,12 +58,12 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
                    (fromList . replicate 3 $ node ("A" :~: "A"))
                 `historiesShouldSatisfy` all ((== 3) . length . getForest)
         it "should not transmit if wrong tag" $
-            applyPolicy @Tag (tags [1] ?~ trans "A" ("A", "B"))
+            applyPolicy @Tag (1 ?~ trans "A" ("A", "B"))
                     [node ("A" :~: "A") .~ 2]
                 `historiesShouldSatisfy` all (all (hasBellPair ("A" :~: "A")) . getForest)
         it "should not transmit if wrong tag but should if the right" $
             applyPolicy @Tag
-                (tags [1] ?~ trans "A" ("A", "B") <||> tags [1] ?~ trans "A" ("A", "B"))
+                (1 ?~ trans "A" ("A", "B") <||> 1 ?~ trans "A" ("A", "B"))
                 [node ("A" :~: "A") .~ 2, node ("A" :~: "A") .~ 1]
                 `historiesShouldSatisfy` all (any (hasBellPair ("A" :~: "A")) . getForest)
     describe "choose" $ do
@@ -111,9 +110,6 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)
     describe "BellKAT.Prelude" PreludeSpec.spec
-
-tags :: [Int] -> [Int]
-tags = id
 
 hasBellPair :: BellPair -> UTree (TaggedBellPair a) -> Bool
 hasBellPair bp = (== bp) . bellPair . rootLabel

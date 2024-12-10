@@ -8,7 +8,6 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FunctionStep
 
 import           Data.Kind
 import           Data.Functor.Classes
-import           Data.Functor.Contravariant   ((>$<))
 import qualified Data.Multiset                as Mset
 
 import           BellKAT.Definitions.Core
@@ -30,15 +29,15 @@ instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
 instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs pt bp bps prob t dk) =
+    tryCreateBellPairFrom (CreateBellPairArgs tIn bp bps prob tOut dk) =
         FunctionStep . PartialNDEndo $ \h@(History ts) ->
-            case findTreeRootsNDP bellPair bps (bellPairTag >$< pt) ts of
+            case findTreeRootsNDP bellPair bps (Predicate $ (== tIn) . bellPairTag) ts of
             [] -> [chooseNoneOf h]
             partialNewTs ->
                 mconcat
                 [ case prob of
-                    Nothing -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp t)) partial ]
-                    Just _  -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp t)) partial
+                    Nothing -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp tOut)) partial ]
+                    Just _  -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp tOut)) partial
                                 , History <$> partial { chosen = [] }
                                 ]
                 | partial <- partialNewTs

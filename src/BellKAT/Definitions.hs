@@ -43,25 +43,25 @@ applyPolicySteps :: (Ord tag) => Normal Policy tag -> History tag -> Set (Histor
 applyPolicySteps  = SHQ.execute HQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyOrderedPolicy 
-    :: (Ord tag, Show tag) 
-    => Ordered Policy BellPairsPredicate tag -> History tag -> Set (History tag)
+    :: (Ord tag, Show tag, Test test) 
+    => Ordered Policy test tag -> History tag -> Set (History tag)
 applyOrderedPolicy = 
     SHQ.execute IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyFullOrderedPolicy 
-    :: (Ord tag, Show tag) 
-    => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
+    :: (Ord tag, Show tag, Test test) 
+    => Ordered FullPolicy test tag -> History tag -> Set (History tag)
 applyFullOrderedPolicy = SHQ.execute IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyFullOrderedPolicyAuto 
-    :: (Ord tag, Show tag, Default tag) 
-    => Ordered FullPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
+    :: (Ord tag, Show tag, Default tag, Test test) 
+    => Ordered FullPolicy test tag -> History tag -> Set (History tag)
 applyFullOrderedPolicyAuto = 
     ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarOrderedPolicy 
-    :: (Ord tag, Show tag, Default tag) 
-    => Ordered StarPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
+    :: (Ord tag, Show tag, Default tag, Test test) 
+    => Ordered StarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicy = ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarPolicy 
@@ -99,8 +99,8 @@ applyOneStepPolicy
 applyOneStepPolicy = IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyStarOrderedPolicyBounded 
-    :: (Ord tag, Show tag, Default tag) 
-    => Ordered StarPolicy BellPairsPredicate tag -> History tag -> Set (History tag)
+    :: (Ord tag, Show tag, Default tag, Test test) 
+    => Ordered StarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
     . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) IOSHQ.execute

@@ -33,14 +33,14 @@ instance (TestsOrderedLayeredQuantum a test tag) => HasMeaning (Atomic CreateBel
     meaning (ATest t)   = orderedTest t
 
 instance (HasMeaning (CreateBellPairArgs at) a, Semigroup a, ParallelSemigroup a, ChoiceSemigroup a) 
-  => HasMeaning (GNormal OneRoundPolicy CreateBellPairArgs at) a where
+  => HasMeaning (OneRoundPolicy (CreateBellPairArgs at)) a where
     meaning (ORPAtomic ta) = meaning ta
     meaning (ORPSequence p q) = meaning p <> meaning q
     meaning (ORPParallel p q) = meaning p <||> meaning q
     meaning (ORPChoice p q) = meaning p <+> meaning q
 
 instance (ChoiceSemigroup a, Monoid a, TestsOrderedLayeredQuantum a test tag) 
-  => HasMeaning (GOrdered FullPolicy CreateBellPairArgs test tag) a where
+  => HasMeaning (FullPolicy (NonEmpty (Atomic CreateBellPairArgs test tag))) a where
     meaning (FPAtomic ta) = liftLayer $ foldNonEmpty (<.>) $ meaning <$> ta
     meaning (FPSequence p q) = meaning p <> meaning q
     meaning FPOne = mempty
@@ -48,7 +48,7 @@ instance (ChoiceSemigroup a, Monoid a, TestsOrderedLayeredQuantum a test tag)
     meaning (FPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, TestsOrderedLayeredQuantum a test tag) 
-  => HasMeaning (GOrdered StarPolicy CreateBellPairArgs test tag) a where
+  => HasMeaning (StarPolicy (NonEmpty (Atomic CreateBellPairArgs test tag))) a where
     meaning (SPAtomic ta) = liftLayer $ foldNonEmpty (<.>) $ meaning <$> ta
     meaning (SPOrdered p q) = meaning p <.> meaning q
     meaning (SPSequence p q) = meaning p <> meaning q
@@ -58,7 +58,7 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedLayeredQuantum a test ta
     meaning (SPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, Quantum a tag) 
-  => HasMeaning (GNormal StarPolicy CreateBellPairArgs tag) a where
+  => HasMeaning (StarPolicy (CreateBellPairArgs tag)) a where
     meaning (SPAtomic ta) = meaning ta
     meaning (SPOrdered p q) = meaning p <.> meaning q
     meaning (SPSequence p q) = meaning p <> meaning q
@@ -68,7 +68,7 @@ instance (MonoidStar a, OrderedSemigroup a, Quantum a tag)
     meaning (SPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test tag) 
-  => HasMeaning (GNormalWithTests StarPolicy CreateBellPairArgs test tag) a where
+  => HasMeaning (StarPolicy (Atomic CreateBellPairArgs test tag)) a where
     meaning (SPAtomic ta) = meaning ta
     meaning (SPOrdered p q) = meaning p <.> meaning q
     meaning (SPSequence p q) = meaning p <> meaning q

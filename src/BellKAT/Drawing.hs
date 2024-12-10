@@ -5,7 +5,7 @@
 
 module BellKAT.Drawing where
 
-import Diagrams.Prelude
+import Diagrams.Prelude hiding (Simple)
 import Diagrams.Backend.Cairo (B)
 
 import Data.Tree (subForest, rootLabel, drawForest)
@@ -41,42 +41,42 @@ historyToDiagram (History ts) = hsep 0.5 . map treeToDiagram  . toForest $ ts
 historiesToDiagram :: (Ord t, Show t) => [History (Maybe t)] -> Diagram B
 historiesToDiagram = vsep 1 . fmap (alignL . frameDiagram . historyToDiagram)
 
-drawPolicy :: (Ord t, Show t) => Normal Policy (Maybe t) -> Diagram B
+drawPolicy :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
 drawPolicy p = historiesToDiagram . Set.elems . applyPolicy p $ []
 
-drawPolicyTimely :: (Ord t, Show t) => Normal Policy (Maybe t) -> Diagram B
+drawPolicyTimely :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
 drawPolicyTimely p = historiesToDiagram . Set.elems . applyPolicyTimely p $ []
 
-drawPolicySteps :: (Ord t, Show t) => Normal Policy (Maybe t) -> Diagram B
+drawPolicySteps :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
 drawPolicySteps p = historiesToDiagram . Set.elems . applyPolicySteps p $ []
 
 drawOrderedPolicySteps 
-    :: (Ord t, Show t) => Ordered Policy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t) => SeqWithTests Policy BellPairsPredicate (Maybe t) -> Diagram B
 drawOrderedPolicySteps p = historiesToDiagram . Set.elems . applyOrderedPolicy p $ []
 
 drawFullOrderedPolicySteps 
     :: (Ord t, Show t) 
-    => Ordered FullPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => SeqWithTests FullPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawFullOrderedPolicySteps p = historiesToDiagram . Set.elems . applyFullOrderedPolicy p $ []
 
 drawStarPolicySteps 
     :: (Ord t, Show t) 
-    => NormalWithTests StarPolicy FreeTest (Maybe t) -> Diagram B
+    => WithTests StarPolicy FreeTest (Maybe t) -> Diagram B
 drawStarPolicySteps p = historiesToDiagram . Set.elems . applyStarPolicyH p $ []
 
 drawStarPolicyStepsText
     :: (Ord t, Show t) 
-    => NormalWithTests StarPolicy FreeTest (Maybe t) -> String
+    => WithTests StarPolicy FreeTest (Maybe t) -> String
 drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
     :: (Ord t, Show t) 
-    => Ordered StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => SeqWithTests StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
     :: (Ord t, Show t) 
-    => Ordered StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => SeqWithTests StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 
 drawHistoryText :: (Default tag, Show tag, Eq tag) => History tag -> String

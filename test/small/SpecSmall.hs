@@ -40,10 +40,10 @@ instance Serial m t => Serial m (TaggedAction t) where
 instance (Monad m) => Serial m (History ())  where
     series = History . Mset.fromList . map (`Node` Mset.empty) . concat <$> (replicate <$> series <*> series)
 
-(~*~) :: Normal OneRoundPolicy () -> Normal OneRoundPolicy () -> History () -> Bool
+(~*~) :: Simple OneRoundPolicy () -> Simple OneRoundPolicy () -> History () -> Bool
 p ~*~ q = \h -> applyOneStepPolicyPartial p h == applyOneStepPolicyPartial q h
 
-(~<~) :: Normal OneRoundPolicy () -> Normal OneRoundPolicy () -> History () -> Bool
+(~<~) :: Simple OneRoundPolicy () -> Simple OneRoundPolicy () -> History () -> Bool
 p ~<~ q = \h -> applyOneStepPolicyPartial p h `Set.isSubsetOf` applyOneStepPolicyPartial q h
 
 main :: IO ()

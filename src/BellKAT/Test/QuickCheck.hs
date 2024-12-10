@@ -15,8 +15,8 @@ type Tag = Maybe Int
 
 testEquality 
     :: (Show t, Eq t, Default t)
-    => (Normal p t -> History t -> Set (History t))
-    -> Normal p t -> Normal p t -> History t -> Property
+    => (Simple p t -> History t -> Set (History t))
+    -> Simple p t -> Simple p t -> History t -> Property
 testEquality apply p q h =
     let hsP = apply p h
         hsQ = apply q h
@@ -28,7 +28,7 @@ testEquality apply p q h =
      in counterexample counterexampleText (hsP == hsQ)
 
 
-(~) :: Normal Policy Tag -> Normal Policy Tag -> History Tag -> Property
+(~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
 (~) = testEquality applyPolicy
 
 isAssociative :: (a -> a -> p) -> (a -> a -> a) -> a -> a -> a -> p
@@ -45,7 +45,7 @@ parallelCompositionIsAssociative = isAssociative (~) (<||>)
 parallelCompositionIsCommutative = isCommutative (~) (<||>)
 sequentialCompositionDistributes = distributesOver (~) (<>) (<||>)
 
-(~~) :: Normal Policy Tag -> Normal Policy Tag -> History Tag -> Property
+(~~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
 (~~) = testEquality applyPolicyTimely
 
 timelySequentialCompositionIsAssociative = isAssociative (~~) (<>)
@@ -53,10 +53,10 @@ timelyParallelCompositionIsAssociative = isAssociative (~~) (<||>)
 timelyParallelCompositionIsCommutative = isCommutative (~~) (<||>)
 timelySequentialCompositionDistributes = distributesOver (~~) (<>) (<||>)
 
-(~~~) :: Normal Policy Tag -> Normal Policy Tag -> History Tag -> Property
+(~~~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
 (~~~) = testEquality applyPolicySteps
 
-(~*~) :: Normal OneRoundPolicy Tag -> Normal OneRoundPolicy Tag -> History Tag -> Property
+(~*~) :: Simple OneRoundPolicy Tag -> Simple OneRoundPolicy Tag -> History Tag -> Property
 (~*~) = testEquality applyOneStepPolicy
 
 stepsSequentialCompositionIsAssociative = isAssociative (~~~) (<>)

@@ -125,13 +125,18 @@ data Atomic act test tag = AAction (act tag) | ATest (test tag)
 instance {-# OVERLAPPING #-} HasDupKinds (act tag) => HasDupKinds (Atomic act test tag) where
     modifyDupKinds f (AAction ta) = AAction (modifyDupKinds f ta)
     modifyDupKinds _ (ATest t) = ATest t
+--
+-- | Given a policy structure `p` and a `BellPair` tag `t` returns a policy with corresponding 
+-- actions by supplying the default action structure
+type Simple p tag = p (TaggedAction tag)
 
-type GNormal p act tag = p (act tag)
-type GNormalWithTests p act test tag = p (Atomic act test tag)
-type GOrdered p act test tag = p (NonEmpty (Atomic act test tag))
-type Normal p tag = GNormal p TaggedAction tag
-type NormalWithTests p test tag = GNormalWithTests p TaggedAction test tag
-type Ordered p test tag = GOrdered p TaggedAction test tag
+-- | Given a policy structure `p`, test structure `test` and a `BellPair` tag `t` returns a policy 
+-- by supplying default action structure and using the supplied test structure `test` 
+type WithTests p test tag = p (Atomic TaggedAction test tag)
+--
+-- | Given a policy structure `p`, test structure `test` and a `BellPair` tag `t` returns a policy
+-- that internally prepresents ordered composition as a sequence of underlying actions
+type SeqWithTests p test tag = p (NonEmpty (Atomic TaggedAction test tag))
 
 -- * Testing definitions
 

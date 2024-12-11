@@ -63,6 +63,15 @@ data FullPolicy a
     | FPChoice (FullPolicy a) (FullPolicy a)
     deriving stock (Show, Functor)
 
+data StarPolicy a
+    = SPAtomic a
+    | SPSequence (StarPolicy a) (StarPolicy a)
+    | SPParallel (StarPolicy a) (StarPolicy a)
+    | SPOne
+    | SPStar (StarPolicy a)
+    | SPChoice (StarPolicy a) (StarPolicy a)
+    deriving stock (Show, Functor)
+
 data OrderedStarPolicy a
     = OSPAtomic a
     | OSPSequence (OrderedStarPolicy a) (OrderedStarPolicy a)

@@ -62,9 +62,6 @@ instance DSLTestFunctions (SeqWithTests Policy test (Maybe tag)) test tag where
 instance DSLTestFunctions (SeqWithTests FullPolicy test (Maybe tag)) test tag where
     test t = FPAtomic [ ATest t ]
 
-instance DSLTestFunctions (SeqWithTests OrderedStarPolicy test (Maybe tag)) test tag where
-    test t = OSPAtomic [ ATest t ]
-
 instance DSLTestFunctions (WithTests OrderedStarPolicy test (Maybe tag)) test tag where
     test t = OSPAtomic (ATest t)
 
@@ -94,18 +91,6 @@ instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
     FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests OrderedStarPolicy test (Maybe tag)) where
-    defaultTagged a = OSPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
-
-    OSPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = OSPAtomic [ AAction (TaggedAction p a t dk) ]
-    _ .% _                                = error "cannot attach dup to this thing"
-
-instance DSLFunctions (SeqWithTests OrderedStarPolicy test ()) where
-    defaultTagged a = OSPAtomic [ AAction (TaggedAction mempty a () mempty) ]
-
-    OSPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = OSPAtomic [ AAction (TaggedAction p a t dk) ]
-    _ .% _                                = error "cannot attach dup to this thing"
-
 infixl 7 <.>
 
 class DSLOrderedSemigroup a where
@@ -117,10 +102,6 @@ instance DSLOrderedSemigroup (SeqWithTests Policy test tag) where
 
 instance DSLOrderedSemigroup (SeqWithTests FullPolicy test tag) where
     (FPAtomic tas) <.> (FPAtomic tas') = FPAtomic (tas <> tas')
-    _ <.> _                            = error "Can only compose atomics with <.>"
-
-instance DSLOrderedSemigroup (SeqWithTests OrderedStarPolicy test tag) where
-    (OSPAtomic tas) <.> (OSPAtomic tas') = OSPAtomic (tas <> tas')
     _ <.> _                            = error "Can only compose atomics with <.>"
 
 instance DSLOrderedSemigroup (WithTests OrderedStarPolicy test tag) where
@@ -142,14 +123,6 @@ instance Taggable (Simple Policy (Maybe t)) t where
     APAtomic (TaggedAction p a _ dupKind) .~ t = APAtomic (TaggedAction p a (Just t) dupKind)
     p .~ _                           = p
 
-instance (Eq tag, Taggable (test (Maybe tag)) tag) 
-        => Taggable (SeqWithTests OrderedStarPolicy test (Maybe tag)) tag where
-    OSPAtomic (AAction (TaggedAction p a _ dupKind) :| []) .~ t = 
-        OSPAtomic $ AAction (TaggedAction p a (Just t) dupKind) :| []
-    OSPAtomic (ATest t :| []) .~ tag = 
-        OSPAtomic $ ATest (t .~ tag) :| []
-    p .~ _                           = p
-
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
     t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) bps && getBPsPredicate t bps
 
@@ -166,7 +139,6 @@ orP (Predicate f) (Predicate g) = Predicate ((||) <$> f <*> g)
 tIn ?~ APAtomic (TaggedAction _ a tOut dupKind) = 
     APAtomic $ TaggedAction (Just tIn) a tOut dupKind
 _ ?~ p                           = p
-
 
 node :: Ord t => BellPair -> UTree (TaggedBellPair (Maybe t))
 node bp = Node (TaggedBellPair bp Nothing) []

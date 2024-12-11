@@ -71,12 +71,12 @@ drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
     :: (Ord t, Show t) 
-    => SeqWithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
     :: (Ord t, Show t) 
-    => SeqWithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 
 drawHistoryText :: (Default tag, Show tag, Eq tag) => History tag -> String

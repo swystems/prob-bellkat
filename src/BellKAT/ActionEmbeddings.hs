@@ -1,6 +1,7 @@
 module BellKAT.ActionEmbeddings 
     ( simpleActionMeaning
     , CanDesugarActions(..)
+    , mapDesugarActions
     ) where
 
 import Data.Kind
@@ -13,6 +14,11 @@ class CanDesugarActions a where
     type Tag a :: Type
     type Desugared a :: Type
     desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> a -> Desugared a
+
+mapDesugarActions 
+    :: (Functor f, CanDesugarActions a)
+    => (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> f a -> f (Desugared a)
+mapDesugarActions = fmap . desugarActions
 
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
@@ -42,23 +48,3 @@ instance CanDesugarActions (Atomic TaggedAction test tag) where
     type Desugared (Atomic TaggedAction test tag) = (Atomic CreateBellPairArgs test tag)
     desugarActions f (AAction x) = AAction (f x)
     desugarActions _ (ATest t) = ATest t
-
-instance CanDesugarActions a => CanDesugarActions (Policy a) where
-    type Tag (Policy a) = Tag a
-    type Desugared (Policy a) = Policy (Desugared a)
-    desugarActions = fmap . desugarActions
-
-instance CanDesugarActions a => CanDesugarActions (FullPolicy a) where
-    type Tag (FullPolicy a) = Tag a
-    type Desugared (FullPolicy a) = FullPolicy (Desugared a)
-    desugarActions = fmap . desugarActions
-
-instance CanDesugarActions a => CanDesugarActions (OrderedStarPolicy a) where
-    type Tag (OrderedStarPolicy a) = Tag a
-    type Desugared (OrderedStarPolicy a) = OrderedStarPolicy (Desugared a)
-    desugarActions = fmap . desugarActions
-
-instance CanDesugarActions a => CanDesugarActions (OneRoundPolicy a) where
-    type Tag (OneRoundPolicy a) = Tag a
-    type Desugared (OneRoundPolicy a) = OneRoundPolicy (Desugared a)
-    desugarActions = fmap . desugarActions

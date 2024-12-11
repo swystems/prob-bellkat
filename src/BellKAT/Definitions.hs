@@ -33,6 +33,8 @@ import qualified BellKAT.Implementations.AutomataStepHistoryQuantum    as ASHQ
 import qualified BellKAT.Implementations.AtomicOneStepHistoryQuantum  as AOSHQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
+-- * Deterministic (no explicit choice operator) one round policies
+
 applyPolicy :: Ord tag => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicy = HQ.execute . meaning . desugarActions simpleActionMeaning
 
@@ -41,6 +43,20 @@ applyPolicyTimely = THQ.execute . meaning . desugarActions simpleActionMeaning
 
 applyPolicySteps :: (Ord tag) => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicySteps  = SHQ.execute HQ.execute . meaning . desugarActions simpleActionMeaning
+
+-- * Nondeterministic one round policies
+
+applyOneStepPolicyPartial 
+    :: (Ord tag, Show tag) 
+    => Simple OneRoundPolicy tag -> History tag -> Set (Partial (History tag))
+applyOneStepPolicyPartial = IOSHQ.executePartial . meaning . desugarActions simpleActionMeaning
+
+applyOneStepPolicy 
+    :: (Ord tag, Show tag) 
+    => Simple OneRoundPolicy tag -> History tag -> Set (History tag)
+applyOneStepPolicy = IOSHQ.execute . meaning . desugarActions simpleActionMeaning
+
+-- * Policies with fake ordered composition (one that just collects component in a sequence)
 
 applyOrderedPolicy 
     :: (Ord tag, Show tag, Test test) 
@@ -59,48 +75,46 @@ applyFullOrderedPolicyAuto
 applyFullOrderedPolicyAuto = 
     ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
 
-applyStarOrderedPolicy 
-    :: (Ord tag, Show tag, Default tag, Test test) 
-    => SeqWithTests StarPolicy test tag -> History tag -> Set (History tag)
-applyStarOrderedPolicy = ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
+-- * Policies with iteration, i.e., based on `OrderedStarPolicy`
 
+-- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy 
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
-    => WithTests StarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
+    => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy = 
     ASHQ.execute AOSHQ.execute . meaning 
         . desugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
+applyStarOrderedPolicy
+    :: (Ord tag, Show tag, Default tag, Test test) 
+    => SeqWithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
+applyStarOrderedPolicy = ASHQ.executeE IOSHQ.execute . meaning . desugarActions simpleActionMeaning
+
+-- | executes `OrderedStarPolicy` with tests as function on histories 
+-- Warning: note, histories may grow arbitrary long with `OrderedStarPolicy`
 applyStarPolicyH
     :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
-    => WithTests StarPolicy test tag -> History tag -> Set (History tag)
+    => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarPolicyH = 
     ASHQ.executeE IOSHQ.execute . meaning 
     . desugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
+-- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
     :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
     => (TaggedBellPairs tag -> Bool)
-    -> WithTests StarPolicy test tag 
+    -> WithTests OrderedStarPolicy test tag 
     -> TaggedBellPairs tag 
     -> Maybe (Set (TaggedBellPairs tag))
 applyStarPolicyWithValidity isValid = 
     ASHQ.executeWith (def { ASHQ.isValidState = isValid }) AOSHQ.execute 
     . meaning  . desugarActions simpleActionMeaning
 
-applyOneStepPolicyPartial 
-    :: (Ord tag, Show tag) 
-    => Simple OneRoundPolicy tag -> History tag -> Set (Partial (History tag))
-applyOneStepPolicyPartial = IOSHQ.executePartial . meaning . desugarActions simpleActionMeaning
-
-applyOneStepPolicy 
-    :: (Ord tag, Show tag) 
-    => Simple OneRoundPolicy tag -> History tag -> Set (History tag)
-applyOneStepPolicy = IOSHQ.execute . meaning . desugarActions simpleActionMeaning
-
-applyStarOrderedPolicyBounded 
+-- | Similar to `applyStarPolicy` but errors if too many network state are observed in a given state
+-- of policy execution
+applyStarOrderedPolicyBounded
     :: (Ord tag, Show tag, Default tag, Test test) 
-    => SeqWithTests StarPolicy test tag -> History tag -> Set (History tag)
+    => SeqWithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
     . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) IOSHQ.execute

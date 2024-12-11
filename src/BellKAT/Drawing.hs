@@ -61,22 +61,22 @@ drawFullOrderedPolicySteps p = historiesToDiagram . Set.elems . applyFullOrdered
 
 drawStarPolicySteps 
     :: (Ord t, Show t) 
-    => WithTests StarPolicy FreeTest (Maybe t) -> Diagram B
+    => WithTests OrderedStarPolicy FreeTest (Maybe t) -> Diagram B
 drawStarPolicySteps p = historiesToDiagram . Set.elems . applyStarPolicyH p $ []
 
 drawStarPolicyStepsText
     :: (Ord t, Show t) 
-    => WithTests StarPolicy FreeTest (Maybe t) -> String
+    => WithTests OrderedStarPolicy FreeTest (Maybe t) -> String
 drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
     :: (Ord t, Show t) 
-    => SeqWithTests StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => SeqWithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
     :: (Ord t, Show t) 
-    => SeqWithTests StarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    => SeqWithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 
 drawHistoryText :: (Default tag, Show tag, Eq tag) => History tag -> String

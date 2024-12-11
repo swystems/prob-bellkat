@@ -48,31 +48,31 @@ instance (ChoiceSemigroup a, Monoid a, TestsOrderedLayeredQuantum a test tag)
     meaning (FPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, TestsOrderedLayeredQuantum a test tag) 
-  => HasMeaning (StarPolicy (NonEmpty (Atomic CreateBellPairArgs test tag))) a where
-    meaning (SPAtomic ta) = liftLayer $ foldNonEmpty (<.>) $ meaning <$> ta
-    meaning (SPOrdered p q) = meaning p <.> meaning q
-    meaning (SPSequence p q) = meaning p <> meaning q
-    meaning SPOne = mempty
-    meaning (SPStar p) = star (meaning p)
-    meaning (SPParallel p q) = meaning p <||> meaning q
-    meaning (SPChoice p q) = meaning p <+> meaning q
+  => HasMeaning (OrderedStarPolicy (NonEmpty (Atomic CreateBellPairArgs test tag))) a where
+    meaning (OSPAtomic ta) = liftLayer $ foldNonEmpty (<.>) $ meaning <$> ta
+    meaning (OSPOrdered p q) = meaning p <.> meaning q
+    meaning (OSPSequence p q) = meaning p <> meaning q
+    meaning OSPOne = mempty
+    meaning (OSPStar p) = star (meaning p)
+    meaning (OSPParallel p q) = meaning p <||> meaning q
+    meaning (OSPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, Quantum a tag) 
-  => HasMeaning (StarPolicy (CreateBellPairArgs tag)) a where
-    meaning (SPAtomic ta) = meaning ta
-    meaning (SPOrdered p q) = meaning p <.> meaning q
-    meaning (SPSequence p q) = meaning p <> meaning q
-    meaning SPOne = mempty
-    meaning (SPStar p) = star (meaning p)
-    meaning (SPParallel p q) = meaning p <||> meaning q
-    meaning (SPChoice p q) = meaning p <+> meaning q
+  => HasMeaning (OrderedStarPolicy (CreateBellPairArgs tag)) a where
+    meaning (OSPAtomic ta) = meaning ta
+    meaning (OSPOrdered p q) = meaning p <.> meaning q
+    meaning (OSPSequence p q) = meaning p <> meaning q
+    meaning OSPOne = mempty
+    meaning (OSPStar p) = star (meaning p)
+    meaning (OSPParallel p q) = meaning p <||> meaning q
+    meaning (OSPChoice p q) = meaning p <+> meaning q
 
 instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test tag) 
-  => HasMeaning (StarPolicy (Atomic CreateBellPairArgs test tag)) a where
-    meaning (SPAtomic ta) = meaning ta
-    meaning (SPOrdered p q) = meaning p <.> meaning q
-    meaning (SPSequence p q) = meaning p <> meaning q
-    meaning SPOne = mempty
-    meaning (SPStar p) = star (meaning p)
-    meaning (SPParallel p q) = meaning p <||> meaning q
-    meaning (SPChoice p q) = meaning p <+> meaning q
+  => HasMeaning (OrderedStarPolicy (Atomic CreateBellPairArgs test tag)) a where
+    meaning (OSPAtomic ta) = meaning ta
+    meaning (OSPOrdered p q) = meaning p <.> meaning q
+    meaning (OSPSequence p q) = meaning p <> meaning q
+    meaning OSPOne = mempty
+    meaning (OSPStar p) = star (meaning p)
+    meaning (OSPParallel p q) = meaning p <||> meaning q
+    meaning (OSPChoice p q) = meaning p <+> meaning q

@@ -36,7 +36,7 @@ import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
 
 type BellKATTag = (Maybe ())
-type BellKATPolicy = WithTests StarPolicy FreeTest BellKATTag
+type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
 
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

@@ -53,9 +53,9 @@ instance CanDesugarActions a => CanDesugarActions (FullPolicy a) where
     type Desugared (FullPolicy a) = FullPolicy (Desugared a)
     desugarActions = fmap . desugarActions
 
-instance CanDesugarActions a => CanDesugarActions (StarPolicy a) where
-    type Tag (StarPolicy a) = Tag a
-    type Desugared (StarPolicy a) = StarPolicy (Desugared a)
+instance CanDesugarActions a => CanDesugarActions (OrderedStarPolicy a) where
+    type Tag (OrderedStarPolicy a) = Tag a
+    type Desugared (OrderedStarPolicy a) = OrderedStarPolicy (Desugared a)
     desugarActions = fmap . desugarActions
 
 instance CanDesugarActions a => CanDesugarActions (OneRoundPolicy a) where

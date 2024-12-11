@@ -63,14 +63,14 @@ data FullPolicy a
     | FPChoice (FullPolicy a) (FullPolicy a)
     deriving stock (Show, Functor)
 
-data StarPolicy a
-    = SPAtomic a
-    | SPSequence (StarPolicy a) (StarPolicy a)
-    | SPParallel (StarPolicy a) (StarPolicy a)
-    | SPOrdered (StarPolicy a) (StarPolicy a)
-    | SPOne
-    | SPStar (StarPolicy a)
-    | SPChoice (StarPolicy a) (StarPolicy a)
+data OrderedStarPolicy a
+    = OSPAtomic a
+    | OSPSequence (OrderedStarPolicy a) (OrderedStarPolicy a)
+    | OSPParallel (OrderedStarPolicy a) (OrderedStarPolicy a)
+    | OSPOrdered (OrderedStarPolicy a) (OrderedStarPolicy a)
+    | OSPOne
+    | OSPStar (OrderedStarPolicy a)
+    | OSPChoice (OrderedStarPolicy a) (OrderedStarPolicy a)
     deriving stock (Show, Functor)
 
 instance Semigroup (Policy a) where
@@ -100,23 +100,23 @@ instance ParallelSemigroup (OneRoundPolicy a) where
 instance ChoiceSemigroup (FullPolicy a) where
     (<+>) = FPChoice
 
-instance Semigroup (StarPolicy a) where
-    (<>) = SPSequence
+instance Semigroup (OrderedStarPolicy a) where
+    (<>) = OSPSequence
 
-instance Monoid (StarPolicy a) where
-    mempty = SPOne
+instance Monoid (OrderedStarPolicy a) where
+    mempty = OSPOne
 
-instance MonoidStar (StarPolicy a) where
-    star = SPStar
+instance MonoidStar (OrderedStarPolicy a) where
+    star = OSPStar
 
-instance ParallelSemigroup (StarPolicy a) where
-    (<||>) = SPParallel
+instance ParallelSemigroup (OrderedStarPolicy a) where
+    (<||>) = OSPParallel
 
-instance ChoiceSemigroup (StarPolicy a) where
-    (<+>) = SPChoice
+instance ChoiceSemigroup (OrderedStarPolicy a) where
+    (<+>) = OSPChoice
 
-instance OrderedSemigroup (StarPolicy a) where
-    (<.>) = SPOrdered
+instance OrderedSemigroup (OrderedStarPolicy a) where
+    (<.>) = OSPOrdered
 
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)

@@ -62,11 +62,11 @@ instance DSLTestFunctions (SeqWithTests Policy test (Maybe tag)) test tag where
 instance DSLTestFunctions (SeqWithTests FullPolicy test (Maybe tag)) test tag where
     test t = FPAtomic [ ATest t ]
 
-instance DSLTestFunctions (SeqWithTests StarPolicy test (Maybe tag)) test tag where
-    test t = SPAtomic [ ATest t ]
+instance DSLTestFunctions (SeqWithTests OrderedStarPolicy test (Maybe tag)) test tag where
+    test t = OSPAtomic [ ATest t ]
 
-instance DSLTestFunctions (WithTests StarPolicy test (Maybe tag)) test tag where
-    test t = SPAtomic (ATest t)
+instance DSLTestFunctions (WithTests OrderedStarPolicy test (Maybe tag)) test tag where
+    test t = OSPAtomic (ATest t)
 
 instance DSLFunctions (Simple Policy (Maybe tag)) where
     defaultTagged a = APAtomic $ TaggedAction def a Nothing mempty
@@ -80,12 +80,12 @@ instance DSLFunctions (SeqWithTests Policy test (Maybe tag)) where
     APAtomic (AAction (TaggedAction p a t _) :| []) .% dk = APAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
-instance DSLFunctions (Simple StarPolicy (Maybe tag)) where
-    defaultTagged a = SPAtomic $ TaggedAction def a Nothing mempty
+instance DSLFunctions (Simple OrderedStarPolicy (Maybe tag)) where
+    defaultTagged a = OSPAtomic $ TaggedAction def a Nothing mempty
     _ .% _                                = error "cannot attach dup to this thing"
 
-instance DSLFunctions (WithTests StarPolicy test (Maybe tag)) where
-    defaultTagged a = SPAtomic $ AAction $ TaggedAction def a Nothing mempty
+instance DSLFunctions (WithTests OrderedStarPolicy test (Maybe tag)) where
+    defaultTagged a = OSPAtomic $ AAction $ TaggedAction def a Nothing mempty
     _ .% _                                = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
@@ -94,16 +94,16 @@ instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
     FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests StarPolicy test (Maybe tag)) where
-    defaultTagged a = SPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
+instance DSLFunctions (SeqWithTests OrderedStarPolicy test (Maybe tag)) where
+    defaultTagged a = OSPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
 
-    SPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = SPAtomic [ AAction (TaggedAction p a t dk) ]
+    OSPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = OSPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests StarPolicy test ()) where
-    defaultTagged a = SPAtomic [ AAction (TaggedAction mempty a () mempty) ]
+instance DSLFunctions (SeqWithTests OrderedStarPolicy test ()) where
+    defaultTagged a = OSPAtomic [ AAction (TaggedAction mempty a () mempty) ]
 
-    SPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = SPAtomic [ AAction (TaggedAction p a t dk) ]
+    OSPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = OSPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
 infixl 7 <.>
@@ -119,15 +119,15 @@ instance DSLOrderedSemigroup (SeqWithTests FullPolicy test tag) where
     (FPAtomic tas) <.> (FPAtomic tas') = FPAtomic (tas <> tas')
     _ <.> _                            = error "Can only compose atomics with <.>"
 
-instance DSLOrderedSemigroup (SeqWithTests StarPolicy test tag) where
-    (SPAtomic tas) <.> (SPAtomic tas') = SPAtomic (tas <> tas')
+instance DSLOrderedSemigroup (SeqWithTests OrderedStarPolicy test tag) where
+    (OSPAtomic tas) <.> (OSPAtomic tas') = OSPAtomic (tas <> tas')
     _ <.> _                            = error "Can only compose atomics with <.>"
 
-instance DSLOrderedSemigroup (WithTests StarPolicy test tag) where
-    (<.>) = SPOrdered
+instance DSLOrderedSemigroup (WithTests OrderedStarPolicy test tag) where
+    (<.>) = OSPOrdered
 
-instance DSLOrderedSemigroup (Simple StarPolicy tag) where
-    p <.> p' = SPOrdered p p'
+instance DSLOrderedSemigroup (Simple OrderedStarPolicy tag) where
+    p <.> p' = OSPOrdered p p'
 
 dupA :: DupKind
 dupA = DupKind { dupBefore = False, dupAfter = True }
@@ -143,11 +143,11 @@ instance Taggable (Simple Policy (Maybe t)) t where
     p .~ _                           = p
 
 instance (Eq tag, Taggable (test (Maybe tag)) tag) 
-        => Taggable (SeqWithTests StarPolicy test (Maybe tag)) tag where
-    SPAtomic (AAction (TaggedAction p a _ dupKind) :| []) .~ t = 
-        SPAtomic $ AAction (TaggedAction p a (Just t) dupKind) :| []
-    SPAtomic (ATest t :| []) .~ tag = 
-        SPAtomic $ ATest (t .~ tag) :| []
+        => Taggable (SeqWithTests OrderedStarPolicy test (Maybe tag)) tag where
+    OSPAtomic (AAction (TaggedAction p a _ dupKind) :| []) .~ t = 
+        OSPAtomic $ AAction (TaggedAction p a (Just t) dupKind) :| []
+    OSPAtomic (ATest t :| []) .~ tag = 
+        OSPAtomic $ ATest (t .~ tag) :| []
     p .~ _                           = p
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where

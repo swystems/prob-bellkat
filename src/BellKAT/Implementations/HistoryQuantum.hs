@@ -43,16 +43,16 @@ instance Ord t => ParallelSemigroup (HistoryQuantum t) where
         }
 
 instance Ord t => CreatesBellPairs (HistoryQuantum t) t where
-    tryCreateBellPairFrom (CreateBellPairArgs tIn bp bps prob tOut dk) = HistoryQuantum
-        { requiredRoots = [(bps, Predicate (== tIn))]
+    tryCreateBellPairFrom (CreateBellPairArgs bp bps prob dk) = HistoryQuantum
+        { requiredRoots = [bps]
         , execute = \h@(History ts) ->
-            case findTreeRootsNDP bellPair bps (Predicate $ (== tIn) . bellPairTag) ts of
+            case findTreeRootsND bps ts of
                 [] -> [h]
                 partialTsNews ->
                     mconcat
                     [ case prob of
-                        Nothing -> [History tsRest <> [processDup dk (TaggedBellPair bp tOut) tsNew]]
-                        Just _ -> [History tsRest <> [processDup dk (TaggedBellPair bp tOut) tsNew], History tsRest]
+                        Nothing -> [History tsRest <> [processDup dk bp tsNew]]
+                        Just _ -> [History tsRest <> [processDup dk bp tsNew], History tsRest]
                     | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
                     ]
         }

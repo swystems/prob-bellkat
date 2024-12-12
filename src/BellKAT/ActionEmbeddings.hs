@@ -22,16 +22,19 @@ mapDesugarActions = fmap . desugarActions
 
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
-    (Swap l (l1, l2))     -> CreateBellPairArgs (taTagIn ta)
-        (l1 :~: l2) [l :~: l1, l :~: l2] Nothing (taTagOut ta) (taDup ta)
-    (Transmit l (l1, l2)) -> CreateBellPairArgs (taTagIn ta)
-        (l1 :~: l2) [l :~: l] Nothing (taTagOut ta) (taDup ta)
-    (Create l)            -> CreateBellPairArgs (taTagIn ta)
-        (l :~: l) [] Nothing (taTagOut ta) (taDup ta)
-    (Distill (l1, l2))    -> CreateBellPairArgs (taTagIn ta)
-        (l1 :~: l2) [l1 :~: l2, l1 :~: l2] (Just 0.5) (taTagOut ta) (taDup ta)
-    (UnstableCreate (l1, l2))            -> CreateBellPairArgs (taTagIn ta)
-        (l1 :~: l2) [] (Just 0.5) (taTagOut ta) (taDup ta)
+    (Swap l (l1, l2))     -> CreateBellPairArgs
+        (l1 :~: l2 @ taTagIn ta) [l :~: l1 @ taTagOut ta, l :~: l2 @ taTagOut ta]
+        Nothing (taDup ta)
+    (Transmit l (l1, l2)) -> CreateBellPairArgs
+        (l1 :~: l2 @ taTagIn ta) [l :~: l @ taTagOut ta]
+        Nothing (taDup ta)
+    (Create l)            -> CreateBellPairArgs
+        (l :~: l @ taTagIn ta ) [] Nothing (taDup ta)
+    (Distill (l1, l2))    -> CreateBellPairArgs
+        (l1 :~: l2 @ taTagIn ta ) [l1 :~: l2 @ taTagOut ta, l1 :~: l2  @ taTagOut ta] 
+        (Just 0.5) (taDup ta)
+    (UnstableCreate (l1, l2)) -> CreateBellPairArgs
+        (l1 :~: l2 @ taTagIn ta ) [] (Just 0.5) (taDup ta)
 
 instance CanDesugarActions (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag

@@ -54,15 +54,13 @@ instance Ord tag => ParallelSemigroup (AtomicOneStepPolicy tag) where
 
 instance (Ord tag, Default tag) 
   => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs _ bp bps prob t _) =
+    tryCreateBellPairFrom (CreateBellPairArgs bp bps prob _) =
         case prob of
           Nothing -> 
-            createBasicAction
-                (Mset.fromList $ (`TaggedBellPair` def) <$>  bps) [TaggedBellPair bp t]
+            createBasicAction (Mset.fromList bps) [bp]
           Just _ ->
-              createBasicAction
-                (Mset.fromList $ (`TaggedBellPair` def) <$> bps) [TaggedBellPair bp t]
-              <> createBasicAction (Mset.fromList $ (`TaggedBellPair` def) <$> bps) []
+              createBasicAction (Mset.fromList bps) [bp]
+              <> createBasicAction (Mset.fromList bps) []
 
 instance Ord tag => Tests (AtomicOneStepPolicy tag) FreeTest tag where
     test t = 

@@ -163,14 +163,14 @@ chooseKSubforestsP key reqRoots ts =
         | p <- Set.toList $ chooseTreesNDP key (FV.fold reqRoots) ts
         ]
 
--- | choose two subforests _non_deterministically_
+-- | choose k subforests _non_deterministically_
 chooseKSubforests
     :: (Ord a, Arity n)
     => VecList n [[a]] -> UForest a -> Set (VecList n (UForest a), UForest a)
 chooseKSubforests reqRoots =
      chooseKSubforestsP id (FV.map withTruePredicate reqRoots)
 
-withTruePredicate :: [[a]] -> [([a], Predicate a)]
+withTruePredicate :: [[a]] -> [([a], Predicate k)]
 withTruePredicate = map (, mempty)
 
 -- | Apply a permutation to a list

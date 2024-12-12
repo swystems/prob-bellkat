@@ -29,15 +29,15 @@ instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
 instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs tIn bp bps prob tOut dk) =
+    tryCreateBellPairFrom (CreateBellPairArgs bp bps prob dk) =
         FunctionStep . PartialNDEndo $ \h@(History ts) ->
-            case findTreeRootsNDP bellPair bps (Predicate $ (== tIn) . bellPairTag) ts of
+            case findTreeRootsND bps ts of
             [] -> [chooseNoneOf h]
             partialNewTs ->
                 mconcat
                 [ case prob of
-                    Nothing -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp tOut)) partial ]
-                    Just _  -> [ History <$> mapChosen (Mset.singleton . processDup dk (TaggedBellPair bp tOut)) partial
+                    Nothing -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial ]
+                    Just _  -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial
                                 , History <$> partial { chosen = [] }
                                 ]
                 | partial <- partialNewTs

@@ -18,6 +18,7 @@ module BellKAT.Definitions.Core (
     Partial(..),
     TaggedBellPair(..),
     TaggedBellPairs,
+    (@), 
     FreeTest(..),
     dupHistory,
     dupForest,
@@ -28,7 +29,7 @@ module BellKAT.Definitions.Core (
 
 import           Data.Bifunctor             (bimap)
 import           Data.Foldable              (toList)
-import           Data.Functor.Contravariant (Predicate (..), (>$<))
+import           Data.Functor.Contravariant (Predicate (..))
 import           Data.Functor.Classes
 import           Data.List                  (sort)
 import           Data.Monoid                (Endo (..))
@@ -68,6 +69,25 @@ instance Ord BellPair where
 hasLocation :: Location -> BellPair -> Bool
 hasLocation l (l1 :~: l2) = l == l1 || l == l2
 
+-- | `BellPair` with an optional tag
+data TaggedBellPair t = TaggedBellPair
+    { bellPair    :: BellPair
+    , bellPairTag :: t
+    } deriving stock (Eq, Ord)
+
+instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
+    showsPrec _ (TaggedBellPair bp t) 
+        | t == def = shows bp
+        | otherwise = shows bp . showString "/" . shows t
+
+infix 8 @ -- less than of `(:~:)`
+
+(@) :: BellPair -> tag -> TaggedBellPair tag
+(@) = TaggedBellPair
+
+-- | `TaggedBellPairs` is a multiset of Bell pairs
+type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
+
 -- | DupKind controls when the nodes in the histories are duplicated
 data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool }
 
@@ -87,11 +107,9 @@ instance Monoid DupKind where
     mempty = DupKind False False
 
 data CreateBellPairArgs tag = CreateBellPairArgs
-    { cbpTagIn       :: tag -- ^ tag for input `BellPair`s
-    , cbpOutputBP    :: BellPair -- ^ a produced (output) `BellPair`
-    , cbpInputBPs    :: [BellPair] -- ^ a multiset of required (input) `BellPair`s
+    { cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
+    , cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
     , cbpProbability :: Maybe Double -- ^ probability of failure for operations that may fail
-    , cbpTagOut      :: tag
     , cbpDup         :: DupKind
     }
 
@@ -162,22 +180,7 @@ instance Show (BellPairsPredicate t) where
 
 -- * History of BellPairs
 
-type RequiredRoots = [BellPair]
-
-data TaggedBellPair t = TaggedBellPair
-    { bellPair    :: BellPair
-    , bellPairTag :: t
-    } deriving stock (Eq, Ord)
-
-instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
-    showsPrec _ (TaggedBellPair bp t) 
-        | t == def = shows bp
-        | otherwise = shows bp . showString "/" . shows t
-
-type TaggedRequiredRoots t = (RequiredRoots, Predicate t)
-
--- | `TaggedBellPairs` is a multiset of Bell pairs
-type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
+type TaggedRequiredRoots tag = [TaggedBellPair tag]
 
 -- | `History` is a forest of `BellPair`s
 newtype History t = History { getForest :: UForest (TaggedBellPair t) }
@@ -193,17 +196,14 @@ instance (Ord t, Default t, Show t) => Show (History t) where
 
 -- ** History choice utilities
 
-requiredRootsToPredicate :: TaggedRequiredRoots t -> (RequiredRoots, Predicate (TaggedBellPair t))
-requiredRootsToPredicate (x, y) = (x, bellPairTag >$< y)
-
+--
 -- | choose k subhistories _non_deterministically_
 chooseKHistories
     :: (Ord t, Arity n)
     => VecList n [TaggedRequiredRoots t]
     -> History t -> Set (VecList n (History t), History t)
 chooseKHistories reqRoots (History ts) =
-      Set.map (bimap (FV.map History) History)
-  $ chooseKSubforestsP bellPair (FV.map (map requiredRootsToPredicate) reqRoots) ts
+      Set.map (bimap (FV.map History) History) $ chooseKSubforests reqRoots ts
 
 -- ** History duplication utilities
 

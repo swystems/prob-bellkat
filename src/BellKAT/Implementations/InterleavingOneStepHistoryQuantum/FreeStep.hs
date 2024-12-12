@@ -21,7 +21,8 @@ instance Show1 test => Show1 (FreeStep test) where
   liftShowsPrec _ _ _ (FSCreate ca)
     = showString "create"
         . (if isJust (cbpProbability ca) then showString "?" else id )
-        . showString "(" . shows (cbpOutputBP ca). showString ")"
+        -- TODO: below we lose tag information
+        . showString "(" . shows (bellPair . cbpOutputBP $ ca). showString ")"
   liftShowsPrec s sl _ (FSTest t) = showString "[" . liftShowsPrec s sl 0 t . showString "]"
 
 instance CreatesBellPairs (FreeStep test t) t where

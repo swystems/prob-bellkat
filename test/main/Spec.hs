@@ -101,11 +101,10 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
         prop "should be associative" $ mapSize (const 1) stepsParallelCompositionIsAssociative
     describe "chooseKHistories" $ do
         prop "should be \"commutative\"" $
-            let setToPredicate (x, y) = (x, Predicate (`Set.member` y))
-                swapTuples = Set.map (\(xs, x3) -> (FV.reverse xs, x3))
+            let swapTuples = Set.map (\(xs, x3) -> (FV.reverse xs, x3))
              in \x y h ->
-                 chooseKHistories @Tag (mk2 (setToPredicate <$> x) (setToPredicate <$> y)) h
-                    === swapTuples  (chooseKHistories @Tag (mk2 (setToPredicate <$> y) (setToPredicate <$> x)) h)
+                 chooseKHistories @Tag (mk2 x y) h
+                    === swapTuples  (chooseKHistories @Tag (mk2 y x) h)
     describe "findTreeRootsND" $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)

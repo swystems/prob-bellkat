@@ -51,8 +51,8 @@ instance Ord t => CreatesBellPairs (HistoryQuantum t) t where
                 partialTsNews ->
                     mconcat
                     [ case prob of
-                        Nothing -> [History tsRest <> [processDup dk bp tsNew]]
-                        Just _ -> [History tsRest <> [processDup dk bp tsNew], History tsRest]
+                        1.0 -> [History tsRest <> [processDup dk bp tsNew]]
+                        _ -> [History tsRest <> [processDup dk bp tsNew], History tsRest]
                     | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
                     ]
         }

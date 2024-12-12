@@ -36,8 +36,8 @@ instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
             partialNewTs ->
                 mconcat
                 [ case prob of
-                    Nothing -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial ]
-                    Just _  -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial
+                    1.0 -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial ]
+                    _  -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial
                                 , History <$> partial { chosen = [] }
                                 ]
                 | partial <- partialNewTs

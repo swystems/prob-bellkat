@@ -56,9 +56,9 @@ instance (Ord tag, Default tag)
   => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) tag where
     tryCreateBellPairFrom (CreateBellPairArgs bp bps prob _) =
         case prob of
-          Nothing -> 
+          1.0 -> 
             createBasicAction (Mset.fromList bps) [bp]
-          Just _ ->
+          _ ->
               createBasicAction (Mset.fromList bps) [bp]
               <> createBasicAction (Mset.fromList bps) []
 

@@ -4,7 +4,6 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FreeStep
     ) where
 
 import           Data.Functor.Classes
-import           Data.Maybe (isJust)
 
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Structures
@@ -20,7 +19,7 @@ runFreeStep (FSTest args) = test . toBPsPredicate $ args
 instance Show1 test => Show1 (FreeStep test) where
   liftShowsPrec _ _ _ (FSCreate ca)
     = showString "create"
-        . (if isJust (cbpProbability ca) then showString "?" else id )
+        . (if cbpProbability ca < 1.0 then showString "?" else id )
         -- TODO: below we lose tag information
         . showString "(" . shows (bellPair . cbpOutputBP $ ca). showString ")"
   liftShowsPrec s sl _ (FSTest t) = showString "[" . liftShowsPrec s sl 0 t . showString "]"

@@ -89,7 +89,7 @@ infix 8 @ -- less than of `(:~:)`
 type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
 
 -- | DupKind controls when the nodes in the histories are duplicated
-data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool }
+data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool } deriving stock (Eq)
 
 class HasDupKinds a where
     modifyDupKinds :: (DupKind -> DupKind) -> a -> a
@@ -109,7 +109,7 @@ instance Monoid DupKind where
 data CreateBellPairArgs tag = CreateBellPairArgs
     { cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
-    , cbpProbability :: Maybe Double -- ^ probability of failure for operations that may fail
+    , cbpProbability :: Double -- ^ probability of failure for operations that may fail
     , cbpDup         :: DupKind
     }
 

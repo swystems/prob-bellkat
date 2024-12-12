@@ -24,17 +24,17 @@ simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         (l1 :~: l2 @ taTagIn ta) [l :~: l1 @ taTagOut ta, l :~: l2 @ taTagOut ta]
-        Nothing (taDup ta)
+        1.0 (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         (l1 :~: l2 @ taTagIn ta) [l :~: l @ taTagOut ta]
-        Nothing (taDup ta)
+        1.0 (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        (l :~: l @ taTagIn ta ) [] Nothing (taDup ta)
+        (l :~: l @ taTagIn ta ) [] 1.0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
         (l1 :~: l2 @ taTagIn ta ) [l1 :~: l2 @ taTagOut ta, l1 :~: l2  @ taTagOut ta] 
-        (Just 0.5) (taDup ta)
+        0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        (l1 :~: l2 @ taTagIn ta ) [] (Just 0.5) (taDup ta)
+        (l1 :~: l2 @ taTagIn ta ) [] 0.5 (taDup ta)
 
 instance CanDesugarActions (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag

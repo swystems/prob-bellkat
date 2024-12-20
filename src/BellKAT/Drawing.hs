@@ -8,7 +8,8 @@ module BellKAT.Drawing where
 import Diagrams.Prelude hiding (Simple)
 import Diagrams.Backend.Cairo (B)
 
-import Data.Tree (subForest, rootLabel, drawForest)
+import           Data.Tree (drawForest)
+import qualified Data.Tree as T
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Data.List (intercalate, intersperse)
@@ -25,11 +26,11 @@ pairToDiagram (TaggedBellPair bp (Just t))
   = (text (show bp <> "[" <> show t <> "]") <> rect 4 1) # fontSize (local 0.5) 
 
 treeToDiagram t = 
-    let childrenNames = [1..(length $ subForest t :: Int)]
+    let childrenNames = [1..(length $ T.subForest t :: Int)]
         rootName = 0 :: Int
-        subtrees = zipWith (.>>) childrenNames (map treeToDiagram $ subForest t)
+        subtrees = zipWith (.>>) childrenNames (map treeToDiagram $ T.subForest t)
         drawEdge = connectOutside' (with & lengths .~ global 0.5)
-      in vsep 1 [pairToDiagram (rootLabel t) # named rootName, hsep 0.5 subtrees # centerX] 
+      in vsep 1 [pairToDiagram (T.rootLabel t) # named rootName, hsep 0.5 subtrees # centerX] 
           # appEndo (mconcat $ map (\i -> Endo $ drawEdge  (i .> rootName) rootName) childrenNames)
 
 frameDiagram d = let d' = d # frame 0.5 in d' <> boundingRect d'

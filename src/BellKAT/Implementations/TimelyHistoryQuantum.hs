@@ -12,7 +12,6 @@ import           Data.Vector.Fixed          (pattern V2)
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Choice
-import           BellKAT.Utils.UnorderedTree
 
 -- ** Quantum operations represented as functions over histories recorded in a
 -- _timely_ manner

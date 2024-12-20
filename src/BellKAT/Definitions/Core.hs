@@ -27,6 +27,7 @@ module BellKAT.Definitions.Core (
     -- * Reexports
     Predicate(..),
     Partial(..),
+    UTree(..),
     ) where
 
 import           Data.Bifunctor             (bimap)

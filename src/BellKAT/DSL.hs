@@ -10,7 +10,6 @@ import           Data.List.NonEmpty         (NonEmpty (..))
 
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Policy
-import           BellKAT.Utils.UnorderedTree         (UTree (..))
 
 distill :: DSLFunctions p => (Location, Location) -> p
 distill locs = defaultTagged $ Distill locs

@@ -14,7 +14,6 @@ import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Choice
 import           BellKAT.Utils.PartialNDEndo
-import           BellKAT.Utils.UnorderedTree    (UTree (..))
 
 -- | `FunctionStep` represents one step of the execution as: H -> M(H x H) (aka `PartialNDEndo`)
 newtype FunctionStep (test :: Type -> Type) tag = FunctionStep

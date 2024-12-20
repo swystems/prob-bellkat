@@ -3,6 +3,7 @@ module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location,
     BellPair(..),
+    Probability,
     CreateBellPairArgs(..),
     hasLocation,
     TaggedBellPair(..),
@@ -108,10 +109,12 @@ instance Semigroup DupKind where
 instance Monoid DupKind where
     mempty = DupKind False False
 
+type Probability = Rational
+
 data CreateBellPairArgs tag = CreateBellPairArgs
     { cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
-    , cbpProbability :: Double -- ^ probability of failure for operations that may fail
+    , cbpProbability :: Probability -- ^ probability of failure for operations that may fail
     , cbpDup         :: DupKind
     }
 

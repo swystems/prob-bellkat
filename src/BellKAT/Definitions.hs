@@ -34,7 +34,7 @@ import qualified BellKAT.Implementations.AutomataStepHistoryQuantum    as ASHQ
 import qualified BellKAT.Implementations.AtomicOneStepHistoryQuantum  as AOSHQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
--- * Deterministic (no explicit choice operator) one round policies
+-- | = Deterministic (no explicit choice operator) one round policies
 
 applyPolicy :: Ord tag => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicy = HQ.execute . meaning . mapDesugarActions simpleActionMeaning

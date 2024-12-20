@@ -70,6 +70,9 @@ instance Ord tag => Tests (AtomicOneStepPolicy tag) FreeTest tag where
             else
                 AtomicOneStepPolicy (createRestrictedTest [s]) mempty mempty
 
+-- | returns the `TaggedBellPairs` under the test and with which "sign". 
+--  * `True` means the test requires _presence_ of `TaggedBellPairs` 
+--  * `False` means the test requires _absence_ of `TaggedBellPairs` 
 getSetAndSign :: FreeTest tag -> (TaggedBellPairs tag, Bool)
 getSetAndSign (FTSubset s) = (s, True)
 getSetAndSign (FTNot t) = let (s, sig) = getSetAndSign t in (s, not sig)

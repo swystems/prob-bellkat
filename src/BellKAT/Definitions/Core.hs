@@ -1,30 +1,35 @@
 {-# LANGUAGE OverloadedLists #-}
 module BellKAT.Definitions.Core (
+    -- * Basic definitions
     Location,
-    TaggedRequiredRoots,
-    CreateBellPairArgs(..),
     BellPair(..),
+    CreateBellPairArgs(..),
     hasLocation,
+    TaggedBellPair(..),
+    TaggedBellPairs,
+    (@), 
+    TaggedRequiredRoots,
     History(..),
     DupKind(..),
     HasDupKinds(..),
-    Test(..),
-    BellPairsPredicate(..),
-    Predicate(..),
+    -- * Tests
+    FreeTest(..),
     RestrictedTest,  
     createRestrictedTest,
     (.+.),
     (.&&.),
-    Partial(..),
-    TaggedBellPair(..),
-    TaggedBellPairs,
-    (@), 
-    FreeTest(..),
+    BellPairsPredicate(..),
+    Test(..),
+    -- * Dup for nodes in `History`
     dupHistory,
     dupForest,
     dupHistoryN,
     processDup,
+    -- * `History` choice utilities
     chooseKHistories,
+    -- * Reexports
+    Predicate(..),
+    Partial(..),
     ) where
 
 import           Data.Bifunctor             (bimap)
@@ -82,10 +87,11 @@ instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
 
 infix 8 @ -- less than of `(:~:)`
 
+-- | Attaches tag to a Bell pair
 (@) :: BellPair -> tag -> TaggedBellPair tag
 (@) = TaggedBellPair
 
--- | `TaggedBellPairs` is a multiset of Bell pairs
+-- | `TaggedBellPairs` is a multiset of Bell pairs, each with a tag
 type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
 
 -- | DupKind controls when the nodes in the histories are duplicated
@@ -133,9 +139,11 @@ instance (Default t, Show t, Eq t) => Show (FreeTest t) where
     showsPrec d (FTNot x) = showParen (app_prec < d) $ showString "not " . shows x
       where app_prec = 10
 
+-- | Represents tests as a set of `TaggedBellPairs` that /each/ must not appear in the input
 newtype RestrictedTest tag = RestrictedTest [TaggedBellPairs tag]
     deriving newtype (Eq, Ord)
 
+-- | Constructs `RestrictedTest` in a normalized (non-redundant) form
 createRestrictedTest :: Ord tag => [TaggedBellPairs tag] -> RestrictedTest tag
 createRestrictedTest = RestrictedTest . sort . restrictedTestNormalize
 
@@ -153,18 +161,18 @@ instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
         showsRest [] = id
         showsRest (y : ys) = showString " /\\ " . shows (toList y) . showsRest ys
 
+-- | Performs multiset union of each set in a `RestrictedTest` with the given `TaggedBellPairs`
 (.+.) :: (Ord tag) => RestrictedTest tag -> TaggedBellPairs tag -> RestrictedTest tag
 (RestrictedTest bpss) .+. bps = createRestrictedTest (map (<> bps) bpss)
 
+-- | Performs logical /and/ of two `RestrictedTest`s
 (.&&.) :: (Ord tag) => RestrictedTest tag -> RestrictedTest tag -> RestrictedTest tag
 (RestrictedTest bpss) .&&. (RestrictedTest bpss') = 
     createRestrictedTest (bpss <> bpss')
 
-instance Test RestrictedTest where
-    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
-
 newtype BellPairsPredicate t = BPsPredicate { getBPsPredicate :: TaggedBellPairs t -> Bool }
 
+-- | Class of things that can serve as `BellPairsPredicate`
 class Test test where
     toBPsPredicate :: Ord tag => test tag -> BellPairsPredicate tag
 
@@ -174,6 +182,9 @@ instance Test FreeTest where
 
 instance Test BellPairsPredicate where
     toBPsPredicate = id
+
+instance Test RestrictedTest where
+    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
 
 instance Show (BellPairsPredicate t) where
   showsPrec _ _ = shows "test"
@@ -194,18 +205,14 @@ instance (Ord t) => GHC.Exts.IsList (History t) where
 instance (Ord t, Default t, Show t) => Show (History t) where
     show = show . GHC.Exts.toList
 
--- ** History choice utilities
 
---
--- | choose k subhistories _non_deterministically_
+-- | choose f subhistories /non-deterministically/
 chooseKHistories
     :: (Ord t, Arity n)
     => VecList n [TaggedRequiredRoots t]
     -> History t -> Set (VecList n (History t), History t)
 chooseKHistories reqRoots (History ts) =
       Set.map (bimap (FV.map History) History) $ chooseKSubforests reqRoots ts
-
--- ** History duplication utilities
 
 -- | Duplicating history
 dupHistory :: Ord t => History t -> History t

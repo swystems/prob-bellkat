@@ -1,4 +1,4 @@
-{-|
+{- |
    Module : BellKAT.Definitions.Atomic
    Description : Syntactic definitions related to atomic actions
 
@@ -11,21 +11,29 @@ module BellKAT.Definitions.Atomic (
     createRestrictedTest,
     (.+.),
     (.&&.),
+
     -- * Atomic actions
     AtomicAction,
-    aaTest, 
-    aaInputBPs, 
+    aaTest,
+    aaInputBPs,
     aaOutputBPs,
-    createAtomicAction
+    createAtomicAction,
+    ProbabilisticAtomicAction,
+    createProbabilitsticAtomicAction,
+    paaTest,
+    paaInputBPs,
+    paaOutputBPD,
 ) where
 
-import           Data.Default
-import           Data.Foldable            (toList)
-import qualified Data.Multiset            as Mset
-import           Data.List
+import Data.Default
+import Data.Foldable (toList)
+import Data.List
+import qualified Data.Multiset as Mset
 
-import           BellKAT.Definitions.Core
-import           BellKAT.Definitions.Structures
+import qualified Numeric.Probability.Distribution as P
+
+import BellKAT.Definitions.Core
+import BellKAT.Definitions.Structures
 
 -- | Represents tests as a set of `TaggedBellPairs` that /each/ must not appear in the input
 newtype RestrictedTest tag = RestrictedTest [TaggedBellPairs tag]
@@ -62,31 +70,86 @@ instance Test RestrictedTest where
     toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
 
 data AtomicAction tag = AtomicAction
-    { aaTest      :: RestrictedTest tag
-    , aaInputBPs  :: TaggedBellPairs tag
+    { aaTest :: RestrictedTest tag
+    , aaInputBPs :: TaggedBellPairs tag
     , aaOutputBPs :: TaggedBellPairs tag
     }
     deriving stock (Eq, Ord)
 
 instance (Show tag, Default tag, Eq tag) => Show (AtomicAction tag) where
-    showsPrec _ (AtomicAction t inBPs outBPs) = 
-        showString "[" . shows t . showString "] (" 
-        . shows (toList inBPs) . showString "|>" . shows (toList outBPs)
-        . showString ")"
+    showsPrec _ (AtomicAction t inBPs outBPs) =
+        showString "["
+            . shows t
+            . showString "] ("
+            . shows (toList inBPs)
+            . showString "|>"
+            . shows (toList outBPs)
+            . showString ")"
 
 instance Ord tag => OrderedSemigroup (AtomicAction tag) where
-    (AtomicAction t1 inBps1 outBps1) <.> (AtomicAction t2 inBps2 outBps2)
-      = createAtomicAction (t1 .&&. (t2 .+. inBps1)) (inBps1 <> inBps2) (outBps1 <> outBps2)
+    (AtomicAction t1 inBps1 outBps1) <.> (AtomicAction t2 inBps2 outBps2) =
+        createAtomicAction (t1 .&&. (t2 .+. inBps1)) (inBps1 <> inBps2) (outBps1 <> outBps2)
 
 instance Ord tag => ParallelSemigroup (AtomicAction tag) where
-    (AtomicAction t1 inBps1 outBps1) <||> (AtomicAction t2 inBps2 outBps2)
-      = createAtomicAction ((t1 .+. inBps2) .&&. (t2 .+. inBps1)) (inBps1 <> inBps2) (outBps1 <> outBps2)
+    (AtomicAction t1 inBps1 outBps1) <||> (AtomicAction t2 inBps2 outBps2) =
+        createAtomicAction ((t1 .+. inBps2) .&&. (t2 .+. inBps1)) (inBps1 <> inBps2) (outBps1 <> outBps2)
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
-createAtomicAction 
-    :: Ord tag
-    => RestrictedTest tag -> TaggedBellPairs tag -> TaggedBellPairs tag -> AtomicAction tag
-createAtomicAction t inBPs outBPs = 
+createAtomicAction ::
+    Ord tag =>
+    RestrictedTest tag ->
+    TaggedBellPairs tag ->
+    TaggedBellPairs tag ->
+    AtomicAction tag
+createAtomicAction t inBPs outBPs =
     if t == createRestrictedTest [mempty]
-       then AtomicAction t mempty mempty
-       else AtomicAction t inBPs outBPs
+        then AtomicAction t mempty mempty
+        else AtomicAction t inBPs outBPs
+
+type Dist = P.T Probability
+
+data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
+    { paaTest :: RestrictedTest tag
+    , paaInputBPs :: TaggedBellPairs tag
+    , paaOutputBPD :: Dist (TaggedBellPairs tag)
+    }
+
+instance (Ord tag) => Eq (ProbabilisticAtomicAction tag) where
+    (ProbabilisticAtomicAction t i o) == (ProbabilisticAtomicAction t' i' o') =
+        t == t' && i == i' && P.equal o o'
+
+-- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
+createProbabilitsticAtomicAction ::
+    Ord tag =>
+    RestrictedTest tag ->
+    TaggedBellPairs tag ->
+    Dist (TaggedBellPairs tag) ->
+    ProbabilisticAtomicAction tag
+createProbabilitsticAtomicAction t inBPs outBPs =
+    if t == createRestrictedTest [mempty]
+        then ProbabilisticAtomicAction t mempty (pure mempty)
+        else ProbabilisticAtomicAction t inBPs outBPs
+
+instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
+    (ProbabilisticAtomicAction t1 inBps1 outBpsD1) <.> (ProbabilisticAtomicAction t2 inBps2 outBpsD2) =
+        createProbabilitsticAtomicAction
+            (t1 .&&. (t2 .+. inBps1))
+            (inBps1 <> inBps2)
+            ((<>) <$> outBpsD1 <*> outBpsD2)
+
+instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
+    (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =
+        createProbabilitsticAtomicAction
+            ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
+            (inBps1 <> inBps2)
+            ((<>) <$> outBps1 <*> outBps2)
+
+instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
+    showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
+        showString "["
+            . shows t
+            . showString "] ("
+            . shows (toList inBPs)
+            . showString "|>"
+            . shows (P.pretty show outBPs)
+            . showString ")"

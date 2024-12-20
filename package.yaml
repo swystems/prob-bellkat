@@ -30,6 +30,7 @@ dependencies:
   - base-orphans
   - mtl
   - smallcheck
+  - probability
 
 library:
   source-dirs: src

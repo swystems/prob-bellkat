@@ -51,19 +51,6 @@ class DSLFunctions p where
     defaultTagged :: Action -> p
     (.%) :: p -> DupKind -> p
 
-class DSLTestFunctions p test t | p -> t, p -> test where
-    test :: test (Maybe t) -> p
-
--- test :: Test (Maybe t) -> Ordered Policy (Maybe t)
-instance DSLTestFunctions (SeqWithTests Policy test (Maybe tag)) test tag where
-    test t = APAtomic [ ATest t ]
-
-instance DSLTestFunctions (SeqWithTests FullPolicy test (Maybe tag)) test tag where
-    test t = FPAtomic [ ATest t ]
-
-instance DSLTestFunctions (WithTests OrderedStarPolicy test (Maybe tag)) test tag where
-    test t = OSPAtomic (ATest t)
-
 instance DSLFunctions (Simple Policy (Maybe tag)) where
     defaultTagged a = APAtomic $ TaggedAction def a Nothing mempty
 
@@ -90,24 +77,24 @@ instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
     FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
-infixl 7 <.>
+infixl 7 <..>
 
-class DSLOrderedSemigroup a where
-    (<.>) :: a -> a -> a
+class FakeOrderedSemigroup a where
+    (<..>) :: a -> a -> a
 
-instance DSLOrderedSemigroup (SeqWithTests Policy test tag) where
-    (APAtomic tas) <.> (APAtomic tas') = APAtomic (tas <> tas')
-    _ <.> _                            = error "Can only compose atomics with <.>"
+instance FakeOrderedSemigroup (SeqWithTests Policy test tag) where
+    (APAtomic tas) <..> (APAtomic tas') = APAtomic (tas <> tas')
+    _ <..> _                            = error "Can only compose atomics with <.>"
 
-instance DSLOrderedSemigroup (SeqWithTests FullPolicy test tag) where
-    (FPAtomic tas) <.> (FPAtomic tas') = FPAtomic (tas <> tas')
-    _ <.> _                            = error "Can only compose atomics with <.>"
+instance FakeOrderedSemigroup (SeqWithTests FullPolicy test tag) where
+    (FPAtomic tas) <..> (FPAtomic tas') = FPAtomic (tas <> tas')
+    _ <..> _                            = error "Can only compose atomics with <.>"
 
-instance DSLOrderedSemigroup (WithTests OrderedStarPolicy test tag) where
-    (<.>) = OSPOrdered
+instance FakeOrderedSemigroup (WithTests OrderedStarPolicy test tag) where
+    (<..>) = OSPOrdered
 
-instance DSLOrderedSemigroup (Simple OrderedStarPolicy tag) where
-    p <.> p' = OSPOrdered p p'
+instance FakeOrderedSemigroup (Simple OrderedStarPolicy tag) where
+    p <..> p' = OSPOrdered p p'
 
 dupA :: DupKind
 dupA = DupKind { dupBefore = False, dupAfter = True }

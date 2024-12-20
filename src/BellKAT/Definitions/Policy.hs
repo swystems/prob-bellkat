@@ -1,5 +1,6 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE OverloadedLists #-}
 module BellKAT.Definitions.Policy where
 
 import           Test.QuickCheck            hiding (choose)
@@ -145,6 +146,15 @@ type WithTests p test tag = p (Atomic TaggedAction test tag)
 -- | Given a policy structure `p`, test structure `test` and a `BellPair` tag `t` returns a policy
 -- that internally prepresents ordered composition as a sequence of underlying actions
 type SeqWithTests p test tag = p (NonEmpty (Atomic TaggedAction test tag))
+
+instance Tests (SeqWithTests Policy test tag) test tag where
+    test t = APAtomic [ ATest t ]
+
+instance Tests (SeqWithTests FullPolicy test tag) test tag where
+    test t = FPAtomic [ ATest t ]
+
+instance Tests (WithTests OrderedStarPolicy test tag) test tag where
+    test t = OSPAtomic (ATest t)
 
 -- * Testing definitions
 

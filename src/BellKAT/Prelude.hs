@@ -31,7 +31,7 @@ import Diagrams.Backend.Cairo.CmdLine
 
 import BellKAT.DSL
 import BellKAT.Definitions
-import BellKAT.Definitions.Structures hiding (test, (<.>))
+import BellKAT.Definitions.Structures
 import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
 

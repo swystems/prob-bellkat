@@ -14,10 +14,6 @@ module BellKAT.Definitions.Core (
     HasDupKinds(..),
     -- * Tests
     FreeTest(..),
-    RestrictedTest,  
-    createRestrictedTest,
-    (.+.),
-    (.&&.),
     BellPairsPredicate(..),
     Test(..),
     -- * Dup for nodes in `History`
@@ -139,37 +135,6 @@ instance (Default t, Show t, Eq t) => Show (FreeTest t) where
     showsPrec d (FTNot x) = showParen (app_prec < d) $ showString "not " . shows x
       where app_prec = 10
 
--- | Represents tests as a set of `TaggedBellPairs` that /each/ must not appear in the input
-newtype RestrictedTest tag = RestrictedTest [TaggedBellPairs tag]
-    deriving newtype (Eq, Ord)
-
--- | Constructs `RestrictedTest` in a normalized (non-redundant) form
-createRestrictedTest :: Ord tag => [TaggedBellPairs tag] -> RestrictedTest tag
-createRestrictedTest = RestrictedTest . sort . restrictedTestNormalize
-
-restrictedTestNormalize :: Ord tag => [TaggedBellPairs tag] -> [TaggedBellPairs tag]
-restrictedTestNormalize [] = []
-restrictedTestNormalize (x:xs) = 
-    if any (`Mset.isSubsetOf` x) xs 
-       then restrictedTestNormalize xs
-       else x:restrictedTestNormalize xs
-
-instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
-    showsPrec _ (RestrictedTest []) = showString "TRUE"
-    showsPrec _ (RestrictedTest (x:xs)) = shows (toList x) . showsRest xs
-      where 
-        showsRest [] = id
-        showsRest (y : ys) = showString " /\\ " . shows (toList y) . showsRest ys
-
--- | Performs multiset union of each set in a `RestrictedTest` with the given `TaggedBellPairs`
-(.+.) :: (Ord tag) => RestrictedTest tag -> TaggedBellPairs tag -> RestrictedTest tag
-(RestrictedTest bpss) .+. bps = createRestrictedTest (map (<> bps) bpss)
-
--- | Performs logical /and/ of two `RestrictedTest`s
-(.&&.) :: (Ord tag) => RestrictedTest tag -> RestrictedTest tag -> RestrictedTest tag
-(RestrictedTest bpss) .&&. (RestrictedTest bpss') = 
-    createRestrictedTest (bpss <> bpss')
-
 newtype BellPairsPredicate t = BPsPredicate { getBPsPredicate :: TaggedBellPairs t -> Bool }
 
 -- | Class of things that can serve as `BellPairsPredicate`
@@ -182,9 +147,6 @@ instance Test FreeTest where
 
 instance Test BellPairsPredicate where
     toBPsPredicate = id
-
-instance Test RestrictedTest where
-    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
 
 instance Show (BellPairsPredicate t) where
   showsPrec _ _ = shows "test"

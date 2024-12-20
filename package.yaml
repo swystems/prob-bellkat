@@ -39,6 +39,7 @@ library:
     - BellKAT.PolicyEmbeddings
     - BellKAT.ActionEmbeddings
     - BellKAT.Definitions.Core
+    - BellKAT.Definitions.Atomic
     - BellKAT.Definitions.Structures
     - BellKAT.Definitions.Policy
     - BellKAT.Definitions.Policy.Extra

@@ -151,5 +151,5 @@ instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAc
             . showString "] ("
             . shows (toList inBPs)
             . showString "|>"
-            . shows (P.pretty show outBPs)
+            . showString (P.pretty show outBPs)
             . showString ")"

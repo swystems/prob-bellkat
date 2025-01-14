@@ -22,7 +22,7 @@ import           Data.Foldable (toList)
 import           Data.These.Combinators       (isThat, justThat)
 import           Data.Graph
 
-import           BellKAT.Definitions.Structures
+import           BellKAT.Definitions.Structures.Basic
 
 data Eps = Eps deriving stock (Show)
 

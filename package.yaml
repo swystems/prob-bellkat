@@ -43,6 +43,7 @@ library:
     - BellKAT.Definitions.Atomic
     - BellKAT.Definitions.Structures
     - BellKAT.Definitions.Structures.Basic
+    - BellKAT.Definitions.Structures.Quantum
     - BellKAT.Definitions.Policy
     - BellKAT.Definitions.Policy.Extra
     - BellKAT.Implementations.InterleavingOneStepHistoryQuantum

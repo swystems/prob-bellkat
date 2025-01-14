@@ -13,6 +13,7 @@
 --
 module BellKAT.Prelude (
     BellKATPolicy,
+    ProbBellKATPolicy,
     drawHistoriesSVG,
     drawHistoriesText,
     isPolicyValid,
@@ -37,6 +38,8 @@ import BellKAT.Test
 
 type BellKATTag = (Maybe ())
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
+
+type ProbBellKATPolicy = OrderedGuardedPolicy (FreeTest BellKATTag) (TaggedAction BellKATTag)
 
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

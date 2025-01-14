@@ -83,6 +83,13 @@ data OrderedStarPolicy a
     | OSPChoice (OrderedStarPolicy a) (OrderedStarPolicy a)
     deriving stock (Show, Functor)
 
+data OrderedGuardedPolicy t a
+    = OGPAtomic a
+    | OGPSequence (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    | OGPParallel (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    | OGPOrdered (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    | OGPIfThenElse t (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+
 instance Semigroup (Policy a) where
     (<>) = APSequence
 
@@ -127,6 +134,18 @@ instance ChoiceSemigroup (OrderedStarPolicy a) where
 
 instance OrderedSemigroup (OrderedStarPolicy a) where
     (<.>) = OSPOrdered
+
+instance Semigroup (OrderedGuardedPolicy t a) where
+    (<>) = OGPSequence
+
+instance ParallelSemigroup (OrderedGuardedPolicy t a) where
+    (<||>) = OGPParallel
+
+instance OrderedSemigroup (OrderedGuardedPolicy t a) where
+    (<.>) = OGPParallel
+
+instance Guarded (OrderedGuardedPolicy (test tag) a) test tag where
+    ite = OGPIfThenElse
 
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)

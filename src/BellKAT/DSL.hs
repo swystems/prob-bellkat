@@ -77,6 +77,10 @@ instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
     FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
     _ .% _                                = error "cannot attach dup to this thing"
 
+instance DSLFunctions (Simple (OrderedGuardedPolicy test) (Maybe tag)) where
+    defaultTagged a = OGPAtomic $ TaggedAction def a Nothing mempty
+    _ .% _                                = error "cannot attach dup to this thing"
+
 infixl 7 <..>
 
 class FakeOrderedSemigroup a where

@@ -50,6 +50,8 @@ library:
     - BellKAT.Implementations.TimelyHistoryQuantum
     - BellKAT.Implementations.StepHistoryQuantum
     - BellKAT.Implementations.HistoryQuantum
+    - BellKAT.Implementations.Automata
+    - BellKAT.Implementations.Automata.NFA
     - BellKAT.Implementations.AutomataExecution
     - BellKAT.Implementations.AutomataStepHistoryQuantum
     - BellKAT.Implementations.AtomicOneStepHistoryQuantum

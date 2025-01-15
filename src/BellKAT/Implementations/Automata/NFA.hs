@@ -17,20 +17,14 @@ import qualified Data.Map.Strict              as Map
 import           Data.Pointed
 import qualified Data.Set                     as Set
 import           Data.Set                     (Set)
-import           Data.These
 import           Data.Foldable (toList)
+import           Data.These
 import           Data.These.Combinators       (isThat, justThat)
 import           Data.Graph
 
+import           BellKAT.Implementations.Automata.Internal
+import           BellKAT.Implementations.Automata.EpsNFA
 import           BellKAT.Definitions.Structures.Basic
-
-data Eps = Eps deriving stock (Show)
-
-data EpsNFA a = ENFA
-    { enfaInitial    :: Int
-    , enfaTransition :: !(IntMap (IntMap (These Eps a)))
-    , enfaFinal      :: !IntSet
-    }
 
 data MagicNFA a = MNFA
     { mnfaInitial    :: Int
@@ -44,14 +38,6 @@ restrictStates x states = MNFA
     , mnfaTransition = fmap (`IM.restrictKeys` states) $ mnfaTransition x `IM.restrictKeys` states
     , mnfaFinal = states `IS.intersection` mnfaFinal x
     }
-
-showTransition :: Show a => (Int, a) -> String
-showTransition (j , act) = "-( " <> show act <> " )-> " <> show j
-
-showEpsTransition :: Show a => (Int, These Eps a) -> String
-showEpsTransition (j, This Eps) = "-()-> " <> show j
-showEpsTransition (j, These Eps act) = "-( eps | " <> show act <> " )-> " <> show j
-showEpsTransition (j, That x) = showTransition (j, x)
 
 instance Show a => Show (MagicNFA a) where
     show x = 
@@ -67,61 +53,6 @@ showStateId x s =
     (if s == mnfaInitial x then "^" else "") 
     <> show s 
     <> (if IS.member s (mnfaFinal x) then "$" else "")
- 
-instance Show a => Show (EpsNFA a) where
-    show x = unlines $
-        map showState $ IM.toList (enfaTransition x)
-      where
-        showState (s, sTr) = 
-            (if s == enfaInitial x then "^" else "") 
-            <> show s 
-            <> (if IS.member s (enfaFinal x) then "$" else "")
-            <> ": "
-            <> unwords (map showEpsTransition $ IM.toList sTr)
-
-shiftFinalUp :: Int -> IntSet -> IntSet
-shiftFinalUp k = IS.mapMonotonic (+ k)
-
-shiftTransitionUp :: Int -> IntMap (IntMap a) -> IntMap (IntMap a)
-shiftTransitionUp k = IM.map (IM.mapKeysMonotonic (+ k)) . IM.mapKeysMonotonic (+k)
-
-unionTransition
-    :: ChoiceSemigroup a
-    => IntMap (IntMap a) -> IntMap (IntMap a) -> IntMap (IntMap a)
-unionTransition = IM.unionWith (IM.unionWith (<+>))
-
-instance (ChoiceSemigroup a) => ChoiceSemigroup (These Eps a) where
-    This Eps <+> This Eps       = This Eps
-    This Eps <+> That x         = These Eps x
-    This Eps <+> These Eps x    = These Eps x
-    That x <+> This Eps         = These Eps x
-    That x <+> That y           = That (x <+> y)
-    That x <+> These Eps y      = These Eps (x <+> y)
-    These Eps x <+> These Eps y = These Eps (x <+> y)
-    These Eps x <+> This Eps    = These Eps x
-    These Eps x <+> That y      = These Eps (x <+> y)
-
-instance (ChoiceSemigroup a) => Semigroup (EpsNFA a) where
-    (ENFA aI aT aF) <> (ENFA bI bT bF) =
-        let
-            nbI = bI + IM.size aT
-            nbT = shiftTransitionUp (IM.size aT) bT
-            nF = shiftFinalUp (IM.size aT) bF
-            nabT = IM.fromSet (const $ IM.singleton nbI $ This Eps) aF
-            nT = nabT `unionTransition` aT `unionTransition` nbT
-         in ENFA aI nT nF
-
-instance ChoiceSemigroup a => ChoiceSemigroup (EpsNFA a) where
-    (ENFA aI aT aF) <+> (ENFA bI bT bF) =
-        let
-            naI = aI + 1
-            naF = shiftFinalUp 1 aF
-            naT = shiftTransitionUp 1 aT
-            nbI = bI + 1 + IM.size aT
-            nbT = shiftTransitionUp (1 + IM.size aT) bT
-            nbF = shiftFinalUp (1 + IM.size aT) bF
-            nabT = IM.singleton 0 $ IM.singleton naI (This Eps) <> IM.singleton nbI (This Eps)
-         in ENFA 0 (naT `unionTransition` nbT `unionTransition` nabT) (naF <> nbF)
 
 computeClosures :: IntMap (IntMap (These Eps a)) -> IntMap IntSet
 computeClosures tr = 
@@ -184,9 +115,6 @@ instance (ChoiceSemigroup a, ParallelSemigroup a) =>  ParallelSemigroup (MagicNF
 instance (ChoiceSemigroup a, OrderedSemigroup a) =>  OrderedSemigroup (MagicNFA a) where
     p  <.> q = productWith (<.>) p q 
 
-instance (ChoiceSemigroup a, ParallelSemigroup a) =>  ParallelSemigroup (EpsNFA a) where
-    a <||> b = mnfaToEnfa $ enfaToMnfa a <||> enfaToMnfa b
-
 instance (ChoiceSemigroup a) => MonoidStar (MagicNFA a) where
     star (MNFA i t f) = enfaToMnfa $
         let ni = i + 1
@@ -198,9 +126,6 @@ instance (ChoiceSemigroup a) => MonoidStar (MagicNFA a) where
 
 instance Pointed MagicNFA where
     point x = MNFA 0 (IM.fromList [(0, IM.singleton 1 x), (1, IM.empty)]) (IS.singleton 1)
-
-instance Pointed EpsNFA where
-    point x = ENFA 0 (IM.fromList [(0, IM.singleton 1 $ That x), (1, IM.empty)]) (IS.singleton 1)
 
 newtype HyperAction a = HyperAction (Set a)
     deriving newtype (Foldable, Pointed)

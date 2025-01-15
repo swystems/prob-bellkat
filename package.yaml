@@ -31,6 +31,7 @@ dependencies:
   - mtl
   - smallcheck
   - probability
+  - Boolean
 
 library:
   source-dirs: src
@@ -54,6 +55,7 @@ library:
     - BellKAT.Implementations.HistoryQuantum
     - BellKAT.Implementations.Automata
     - BellKAT.Implementations.Automata.NFA
+    - BellKAT.Implementations.Automata.EpsNFA
     - BellKAT.Implementations.AutomataExecution
     - BellKAT.Implementations.AutomataStepHistoryQuantum
     - BellKAT.Implementations.AtomicOneStepHistoryQuantum

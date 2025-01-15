@@ -3,6 +3,7 @@ module BellKAT.Definitions.Structures.Basic
     , ChoiceSemigroup(..)
     , OrderedSemigroup(..)
     , MonoidStar(..)
+    , Guarded(..)
     ) where
 
 -- parallel composition is left-associative and has lower precedence than `<>`
@@ -26,3 +27,5 @@ class OrderedSemigroup a where
 class (ChoiceSemigroup a, Monoid a) => MonoidStar a where
     star :: a -> a
 
+class Guarded a test tag | a -> tag, a -> test where
+    ite :: test tag -> a -> a -> a

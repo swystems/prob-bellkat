@@ -2,7 +2,6 @@ module BellKAT.Definitions.Structures.Quantum
     ( Quantum
     , CreatesBellPairs(..)
     , Tests(..)
-    , Guarded(..)
     , TestsQuantum
     , TestsOrderedLayeredQuantum(..)
     , OrderedQuantum
@@ -26,9 +25,6 @@ class (Semigroup a, ParallelSemigroup a, CreatesBellPairs a t) => Quantum a t | 
 
 class Tests a test tag | a -> tag, a -> test where
     test :: test tag -> a
-
-class Guarded a test tag | a -> tag, a -> test where
-    ite :: test tag -> a -> a -> a
 
 class (Quantum a tag, Tests a test tag) => TestsQuantum a test tag | a -> test, a -> tag where
 

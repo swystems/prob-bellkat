@@ -27,5 +27,5 @@ class OrderedSemigroup a where
 class (ChoiceSemigroup a, Monoid a) => MonoidStar a where
     star :: a -> a
 
-class Guarded a test tag | a -> tag, a -> test where
-    ite :: test tag -> a -> a -> a
+class Guarded t a | a -> t where
+    ite :: t -> a -> a -> a

@@ -144,7 +144,7 @@ instance ParallelSemigroup (OrderedGuardedPolicy t a) where
 instance OrderedSemigroup (OrderedGuardedPolicy t a) where
     (<.>) = OGPParallel
 
-instance Guarded (OrderedGuardedPolicy (test tag) a) test tag where
+instance Guarded t (OrderedGuardedPolicy t a) where
     ite = OGPIfThenElse
 
 data Atomic act test tag = AAction (act tag) | ATest (test tag)

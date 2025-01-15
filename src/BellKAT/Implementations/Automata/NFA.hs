@@ -118,8 +118,8 @@ instance (ChoiceSemigroup a, OrderedSemigroup a) =>  OrderedSemigroup (MagicNFA 
 instance (ChoiceSemigroup a) => MonoidStar (MagicNFA a) where
     star (MNFA i t f) = enfaToMnfa $
         let ni = i + 1
-            nf = shiftFinalUp 1 f
-            nt = mnfaTransitionToEnfa (shiftTransitionUp 1 t)
+            nf = shiftUp 1 f
+            nt = mnfaTransitionToEnfa (shiftUp 1 t)
                     `unionTransition` IM.singleton 0 (IM.singleton ni (This Eps))
                     `unionTransition` IM.fromSet (const $ IM.singleton 0 (This Eps)) nf
          in ENFA 0 nt (IS.singleton 0)

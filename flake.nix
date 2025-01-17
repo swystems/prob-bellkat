@@ -33,6 +33,7 @@
             pkgs.ghcid
             pkgs.cabal-install
             pkgs.haskellPackages.haskell-language-server
+            pkgs.haskellPackages.graphmod
           ];
           packages = ps: [ ps.bellkat ];
         };

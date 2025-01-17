@@ -28,8 +28,8 @@ import           BellKAT.Definitions.Structures.Basic
 
 data MagicNFA a = MNFA
     { mnfaInitial    :: Int
-    , mnfaTransition :: !(IntMap (IntMap a))
-    , mnfaFinal      :: !IntSet
+    , mnfaTransition :: IntMap (IntMap a)
+    , mnfaFinal      :: IntSet
     }
 
 restrictStates :: MagicNFA a -> IntSet -> MagicNFA a

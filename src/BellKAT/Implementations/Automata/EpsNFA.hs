@@ -15,8 +15,8 @@ import BellKAT.Implementations.Automata.Internal
 
 data EpsNFA a = ENFA
     { enfaInitial    :: Int
-    , enfaTransition :: !(IntMap (IntMap (These Eps a)))
-    , enfaFinal      :: !IntSet
+    , enfaTransition :: IntMap (IntMap (These Eps a))
+    , enfaFinal      :: IntSet
     }
 
 instance Show a => Show (EpsNFA a) where

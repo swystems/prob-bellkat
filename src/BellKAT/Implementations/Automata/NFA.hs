@@ -13,7 +13,6 @@ import qualified Data.IntMap.Strict           as IM
 import           Data.IntSet                  (IntSet)
 import qualified Data.IntSet                  as IS
 import           Data.List
-import qualified Data.Map.Strict              as Map
 import           Data.Pointed
 import qualified Data.Set                     as Set
 import           Data.Set                     (Set)
@@ -80,22 +79,12 @@ mnfaTransitionToEnfa = IM.map (IM.map That)
 
 enfaToMnfa :: ChoiceSemigroup a => EpsNFA a -> MagicNFA a
 enfaToMnfa (ENFA i t f) =
-    let toClosures = computeClosures t
-        allClosures = toList . Set.fromList . toList $ toClosures
-        nStates = length allClosures
-        closureToNewState = Map.fromList (zip allClosures [0..nStates])
-        oldToNew = IM.map (closureToNewState Map.!) toClosures
-        newT = IM.fromList $ 
-            zip [0..nStates] . map (IM.mapKeysWith (<+>) (oldToNew IM.!) 
-            . computeClosureTransition t)
-            $ allClosures
+    let epsClojure = computeClosures t
+        newT = IM.mapWithKey (\k _ -> computeClosureTransition t (epsClojure IM.! k)) t
      in MNFA
-            (oldToNew IM.! i)
+            i
             newT
-            (IS.fromList 
-                . map (closureToNewState Map.!) 
-                . filter (not . IS.null . IS.intersection f) 
-                $ allClosures)
+            (IS.filter (not . IS.null . IS.intersection f . (epsClojure IM.!)) . IM.keysSet $ t)
 
 mnfaToEnfa :: MagicNFA a -> EpsNFA a
 mnfaToEnfa (MNFA i t f) = ENFA i (mnfaTransitionToEnfa t) f

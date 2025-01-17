@@ -4,10 +4,7 @@ module BellKAT.Implementations.Automata.EpsNFA
     , Eps (..)
     ) where
 
-import           Data.IntMap.Strict           (IntMap)
-import qualified Data.IntMap.Strict           as IM
-import           Data.IntSet                  (IntSet)
-import qualified Data.IntSet                  as IS
+import           Data.Pointed
 import           Data.These
 
 import BellKAT.Definitions.Structures.Basic
@@ -15,35 +12,34 @@ import BellKAT.Implementations.Automata.Internal
 
 data EpsNFA a = ENFA
     { enfaInitial    :: Int
-    , enfaTransition :: IntMap (IntMap (These Eps a))
-    , enfaFinal      :: IntSet
-    }
+    , enfaTransition :: TransitionSystem (These Eps a)
+    , enfaFinal      :: States
+    } deriving stock Eq
 
 instance Show a => Show (EpsNFA a) where
     show x = unlines $
-        map showState $ IM.toList (enfaTransition x)
+        map showState $ toTransitionsList (enfaTransition x)
       where
         showState (s, sTr) = 
             (if s == enfaInitial x then "^" else "") 
             <> show s 
-            <> (if IS.member s (enfaFinal x) then "$" else "")
-            <> ": "
-            <> unwords (map showEpsTransition $ IM.toList sTr)
+            <> (if isFinal s (enfaFinal x) then "$" else "")
+            <> ":\n"
+            <> showTransitionsWith showEpsTransition sTr
 
 showEpsTransition :: Show a => (Int, These Eps a) -> String
 showEpsTransition (j, This Eps) = "-()-> " <> show j
 showEpsTransition (j, These Eps act) = "-( eps | " <> show act <> " )-> " <> show j
 showEpsTransition (j, That x) = showTransition (j, x)
 
-
 instance (ChoiceSemigroup a) => Semigroup (EpsNFA a) where
     (ENFA aI aT aF) <> (ENFA bI bT bF) =
         let
-            nbI = bI + IM.size aT
-            nbT = shiftUp (IM.size aT) bT
-            nF = shiftUp (IM.size aT) bF
-            nabT = IM.fromSet (const $ IM.singleton nbI $ This Eps) aF
-            nT = nabT `unionTransition` aT `unionTransition` nbT
+            nbI = bI + numStates aT
+            nbT = shiftUp (numStates aT) bT
+            nF = shiftUp (numStates aT) bF
+            nabT = sendStatesInto (This Eps) nbI aF
+            nT = nabT <> aT <> nbT
          in ENFA aI nT nF
 
 instance ChoiceSemigroup a => ChoiceSemigroup (EpsNFA a) where
@@ -52,8 +48,11 @@ instance ChoiceSemigroup a => ChoiceSemigroup (EpsNFA a) where
             naI = aI + 1
             naF = shiftUp 1 aF
             naT = shiftUp 1 aT
-            nbI = bI + 1 + IM.size aT
-            nbT = shiftUp (1 + IM.size aT) bT
-            nbF = shiftUp (1 + IM.size aT) bF
-            nabT = IM.singleton 0 $ IM.singleton naI (This Eps) <> IM.singleton nbI (This Eps)
-         in ENFA 0 (naT `unionTransition` nbT `unionTransition` nabT) (naF <> nbF)
+            nbI = bI + 1 + numStates aT
+            nbT = shiftUp (1 + numStates aT) bT
+            nbF = shiftUp (1 + numStates aT) bF
+            nabT = singletonTS 0 (This Eps) naI <> singletonTS 0 (This Eps) nbI
+         in ENFA 0 (naT <> nbT <> nabT) (naF <> nbF)
+
+instance Pointed EpsNFA where
+    point x = ENFA 0 (singletonTS 0 (That x) 1) (singletonState 1)

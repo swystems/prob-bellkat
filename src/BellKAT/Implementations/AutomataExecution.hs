@@ -87,7 +87,7 @@ runExecution params executeStep mnfa x m =
 initialState :: MagicNFA a -> s -> ExecutionState s
 initialState mnfa x = ES
             { esPending = IM.singleton (mnfaInitial mnfa) (Set.singleton x)
-            , esProcessed = IM.map (const Set.empty) (mnfaTransition mnfa)
+            , esProcessed = IM.fromSet (const Set.empty) (states $ mnfaTransition mnfa)
             }
 
 data ExecutionState s = ES
@@ -119,9 +119,9 @@ executeAutomata =
         Nothing -> return ()
         Just (i, h) -> do
             markProcessed i h
-            fromI <- reader ((IM.! i) . mnfaTransition . eeAutomaton)
+            fromI <- reader ((! i) . mnfaTransition . eeAutomaton)
             evalStep <- reader eeStepEvaluation
-            forM_ (IM.toList fromI) $ \(j, x) -> appendStates j $ evalStep x h
+            forM_ (transitionsToList fromI) $ \(x, j) -> appendStates j $ evalStep x h
             checkStateBound
             executeAutomata
 
@@ -167,7 +167,7 @@ printAutomatonStats exec nfa =
             executeAutomata >> getAllStates
     in case st of 
          Left _ -> putStrLn "execution error"
-         Right states -> do
-             let reachableStates = IM.filter (not . null) states
+         Right sts -> do
+             let reachableStates = IM.filter (not . null) sts
              putStrLn $ showStates nfa reachableStates
-             print $ restrictStates nfa (IM.keysSet reachableStates)
+             print $ restrictStates (IM.keysSet reachableStates) nfa

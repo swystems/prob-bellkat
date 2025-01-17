@@ -18,7 +18,7 @@ import qualified Data.Set                     as Set
 import           Data.Set                     (Set)
 import           Data.Foldable (toList)
 import           Data.These
-import           Data.These.Combinators       (isThat, justThat)
+import           Data.These.Combinators       (isThat, justThere)
 import           Data.Graph
 
 import           BellKAT.Implementations.Automata.Internal
@@ -71,7 +71,7 @@ computeClosureTransition
     => IntMap (IntMap (These Eps a)) -> IntSet -> IntMap a
 computeClosureTransition tr =
     foldl' (IM.unionWith (<+>)) IM.empty
-    . map (IM.mapMaybe justThat)
+    . map (IM.mapMaybe justThere)
     . toList . IM.restrictKeys tr
 
 mnfaTransitionToEnfa :: IntMap (IntMap a) -> IntMap (IntMap (These Eps a))

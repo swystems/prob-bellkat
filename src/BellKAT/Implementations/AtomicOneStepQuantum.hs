@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedLists      #-}
 
-module BellKAT.Implementations.AtomicOneStepHistoryQuantum
+module BellKAT.Implementations.AtomicOneStepQuantum
     ( AtomicOneStepPolicy
     , execute
     ) where
@@ -19,7 +19,6 @@ import BellKAT.Utils.Choice
 
 newtype AtomicOneStepPolicy tag = AtomicOneStepPolicy (AtomicAction tag)
     deriving newtype (Eq, Ord, Show, OrderedSemigroup, ParallelSemigroup)
-
 
 execute
     :: (Ord tag)

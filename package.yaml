@@ -53,8 +53,8 @@ library:
     - BellKAT.Implementations.TimelyHistoryQuantum
     - BellKAT.Implementations.StepHistoryQuantum
     - BellKAT.Implementations.HistoryQuantum
-    - BellKAT.Implementations.AutomataStepHistoryQuantum
-    - BellKAT.Implementations.AtomicOneStepHistoryQuantum
+    - BellKAT.Implementations.AutomataStepQuantum
+    - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.NonEmpty
     - BellKAT.Utils.Choice

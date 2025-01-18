@@ -2,8 +2,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
-module BellKAT.Implementations.AutomataStepHistoryQuantum 
-    ( AutomatonStepHistoryQuantum (getNFA)
+module BellKAT.Implementations.AutomataStepQuantum 
+    ( AutomatonStepQuantum (getNFA)
     , executeE
     , executeWithE
     , executeWith
@@ -36,93 +36,93 @@ type family AutomatonFromChoice (ac :: AutomatonChoice) where
     AutomatonFromChoice 'ACNormal = HyperMagicNFA
     AutomatonFromChoice 'ACEmbedded = MagicNFA
 
-newtype AutomatonStepHistoryQuantum (ac :: AutomatonChoice) a = AutomatonStepHistoryQuantum 
+newtype AutomatonStepQuantum (ac :: AutomatonChoice) a = AutomatonStepQuantum 
     { getNFA :: AutomatonFromChoice ac a
     }
 
 deriving newtype instance Show (AutomatonFromChoice ac a) 
-  => Show (AutomatonStepHistoryQuantum ac a)
+  => Show (AutomatonStepQuantum ac a)
 deriving newtype instance ParallelSemigroup (AutomatonFromChoice ac a) 
-  => ParallelSemigroup (AutomatonStepHistoryQuantum ac a)
+  => ParallelSemigroup (AutomatonStepQuantum ac a)
 deriving newtype instance OrderedSemigroup (AutomatonFromChoice ac a) 
-  => OrderedSemigroup (AutomatonStepHistoryQuantum ac a)
+  => OrderedSemigroup (AutomatonStepQuantum ac a)
 deriving newtype instance Pointed (AutomatonFromChoice ac) 
-  => Pointed (AutomatonStepHistoryQuantum ac)
+  => Pointed (AutomatonStepQuantum ac)
 deriving newtype instance Semigroup (AutomatonFromChoice ac a) 
-  => Semigroup (AutomatonStepHistoryQuantum ac a)
+  => Semigroup (AutomatonStepQuantum ac a)
 deriving newtype instance Monoid (AutomatonFromChoice ac a) 
-  => Monoid (AutomatonStepHistoryQuantum ac a)
+  => Monoid (AutomatonStepQuantum ac a)
 deriving newtype instance MonoidStar (AutomatonFromChoice ac a) 
-  => MonoidStar (AutomatonStepHistoryQuantum ac a)
+  => MonoidStar (AutomatonStepQuantum ac a)
 deriving newtype instance ChoiceSemigroup (AutomatonFromChoice ac a) 
-  => ChoiceSemigroup (AutomatonStepHistoryQuantum ac a)
+  => ChoiceSemigroup (AutomatonStepQuantum ac a)
 
     
 instance (Ord t, CreatesBellPairs (sq t) t, ChoiceSemigroup (sq t), Pointed (AutomatonFromChoice 'ACEmbedded))
-        => CreatesBellPairs (AutomatonStepHistoryQuantum 'ACEmbedded (sq t)) t where
+        => CreatesBellPairs (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
     tryCreateBellPairFrom = point . tryCreateBellPairFrom
 
 instance (Ord t, Ord (sq t), CreatesBellPairs (NonEmpty (sq t)) t, Pointed (AutomatonFromChoice 'ACNormal))
-        => CreatesBellPairs (AutomatonStepHistoryQuantum 'ACNormal (sq t)) t where
+        => CreatesBellPairs (AutomatonStepQuantum 'ACNormal (sq t)) t where
     tryCreateBellPairFrom = foldNonEmpty (<+>) . fmap point . tryCreateBellPairFrom
 
 instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) t, CreatesBellPairs (sq t) t)
-        => Quantum (AutomatonStepHistoryQuantum 'ACEmbedded (sq t)) t where
+        => Quantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
 
 instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t)
-        => Quantum (AutomatonStepHistoryQuantum 'ACNormal (sq t)) t where
+        => Quantum (AutomatonStepQuantum 'ACNormal (sq t)) t where
 
 instance (ChoiceSemigroup (sq t), Quantum (sq t) t) 
-        => OrderedLayeredQuantum (AutomatonStepHistoryQuantum 'ACEmbedded (sq t)) t where
-    newtype Layer (AutomatonStepHistoryQuantum 'ACEmbedded (sq t)) = OneStep (sq t)
+        => OrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
+    newtype Layer (AutomatonStepQuantum 'ACEmbedded (sq t)) = OneStep (sq t)
     orderedTryCreateBellPairFrom = OneStep . tryCreateBellPairFrom
     liftLayer (OneStep s) = point s
 
 instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) t, OrderedSemigroup (sq t)) 
-        => OrderedQuantum (AutomatonStepHistoryQuantum 'ACEmbedded (sq t)) t where
+        => OrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
 
 instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t) 
-        => OrderedQuantum (AutomatonStepHistoryQuantum 'ACNormal (sq t)) t where
+        => OrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) t where
 
-instance (Semigroup (sq t)) => OrderedSemigroup (Layer (AutomatonStepHistoryQuantum 'ACEmbedded (sq t))) where
+instance (Semigroup (sq t)) => OrderedSemigroup (Layer (AutomatonStepQuantum 'ACEmbedded (sq t))) where
    (OneStep s) <.> (OneStep s') = OneStep (s <> s')
 
 instance (Ord tag, Pointed (AutomatonFromChoice ac), Tests (sq tag) test tag)
-        => Tests (AutomatonStepHistoryQuantum ac (sq tag)) test tag where
+        => Tests (AutomatonStepQuantum ac (sq tag)) test tag where
     test = point . test
 
 instance (Ord t, Ord (sq t), Tests (sq t) test t, ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t) 
-        => TestsOrderedQuantum (AutomatonStepHistoryQuantum 'ACNormal (sq t)) test t where
+        => TestsOrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) test t where
 
 instance (Ord tag, ChoiceSemigroup (sq tag), TestsQuantum (sq tag) test tag)
-        => TestsOrderedLayeredQuantum (AutomatonStepHistoryQuantum 'ACEmbedded (sq tag)) test tag where
+        => TestsOrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test tag where
     orderedTest = OneStep . test
 
 instance (Ord tag, ChoiceSemigroup (sq tag), OrderedSemigroup (sq tag), TestsQuantum (sq tag) test tag)
-        => TestsOrderedQuantum (AutomatonStepHistoryQuantum 'ACEmbedded (sq tag)) test tag where
+        => TestsOrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test tag where
 
 executeE :: (Ord b, Show b)
     => (a -> b -> Set b)
-    -> AutomatonStepHistoryQuantum 'ACEmbedded a
+    -> AutomatonStepQuantum 'ACEmbedded a
     -> b -> Set b
 executeE executeStep ahq = fromJust . executeWithE def executeStep ahq
 
 executeWithE :: (Ord b, Show b)
     => ExecutionParams b
     -> (a -> b -> Set b)
-    -> AutomatonStepHistoryQuantum 'ACEmbedded a
+    -> AutomatonStepQuantum 'ACEmbedded a
     -> b -> Maybe (Set b)
-executeWithE params executeStep (AutomatonStepHistoryQuantum nfa) = AE.execute params executeStep nfa
+executeWithE params executeStep (AutomatonStepQuantum nfa) = AE.execute params executeStep nfa
 
 executeWith :: (Ord b, Show b)
     => ExecutionParams b
     -> (a -> b -> Set b)
-    -> AutomatonStepHistoryQuantum 'ACNormal a
+    -> AutomatonStepQuantum 'ACNormal a
     -> b -> Maybe (Set b)
-executeWith params executeStep (AutomatonStepHistoryQuantum nfa) = AE.executeHyper params executeStep nfa
+executeWith params executeStep (AutomatonStepQuantum nfa) = AE.executeHyper params executeStep nfa
 
 execute :: (Ord b, Show b)
     => (a -> b -> Set b)
-    -> AutomatonStepHistoryQuantum 'ACNormal a
+    -> AutomatonStepQuantum 'ACNormal a
     -> b -> Set b
 execute executeStep ahq = fromJust . executeWith def executeStep ahq

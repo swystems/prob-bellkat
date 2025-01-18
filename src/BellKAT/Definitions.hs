@@ -30,8 +30,8 @@ import           BellKAT.PolicyEmbeddings
 import qualified BellKAT.Implementations.HistoryQuantum        as HQ
 import qualified BellKAT.Implementations.InterleavingOneStepHistoryQuantum as IOSHQ
 import qualified BellKAT.Implementations.StepHistoryQuantum    as SHQ
-import qualified BellKAT.Implementations.AutomataStepHistoryQuantum    as ASHQ
-import qualified BellKAT.Implementations.AtomicOneStepHistoryQuantum  as AOSHQ
+import qualified BellKAT.Implementations.AutomataStepQuantum    as ASQ
+import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
 -- | = Deterministic (no explicit choice operator) one round policies
@@ -74,23 +74,23 @@ applyFullOrderedPolicyAuto
     :: (Ord tag, Show tag, Default tag, Test test) 
     => SeqWithTests FullPolicy test tag -> History tag -> Set (History tag)
 applyFullOrderedPolicyAuto = 
-    ASHQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
+    ASQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
 -- * Policies with iteration, i.e., based on `OrderedStarPolicy`
 
 -- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy 
-    :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy = 
-    ASHQ.execute AOSHQ.execute . meaning 
+    ASQ.execute AOSQ.execute . meaning 
         . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
 applyStarOrderedPolicy
     :: (Ord tag, Show tag, Default tag, Test test) 
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicy = 
-    ASHQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning 
+    ASQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning 
     . handleOrderingError . orderedAsSequence 
   where
     handleOrderingError :: Maybe a -> a
@@ -103,18 +103,18 @@ applyStarPolicyH
     :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarPolicyH = 
-    ASHQ.executeE IOSHQ.execute . meaning 
+    ASQ.executeE IOSHQ.execute . meaning 
     . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
-    :: (Ord tag, Show tag, Default tag, Tests (AOSHQ.AtomicOneStepPolicy tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
     => (TaggedBellPairs tag -> Bool)
     -> WithTests OrderedStarPolicy test tag 
     -> TaggedBellPairs tag 
     -> Maybe (Set (TaggedBellPairs tag))
 applyStarPolicyWithValidity isValid = 
-    ASHQ.executeWith (def { ASHQ.isValidState = isValid }) AOSHQ.execute 
+    ASQ.executeWith (def { ASQ.isValidState = isValid }) AOSQ.execute 
     . meaning  . mapDesugarActions simpleActionMeaning
 
 -- | Similar to `applyStarPolicy` but errors if too many network state are observed in a given state
@@ -124,7 +124,7 @@ applyStarOrderedPolicyBounded
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
-    . ASHQ.executeWithE (def { ASHQ.maxOptionsPerState = Just 100}) IOSHQ.execute
+    . ASQ.executeWithE (def { ASQ.maxOptionsPerState = Just 100}) IOSHQ.execute
     . meaning . mapDesugarActions simpleActionMeaning . handleOrderingError . orderedAsSequence 
   where
     handleExecutionError :: Maybe a -> a

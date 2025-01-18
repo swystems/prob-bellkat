@@ -19,9 +19,9 @@ import           Data.Default
  
 
 import           BellKAT.Definitions.Structures
-import           BellKAT.Implementations.Automata
-import qualified BellKAT.Implementations.AutomataExecution as AE
-import           BellKAT.Implementations.AutomataExecution (ExecutionParams)
+import           BellKAT.Utils.Automata
+import qualified BellKAT.Utils.Automata.Execution as AE
+import           BellKAT.Utils.Automata.Execution (ExecutionParams)
 import           BellKAT.Utils.NonEmpty
 
 -- | `AutomatonChoice` defines how non-deterministic transitions are handled by the automaton

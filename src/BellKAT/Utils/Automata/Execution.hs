@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE StrictData #-}
-module BellKAT.Implementations.AutomataExecution
+module BellKAT.Utils.Automata.Execution
     ( execute
     , executeHyper
     , evalExecution
@@ -22,7 +22,7 @@ import           Control.Monad.State.Strict
 import           Control.Monad.Reader
 import           Control.Monad.Except
 
-import BellKAT.Implementations.Automata
+import BellKAT.Utils.Automata.NFA
 
 execute :: (Ord s, Show s)
     => ExecutionParams s

@@ -53,18 +53,18 @@ library:
     - BellKAT.Implementations.TimelyHistoryQuantum
     - BellKAT.Implementations.StepHistoryQuantum
     - BellKAT.Implementations.HistoryQuantum
-    - BellKAT.Implementations.Automata
-    - BellKAT.Implementations.Automata.NFA
-    - BellKAT.Implementations.Automata.EpsNFA
-    - BellKAT.Implementations.Automata.Eps
-    - BellKAT.Implementations.Automata.Transitions
-    - BellKAT.Implementations.AutomataExecution
     - BellKAT.Implementations.AutomataStepHistoryQuantum
     - BellKAT.Implementations.AtomicOneStepHistoryQuantum
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.NonEmpty
     - BellKAT.Utils.Choice
     - BellKAT.Utils.PartialNDEndo
+    - BellKAT.Utils.Automata
+    - BellKAT.Utils.Automata.NFA
+    - BellKAT.Utils.Automata.EpsNFA
+    - BellKAT.Utils.Automata.Eps
+    - BellKAT.Utils.Automata.Transitions
+    - BellKAT.Utils.Automata.Execution
     - BellKAT.DSL
     - BellKAT.Test
     - BellKAT.Test.QuickCheck

@@ -1,5 +1,5 @@
 {-# LANGUAGE StrictData #-}
-module BellKAT.Implementations.Automata.EpsNFA 
+module BellKAT.Utils.Automata.EpsNFA 
     ( EpsNFA (..)
     , Eps (..)
     ) where
@@ -8,8 +8,8 @@ import           Data.Pointed
 import           Data.These
 
 import BellKAT.Definitions.Structures.Basic
-import BellKAT.Implementations.Automata.Transitions
-import BellKAT.Implementations.Automata.Eps
+import BellKAT.Utils.Automata.Transitions
+import BellKAT.Utils.Automata.Eps
 
 data EpsNFA a = ENFA
     { enfaInitial    :: Int

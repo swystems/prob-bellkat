@@ -1,4 +1,4 @@
-module BellKAT.Implementations.Automata.Eps 
+module BellKAT.Utils.Automata.Eps 
     ( Eps(..)
     , showEpsTransition
     ) where
@@ -6,7 +6,7 @@ module BellKAT.Implementations.Automata.Eps
 import           Data.These
 
 import BellKAT.Definitions.Structures.Basic
-import BellKAT.Implementations.Automata.Transitions
+import BellKAT.Utils.Automata.Transitions
 
 data Eps = Eps deriving stock (Show, Eq)
 

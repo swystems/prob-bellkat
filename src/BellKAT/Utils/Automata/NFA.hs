@@ -1,6 +1,6 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TupleSections #-}
-module BellKAT.Implementations.Automata.NFA
+module BellKAT.Utils.Automata.NFA
     ( MagicNFA(..)
     , HyperMagicNFA(..)
     , restrictStates
@@ -19,8 +19,8 @@ import           Data.Foldable (toList)
 import           Data.These
 import           Data.These.Combinators       (isThat, justThere)
 
-import           BellKAT.Implementations.Automata.Transitions
-import           BellKAT.Implementations.Automata.EpsNFA
+import           BellKAT.Utils.Automata.Transitions
+import           BellKAT.Utils.Automata.EpsNFA
 import           BellKAT.Definitions.Structures.Basic
 
 data MagicNFA a = MNFA

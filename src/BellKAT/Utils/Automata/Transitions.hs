@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module BellKAT.Implementations.Automata.Transitions 
+module BellKAT.Utils.Automata.Transitions 
     ( 
     -- * Basic definitions for states of transition systems
       State

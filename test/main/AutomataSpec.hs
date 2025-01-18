@@ -6,9 +6,9 @@ import           Data.Pointed
 import           Data.These
 import           Data.These.Combinators
 
-import BellKAT.Implementations.Automata.Transitions
-import BellKAT.Implementations.Automata.EpsNFA 
-import BellKAT.Implementations.Automata.NFA 
+import BellKAT.Utils.Automata.Transitions
+import BellKAT.Utils.Automata.EpsNFA 
+import BellKAT.Utils.Automata.NFA 
 import BellKAT.Definitions.Structures.Basic
 
 import Test.Hspec 

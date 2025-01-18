@@ -19,7 +19,7 @@ import           Data.Foldable (toList)
 import           Data.These
 import           Data.These.Combinators       (isThat, justThere)
 
-import           BellKAT.Implementations.Automata.Internal
+import           BellKAT.Implementations.Automata.Transitions
 import           BellKAT.Implementations.Automata.EpsNFA
 import           BellKAT.Definitions.Structures.Basic
 
@@ -28,6 +28,10 @@ data MagicNFA a = MNFA
     , mnfaTransition :: TransitionSystem a
     , mnfaFinal      :: States
     } deriving stock (Eq)
+
+instance HasStates (MagicNFA a) where
+    states = states . mnfaTransition
+    numStates = numStates . mnfaTransition
 
 instance CanRestrictStates (MagicNFA a) where
     restrictStates s x = MNFA
@@ -49,7 +53,7 @@ showStateId :: MagicNFA a -> Int -> String
 showStateId x s =
     (if s == mnfaInitial x then "^" else "")
     <> show s
-    <> (if isFinal s (mnfaFinal x) then "$" else "")
+    <> (if statesMember s (mnfaFinal x) then "$" else "")
 
 mnfaTransitionToEnfa :: TransitionSystem a -> TransitionSystem (These Eps a)
 mnfaTransitionToEnfa = fmap That
@@ -58,11 +62,11 @@ enfaToMnfa :: ChoiceSemigroup a => EpsNFA a -> MagicNFA a
 enfaToMnfa (ENFA i t f) =
     let eps = computeClosure . (() <$) . filterTS (not . isThat) $ t
         nonEps = mapMaybeTS justThere t
-        newT = fromStates (\k -> computeClosureTransition nonEps (states $ eps ! k)) $ states t
+        newT = tsFromStates (\k -> computeClosureTransition nonEps (states $ eps ! k)) $ states t
      in MNFA
             i
             newT
-            (filterStates ((/= mempty) . intersection f . states . (eps !)) . states $ t)
+            (filterStates ((/= mempty) . statesIntersection f . states . (eps !)) . states $ t)
 
 mnfaToEnfa :: MagicNFA a -> EpsNFA a
 mnfaToEnfa (MNFA i t f) = ENFA i (mnfaTransitionToEnfa t) f
@@ -87,12 +91,12 @@ instance (ChoiceSemigroup a) => MonoidStar (MagicNFA a) where
         let ni = i + 1
             nf = shiftUp 1 f
             nt = mnfaTransitionToEnfa (shiftUp 1 t)
-                    <> singletonTS 0 (This Eps) ni
+                    <> singletonTs 0 (This Eps) ni
                     <> sendStatesInto (This Eps) 0 nf
          in ENFA 0 nt (singletonState 0)
 
 instance Pointed MagicNFA where
-    point x = MNFA 0 (singletonTS 0 x 1) (singletonState 1)
+    point x = MNFA 0 (singletonTs 0 x 1) (singletonState 1)
 
 newtype HyperAction a = HyperAction (Set a)
     deriving newtype (Foldable, Pointed)

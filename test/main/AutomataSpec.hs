@@ -6,7 +6,7 @@ import           Data.Pointed
 import           Data.These
 import           Data.These.Combinators
 
-import BellKAT.Implementations.Automata.Internal -- TODO: should not require internal
+import BellKAT.Implementations.Automata.Transitions
 import BellKAT.Implementations.Automata.EpsNFA 
 import BellKAT.Implementations.Automata.NFA 
 import BellKAT.Definitions.Structures.Basic

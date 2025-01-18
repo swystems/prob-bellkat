@@ -8,7 +8,8 @@ import           Data.Pointed
 import           Data.These
 
 import BellKAT.Definitions.Structures.Basic
-import BellKAT.Implementations.Automata.Internal
+import BellKAT.Implementations.Automata.Transitions
+import BellKAT.Implementations.Automata.Eps
 
 data EpsNFA a = ENFA
     { enfaInitial    :: Int
@@ -23,14 +24,9 @@ instance Show a => Show (EpsNFA a) where
         showState (s, sTr) = 
             (if s == enfaInitial x then "^" else "") 
             <> show s 
-            <> (if isFinal s (enfaFinal x) then "$" else "")
+            <> (if statesMember s (enfaFinal x) then "$" else "")
             <> ":\n"
             <> showTransitionsWith showEpsTransition sTr
-
-showEpsTransition :: Show a => (Int, These Eps a) -> String
-showEpsTransition (j, This Eps) = "-()-> " <> show j
-showEpsTransition (j, These Eps act) = "-( eps | " <> show act <> " )-> " <> show j
-showEpsTransition (j, That x) = showTransition (j, x)
 
 instance (ChoiceSemigroup a) => Semigroup (EpsNFA a) where
     (ENFA aI aT aF) <> (ENFA bI bT bF) =
@@ -51,8 +47,8 @@ instance ChoiceSemigroup a => ChoiceSemigroup (EpsNFA a) where
             nbI = bI + 1 + numStates aT
             nbT = shiftUp (1 + numStates aT) bT
             nbF = shiftUp (1 + numStates aT) bF
-            nabT = singletonTS 0 (This Eps) naI <> singletonTS 0 (This Eps) nbI
+            nabT = tsFromList [(0, [(This Eps, naI), (This Eps, nbI)])]
          in ENFA 0 (naT <> nbT <> nabT) (naF <> nbF)
 
 instance Pointed EpsNFA where
-    point x = ENFA 0 (singletonTS 0 (That x) 1) (singletonState 1)
+    point x = ENFA 0 (singletonTs 0 (That x) 1) (singletonState 1)

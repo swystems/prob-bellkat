@@ -64,7 +64,10 @@ library:
     - BellKAT.Utils.Automata.EpsNFA
     - BellKAT.Utils.Automata.Eps
     - BellKAT.Utils.Automata.Transitions
+    - BellKAT.Utils.Automata.Transitions.Guarded
     - BellKAT.Utils.Automata.Execution
+    - BellKAT.Utils.Automata.Guarded
+    - BellKAT.Utils.Automata.GuardedEps
     - BellKAT.DSL
     - BellKAT.Test
     - BellKAT.Test.QuickCheck

@@ -4,7 +4,11 @@ module BellKAT.Definitions.Structures.Basic
     , OrderedSemigroup(..)
     , MonoidStar(..)
     , Guarded(..)
+    , module Data.Boolean
+    , DecidableBoolean(..)
     ) where
+
+import Data.Boolean
 
 -- parallel composition is left-associative and has lower precedence than `<>`
 infixl 5 <||>
@@ -29,3 +33,6 @@ class (ChoiceSemigroup a, Monoid a) => MonoidStar a where
 
 class Guarded t a | a -> t where
     ite :: t -> a -> a -> a
+
+class Boolean a => DecidableBoolean a where
+    isFalse :: a -> Bool

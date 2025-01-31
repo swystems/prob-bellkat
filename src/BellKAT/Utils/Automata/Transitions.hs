@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 {-# LANGUAGE TupleSections #-}
 module BellKAT.Utils.Automata.Transitions 
     ( 
@@ -23,15 +24,13 @@ module BellKAT.Utils.Automata.Transitions
     , showTransition
     , showTransitionsWith
     -- * Transition systems
+    , LikeTransitionSystem(..)
     , TransitionSystem
     , singletonTs
     , tsFromList
     , tsFromStates
-    , loopStates
     , filterTS
     , mapMaybeTS
-    , toTransitionsList
-    , (!)
     , sendStatesInto
     , computeClosure
     , computeClosureTransition
@@ -41,6 +40,7 @@ module BellKAT.Utils.Automata.Transitions
     , productStates
     ) where
 
+import           Data.Kind
 import           Data.Tuple                   (swap)
 import           Data.Bifunctor               (second)
 
@@ -104,14 +104,9 @@ singletonTransitions a i = T $ IM.singleton i a
 transitionsFromList :: [(a, Int)] -> Transitions a
 transitionsFromList = T . IM.fromList . map swap
 
-loopStates :: States -> TransitionSystem ()
-loopStates = TS . IM.fromSet (singletonTransitions ())
-
 transitionsToList :: Transitions a -> [(a, Int)]
 transitionsToList = map swap . IM.toList . unT
 
-(!) :: TransitionSystem a -> Int -> Transitions a 
-(TS ts) ! k = ts IM.! k 
 
 filterTransitions :: (a -> Bool) -> Transitions a -> Transitions a
 filterTransitions f = T . IM.filter f . unT
@@ -148,6 +143,13 @@ instance ChoiceSemigroup a => Monoid (Transitions a) where
 newtype TransitionSystem a = 
     TS { unTS :: IntMap (Transitions a) } deriving newtype Eq
 
+class LikeTransitionSystem t where
+    type TSTransitions t :: Type -> Type
+    toTransitionsList :: t a -> [(Int, TSTransitions t a)]
+    fromTransitions :: Int -> TSTransitions t a -> t a
+    loopStates :: States -> t ()
+    (!) :: t a -> Int -> TSTransitions t a
+
 singletonTs :: Int -> a -> Int -> TransitionSystem a
 singletonTs i a j = TS $ 
     IM.singleton i (singletonTransitions a j) 
@@ -165,8 +167,13 @@ filterTS f = TS . IM.map (filterTransitions f) . unTS
 mapMaybeTS :: (a -> Maybe b) -> TransitionSystem a -> TransitionSystem b
 mapMaybeTS f = TS . IM.map (mapMaybeTransitions f) . unTS
 
-toTransitionsList :: TransitionSystem a -> [(Int, Transitions a)]
-toTransitionsList = IM.toList . unTS
+instance LikeTransitionSystem TransitionSystem where
+    type TSTransitions TransitionSystem = Transitions
+    fromTransitions i ts = TS $
+        IM.singleton i ts <> IM.fromSet (const emptyTransitions) (states ts)
+    toTransitionsList = IM.toList . unTS
+    loopStates = TS . IM.fromSet (singletonTransitions ())
+    (TS ts) ! k = ts IM.! k 
 
 sendStatesInto :: a -> Int -> States -> TransitionSystem a
 sendStatesInto a i = TS . IM.fromSet (const $ singletonTransitions a i)

@@ -30,11 +30,13 @@ import qualified AtomicSpec
 import qualified ProbPaperSpec
 import qualified PaperSpec
 import qualified AutomataSpec
+import qualified GuardedAutomataSpec
 
 main :: IO ()
 main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Definitions.Atomic" AtomicSpec.spec
-    describe "BellKAT.Implementation.Automata" AutomataSpec.spec
+    describe "BellKAT.Utils.Automata" AutomataSpec.spec
+    describe "BellKAT.Utils.Automata.Guarded" GuardedAutomataSpec.spec
     describe "Paper Tests" PaperSpec.spec
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "distill" $ do

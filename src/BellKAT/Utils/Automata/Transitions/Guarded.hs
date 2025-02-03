@@ -21,6 +21,7 @@ module BellKAT.Utils.Automata.Transitions.Guarded
     , GuardedTransitionSystem
     , singletonGts
     , singletonDoneGts
+    , gtsFromList
     , loopStates
     ) where
 
@@ -187,3 +188,6 @@ instance DecidableBoolean t => CanProductWithStates (GuardedTransitionSystem t) 
         ]
 instance NextContainer (GuardedTransitionSystem t) where
     filterNext f = GTS . IM.map (filterNext f) . unGTS
+
+gtsFromList :: DecidableBoolean t => [(State, [(t, Next a)])] -> GuardedTransitionSystem t a
+gtsFromList = GTS . IM.fromList . map (second gTransitionsFromList)

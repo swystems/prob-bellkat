@@ -3,22 +3,24 @@ module BellKAT.Utils.Automata.GuardedEps
     ( GuardedEpsFA (..)
     ) where
 
+import Data.Pointed
+
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Utils.Automata.Transitions
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Utils.Automata.Eps
 
 data GuardedEpsFA t a = GEFA
-    { gfaInitial :: Int
-    , gfaTransition :: GuardedTransitionSystem t (Either Eps a)
-    }
+    { gefaInitial :: Int
+    , gefaTransition :: GuardedTransitionSystem t (Either Eps a)
+    } deriving stock (Eq)
 
 instance (Show a, Show t, Boolean t) => Show (GuardedEpsFA t a) where
     show x = unlines $
-        map showState $ toTransitionsList (gfaTransition x)
+        map showState $ toTransitionsList (gefaTransition x)
       where
         showState (s, sTr) = 
-            (if s == gfaInitial x then "^" else "") 
+            (if s == gefaInitial x then "^" else "") 
             <> show s 
             <> ": "
             <> showGuardedTransitionsWith showGuardedEpsTransition sTr
@@ -47,3 +49,8 @@ instance DecidableBoolean t => Guarded t (GuardedEpsFA t a) where
         nabT = singletonGts 0 t (Left Eps) naI
             <> singletonGts 0 (notB t) (Left Eps) nbI
        in GEFA 0 (naT <> nbT <> nabT)
+
+instance DecidableBoolean t => Pointed (GuardedEpsFA t) where
+    point x = GEFA 0 (gtsFromList 
+        [ (0, [(true, Step (Right x) 1)])
+        , (1, [(true, Done)])])

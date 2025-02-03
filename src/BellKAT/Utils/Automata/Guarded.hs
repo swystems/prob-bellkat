@@ -16,12 +16,25 @@ import           BellKAT.Utils.Automata.GuardedEps
 data GuardedFA t a = GFA
     { gfaInitial :: Int
     , gfaTransition :: GuardedTransitionSystem t a
-    }
+    } deriving stock (Eq)
+
+instance (Show a, Show t, Boolean t) => Show (GuardedFA t a) where
+    show x = unlines $
+        map showState $ toTransitionsList (gfaTransition x)
+      where
+        showState (s, sTr) = 
+            (if s == gfaInitial x then "^" else "") 
+            <> show s 
+            <> ": "
+            <> showGuardedTransitionsWith showGuardedTransition sTr
 
 instance DecidableBoolean t => Pointed (GuardedFA t) where
     point x = GFA 
         0 
         (singletonGts 0 true x 1 <> singletonDoneGts true 1)
+
+instance DecidableBoolean t => Guarded t (GuardedFA t a) where
+    ite t x y = gefaToGfa $ ite t (gfaToGefa x) (gfaToGefa y)
 
 computeGuardedClosures
     :: DecidableBoolean t

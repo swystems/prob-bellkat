@@ -95,13 +95,6 @@ bPre = GFA 0
         , (1, [(true, Done)])
         ])
 
-bPreBad :: GuardedFA Test5 TestAction
-bPreBad = GFA 0 
-    (gtsFromList 
-        [ (0,[(notB test5A, Step "b" 1)])
-        , (1, [(true, Done)])
-        ])
-
 aPostBPre :: GuardedFA Test5 TestAction
 aPostBPre = GFA 0 
     (gtsFromList 
@@ -120,5 +113,4 @@ spec = do
     describe "GuardedFA"$ do 
         it "Correctly combines with <> with tests" $
             (aPost <> bPre) `shouldBe` aPostBPre
-        it "Correctly combines with <> incompatible tests" $
 

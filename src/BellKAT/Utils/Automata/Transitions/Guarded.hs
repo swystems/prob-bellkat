@@ -26,6 +26,7 @@ module BellKAT.Utils.Automata.Transitions.Guarded
     ) where
 
 import           Data.Bifunctor
+import           Data.Maybe
 
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
@@ -71,9 +72,25 @@ instance HasNext Next where
 -- | Must guarantee disjointness of options
 newtype GuardedTransitions t a = 
     GTr { gTransitionsToList :: [(t, Next a)] } deriving newtype (Monoid, Eq) -- TODO Eq needs canonicity
+instance HasStates1 (GuardedTransitions t) where
+    states1 = states
+    numStates1 = numStates
+
 instance HasStates (GuardedTransitions t a) where
     states = mconcat . map (states . snd) . gTransitionsToList
     numStates = IS.size . states
+
+instance CanRestrictStates (GuardedTransitions t a) where
+    restrictStates s = GTr . filter (helper . snd) . gTransitionsToList
+        where 
+            helper Done = True
+            helper (Step _ k) = k `statesMember` s
+
+instance LikeTransitions (GuardedTransitions t) where
+    toTransitionsList = mapMaybe (helper . snd) . gTransitionsToList
+      where 
+        helper Done = Nothing
+        helper (Step a i) = Just (a, i)
 
 instance CanMapStates (GuardedTransitions t a) where
     mapStates f = GTr . fmap (second $ mapStates f) . gTransitionsToList
@@ -144,9 +161,16 @@ checkDisjoint (x:xs)
 newtype GuardedTransitionSystem t a = 
     GTS { unGTS :: IntMap (GuardedTransitions t a) } deriving newtype Eq
     
+instance HasStates1 (GuardedTransitionSystem t) where
+    states1 = states
+    numStates1 = numStates
+
 instance HasStates (GuardedTransitionSystem t a) where
     states = IM.keysSet . unGTS
     numStates = IM.size . unGTS
+
+instance CanRestrictStates (GuardedTransitionSystem t a) where
+    restrictStates s = GTS . IM.map (restrictStates s) . (`IM.restrictKeys` s) . unGTS
 
 instance CanMapStates (GuardedTransitionSystem t a) where
     mapStates f = GTS . IM.mapKeys f . IM.map (mapStates f)  . unGTS
@@ -161,7 +185,7 @@ singletonDoneGts t i = GTS $ IM.singleton i (gTransitionsSingleton t Done)
 
 instance Boolean t => LikeTransitionSystem (GuardedTransitionSystem t) where
     type TSTransitions (GuardedTransitionSystem t) = GuardedTransitions t
-    toTransitionsList = IM.toList . unGTS
+    toListOfTransitions = IM.toList . unGTS
     fromTransitions i ts = GTS $
         IM.singleton i ts <> IM.fromSet (const gTransitionsEmpty) (states ts)
     loopStates  = GTS . IM.fromSet (gTransitionsSingleton true . Step ())

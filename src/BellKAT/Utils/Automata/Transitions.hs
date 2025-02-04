@@ -6,6 +6,7 @@ module BellKAT.Utils.Automata.Transitions
       State
     , States
     , HasStates(..)
+    , HasStates1(..)
     , CanMapStates(..)
     , CanRestrictStates(..)
     , filterStates
@@ -15,6 +16,7 @@ module BellKAT.Utils.Automata.Transitions
     , statesMember
     -- * Transitions
     , Transitions
+    , LikeTransitions(..)
     , emptyTransitions
     , singletonTransitions
     , transitionsToList
@@ -38,6 +40,9 @@ module BellKAT.Utils.Automata.Transitions
     , shiftUp
     , CanProductWithStates(..)
     , productStates
+    -- * Automaton Class
+    , LikeAutomaton(..)
+    , removeUnreachable
     ) where
 
 import           Data.Kind
@@ -74,6 +79,10 @@ class HasStates a where
     states :: a -> States
     numStates :: a -> Int
 
+class HasStates1 t where
+    states1 :: t a -> States
+    numStates1 :: t a -> Int
+
 instance HasStates States where
     states = id
     numStates = IS.size
@@ -94,6 +103,12 @@ instance CanRestrictStates States where
 
 newtype Transitions a = 
     T { unT :: IntMap a } deriving newtype (Eq, Functor)
+
+class LikeTransitions t where
+    toTransitionsList :: t a -> [(a, State)]
+
+instance LikeTransitions Transitions where
+    toTransitionsList = map swap . IM.toList . unT
 
 emptyTransitions :: Transitions a
 emptyTransitions = T mempty
@@ -143,9 +158,9 @@ instance ChoiceSemigroup a => Monoid (Transitions a) where
 newtype TransitionSystem a = 
     TS { unTS :: IntMap (Transitions a) } deriving newtype Eq
 
-class LikeTransitionSystem t where
+class (HasStates1 t, Functor t, LikeTransitions (TSTransitions t)) => LikeTransitionSystem t where
     type TSTransitions t :: Type -> Type
-    toTransitionsList :: t a -> [(Int, TSTransitions t a)]
+    toListOfTransitions :: t a -> [(Int, TSTransitions t a)]
     fromTransitions :: Int -> TSTransitions t a -> t a
     loopStates :: States -> t ()
     (!) :: t a -> Int -> TSTransitions t a
@@ -171,7 +186,7 @@ instance LikeTransitionSystem TransitionSystem where
     type TSTransitions TransitionSystem = Transitions
     fromTransitions i ts = TS $
         IM.singleton i ts <> IM.fromSet (const emptyTransitions) (states ts)
-    toTransitionsList = IM.toList . unTS
+    toListOfTransitions = IM.toList . unTS
     loopStates = TS . IM.fromSet (singletonTransitions ())
     (TS ts) ! k = ts IM.! k 
 
@@ -183,12 +198,12 @@ computeClosure ts =
     let g = tsToGraph ts
      in TS $ IM.fromSet (transitionsFromList . map ((),) . reachable g) $ IM.keysSet $ unTS ts
 
-tsToGraph :: TransitionSystem () -> Graph
-tsToGraph (TS ts) =
-    buildG (IS.findMin . IM.keysSet $ ts, IS.findMax . IM.keysSet $ ts)
+tsToGraph :: LikeTransitionSystem t => t a -> Graph
+tsToGraph ts =
+    buildG (IS.findMin . states1 $ ts, IS.findMax . states1 $ ts)
         [ (i, j)
-        | (i, trI) <- IM.toList ts
-        , (_, j) <- transitionsToList trI
+        | (i, trI) <- toListOfTransitions ts
+        , (_, j) <- toTransitionsList trI
         ]
 
 computeClosureTransition
@@ -201,7 +216,7 @@ instance Functor TransitionSystem where
     fmap f = TS . IM.map (fmap f) . unTS
 
 instance Show a => Show (TransitionSystem a) where
-    show x = unlines $ map showState $ toTransitionsList x
+    show x = unlines $ map showState $ toListOfTransitions x
       where
         showState (s, sTr) = 
             show s 
@@ -210,6 +225,10 @@ instance Show a => Show (TransitionSystem a) where
 
 instance CanRestrictStates (TransitionSystem a) where
    restrictStates s (TS tr) = TS $ fmap (restrictStates s) $ tr `IM.restrictKeys` s
+
+instance HasStates1 TransitionSystem where
+    states1 = states
+    numStates1 = numStates
 
 instance HasStates (TransitionSystem a) where
     states = IM.keysSet . unTS
@@ -246,3 +265,22 @@ instance CanProductWithStates TransitionSystem where
 
 productStates :: CanProductWithStates t => (Int -> Int -> Int) -> t () -> t () -> t ()
 productStates = productWithStates (\() () -> ())
+
+class LikeTransitionSystem (AutomatonTS t) => LikeAutomaton t where
+    type AutomatonAction t a :: Type
+    type AutomatonTS t :: Type -> Type
+    initialState :: t a -> State
+    transitionSystem :: t a -> AutomatonTS t (AutomatonAction t a)
+
+findReachable :: LikeTransitionSystem t 
+              => State -> t a -> States
+findReachable sInit ts = IS.fromList $ reachable (tsToGraph ts) sInit
+
+removeUnreachable :: (CanMapStates (t a), CanRestrictStates (t a), LikeAutomaton t) 
+                  => t a -> t a
+removeUnreachable fa = 
+    let newStates = findReachable (initialState fa) (transitionSystem fa)
+        oldToNew = IS.foldl 
+            (\m k -> if k `IS.member` newStates then IM.insert k (IM.size m) m else m) 
+            mempty (states fa)
+     in mapStatesMonotonic (oldToNew IM.!) $ restrictStates newStates fa

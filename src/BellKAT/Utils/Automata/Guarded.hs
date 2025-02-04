@@ -20,13 +20,33 @@ data GuardedFA t a = GFA
 
 instance (Show a, Show t, Boolean t) => Show (GuardedFA t a) where
     show x = unlines $
-        map showState $ toTransitionsList (gfaTransition x)
+        map showState $ toListOfTransitions (gfaTransition x)
       where
         showState (s, sTr) = 
             (if s == gfaInitial x then "^" else "") 
             <> show s 
             <> ": "
             <> showGuardedTransitionsWith showGuardedTransition sTr
+
+instance HasStates (GuardedFA t a) where
+  states = states . gfaTransition
+  numStates = numStates . gfaTransition
+
+instance CanMapStates (GuardedFA t a) where
+    mapStates f (GFA i t) = GFA (f i) (mapStates f t)
+    mapStatesMonotonic f (GFA i t) = GFA (f i) (mapStatesMonotonic f t)
+
+instance CanRestrictStates (GuardedFA t a) where
+  restrictStates s (GFA i t) = 
+      if not (i `statesMember` s)
+         then error "Cannot restricted outside initial state"
+         else GFA i (restrictStates s t)
+
+instance Boolean t => LikeAutomaton (GuardedFA t) where
+  type AutomatonAction (GuardedFA t) a = a
+  type AutomatonTS (GuardedFA t) = GuardedTransitionSystem t
+  initialState = gfaInitial
+  transitionSystem = gfaTransition
 
 instance DecidableBoolean t => Pointed (GuardedFA t) where
     point x = GFA 
@@ -73,13 +93,13 @@ epsTransitionToGraph :: Boolean t => GuardedTransitionSystem t (Either Eps a) ->
 epsTransitionToGraph tr = 
     buildG (IS.findMin . states $ tr, IS.findMax . states $ tr) 
         [ (i, j) 
-        | (i, trI) <- toTransitionsList tr
+        | (i, trI) <- toListOfTransitions tr
         , (_, Step (Left Eps) j) <- gTransitionsToList trI
         ]
 
 gefaToGfa :: DecidableBoolean t => GuardedEpsFA t a -> GuardedFA t a
 gefaToGfa (GEFA i t) =
-    GFA i (computeGuardedClosures t)
+    removeUnreachable $ GFA i (computeGuardedClosures t)
 
 gfaToGefa :: GuardedFA t a -> GuardedEpsFA t a
 gfaToGefa (GFA i t) = GEFA i (fmap Right t)

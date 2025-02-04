@@ -15,9 +15,29 @@ data GuardedEpsFA t a = GEFA
     , gefaTransition :: GuardedTransitionSystem t (Either Eps a)
     } deriving stock (Eq)
 
+instance HasStates (GuardedEpsFA t a) where
+  states = states . gefaTransition
+  numStates = numStates . gefaTransition
+
+instance CanMapStates (GuardedEpsFA t a) where
+    mapStates f (GEFA i t) = GEFA (f i) (mapStates f t)
+    mapStatesMonotonic f (GEFA i t) = GEFA (f i) (mapStatesMonotonic f t)
+
+instance CanRestrictStates (GuardedEpsFA t a) where
+  restrictStates s (GEFA i t) = 
+      if not (i `statesMember` s)
+         then error "Cannot restricted outside initial state"
+         else GEFA i (restrictStates s t)
+
+instance Boolean t => LikeAutomaton (GuardedEpsFA t) where
+    type AutomatonAction (GuardedEpsFA t) a = Either Eps a
+    type AutomatonTS (GuardedEpsFA t) = GuardedTransitionSystem t
+    initialState = gefaInitial
+    transitionSystem = gefaTransition
+
 instance (Show a, Show t, Boolean t) => Show (GuardedEpsFA t a) where
     show x = unlines $
-        map showState $ toTransitionsList (gefaTransition x)
+        map showState $ toListOfTransitions (gefaTransition x)
       where
         showState (s, sTr) = 
             (if s == gefaInitial x then "^" else "") 
@@ -37,7 +57,7 @@ instance DecidableBoolean t => Semigroup (GuardedEpsFA t a) where
             naT = setDoneToStep (Left Eps) nbI aT
             nbT = shiftUp (numStates aT) bT
             nT = naT <> nbT
-         in GEFA aI nT
+         in removeUnreachable $ GEFA aI nT
 
 instance DecidableBoolean t => Guarded t (GuardedEpsFA t a) where
   ite t (GEFA aI aT) (GEFA bI bT) = 

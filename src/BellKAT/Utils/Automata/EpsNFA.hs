@@ -17,9 +17,15 @@ data EpsNFA a = ENFA
     , enfaFinal      :: States
     } deriving stock Eq
 
+instance LikeAutomaton EpsNFA where
+    type AutomatonAction EpsNFA a = These Eps a
+    type AutomatonTS EpsNFA = TransitionSystem
+    initialState = enfaInitial
+    transitionSystem = enfaTransition
+
 instance Show a => Show (EpsNFA a) where
     show x = unlines $
-        map showState $ toTransitionsList (enfaTransition x)
+        map showState $ toListOfTransitions (enfaTransition x)
       where
         showState (s, sTr) = 
             (if s == enfaInitial x then "^" else "") 

@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module BellKAT.Definitions.Tests 
     (
     FreeTest(..),
@@ -7,14 +8,23 @@ module BellKAT.Definitions.Tests
     createRestrictedTest,
     (.&&.),
     (.+.),
+    BoundedTest,
+    boundedTestSingleton,
+    rangeGreater,
+    rangeNotGreater,
     ) where
 
+import           Data.Maybe
 import qualified Data.Multiset              as Mset
 import           Data.Foldable              (toList)
 import           Data.List                  (sort)
 import           Data.Functor.Classes
 import           Data.Default
+import           Data.Map                   (Map)
+import qualified Data.Map                   as Map
+import           Data.Containers.ListUtils
 
+import BellKAT.Definitions.Structures.Basic
 import BellKAT.Definitions.Core
 
 data FreeTest t
@@ -79,3 +89,58 @@ instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
 
 instance Test RestrictedTest where
     toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
+
+type Range = (Int, Maybe Int)
+type Bounds tag = Map (TaggedBellPair tag) Range
+
+rangeGreater :: Int -> Range
+rangeGreater k = (k + 1, Nothing)
+
+rangeNotGreater :: Int -> Range
+rangeNotGreater k = (0, Just (k + 1))
+
+newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq, Show)
+
+boundedTestSingleton :: TaggedBellPair tag -> Range -> BoundedTest tag
+boundedTestSingleton bps r = BoundedTest [Map.singleton bps r]
+
+andRange :: Range -> Range -> Range
+andRange (la, ua) (lb, ub) =
+    let uab = case (ua, ub) of
+                (Nothing, x) -> x
+                (x, Nothing) -> x
+                (Just x, Just y) -> Just (min x y)
+     in (max la lb, uab) 
+
+isRangeEmpty :: Range -> Bool
+isRangeEmpty (_, Nothing) = False
+isRangeEmpty (l, Just u) = u <= l
+
+andBounds :: Ord tag => Bounds tag -> Bounds tag -> Maybe (Bounds tag)
+andBounds x y = 
+    let newBounds = Map.unionWith andRange x y
+     in if any isRangeEmpty newBounds
+           then Nothing
+           else Just newBounds
+
+notRange :: Range -> [Range]
+notRange (0, Nothing) = error "TRIVIAL RANGE"
+notRange (lu, Nothing) = [(0, Just lu)]
+notRange (0, Just lu) = [(lu, Nothing)]
+notRange (k, Just lu) = [(0, Just k), (lu, Nothing)]
+
+notBounds :: Bounds tag -> [Bounds tag]
+notBounds = concatMap (\(k, r) -> map (Map.singleton k) $ notRange r) . Map.toList
+
+instance Ord tag => Boolean (BoundedTest tag) where
+    true = BoundedTest [mempty]
+    false = BoundedTest []
+    notB (BoundedTest []) = BoundedTest [mempty] 
+    notB (BoundedTest xs) = BoundedTest $ concatMap notBounds xs
+    (BoundedTest xs) ||* (BoundedTest ys) = 
+        BoundedTest $ nubOrd (xs <> ys)
+    (BoundedTest xs) &&* (BoundedTest ys) = 
+        BoundedTest $ nubOrd $ catMaybes $ andBounds <$> xs <*> ys
+
+instance Ord tag => DecidableBoolean (BoundedTest tag) where
+    isFalse = (== false)

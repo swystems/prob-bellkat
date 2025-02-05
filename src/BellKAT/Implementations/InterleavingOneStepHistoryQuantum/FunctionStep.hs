@@ -11,6 +11,7 @@ import           Data.Functor.Classes
 import qualified Data.Multiset                as Mset
 
 import           BellKAT.Definitions.Core
+import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Choice
 import           BellKAT.Utils.PartialNDEndo

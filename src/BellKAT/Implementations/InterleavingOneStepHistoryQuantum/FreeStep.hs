@@ -6,6 +6,7 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FreeStep
 import           Data.Functor.Classes
 
 import           BellKAT.Definitions.Core
+import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Structures
 
 data FreeStep test tag = FSCreate (CreateBellPairArgs tag) | FSTest (test tag)

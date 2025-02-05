@@ -41,6 +41,7 @@ library:
     - BellKAT.PolicyEmbeddings
     - BellKAT.ActionEmbeddings
     - BellKAT.Definitions.Core
+    - BellKAT.Definitions.Tests
     - BellKAT.Definitions.Atomic
     - BellKAT.Definitions.Structures
     - BellKAT.Definitions.Structures.Basic

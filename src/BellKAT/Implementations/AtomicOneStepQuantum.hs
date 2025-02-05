@@ -13,6 +13,7 @@ import           Data.Default
 import qualified Data.Multiset              as Mset
 
 import BellKAT.Definitions.Core
+import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Atomic
 import BellKAT.Definitions.Structures
 import BellKAT.Utils.Choice

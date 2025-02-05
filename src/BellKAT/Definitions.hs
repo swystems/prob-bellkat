@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 module BellKAT.Definitions
     ( module BellKAT.Definitions.Core
+    , module BellKAT.Definitions.Tests
     , module BellKAT.Definitions.Structures
     , module BellKAT.Definitions.Policy
     , applyPolicy
@@ -23,6 +24,7 @@ import           Data.Default
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Definitions.Core
+import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Policy.Extra
 import           BellKAT.ActionEmbeddings 

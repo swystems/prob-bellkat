@@ -9,6 +9,7 @@ import           Data.Default
 import           Data.List.NonEmpty         (NonEmpty (..))
 
 import           BellKAT.Definitions.Core
+import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 
 distill :: DSLFunctions p => (Location, Location) -> p

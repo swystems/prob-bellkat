@@ -15,7 +15,9 @@ import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Set                     (Set)
 import qualified Data.Set                     as Set
 import           Data.Functor.Classes
+
 import           BellKAT.Definitions.Core
+import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Choice
 import           BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FunctionStep

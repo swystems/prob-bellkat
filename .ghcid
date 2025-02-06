@@ -1,1 +1,1 @@
---test=":run Spec.main" 
+--test=":run Spec.main --fail-fast --skip LONG" 

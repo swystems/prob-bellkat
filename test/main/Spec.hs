@@ -39,8 +39,8 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Definitions.Atomic" AtomicSpec.spec
     describe "BellKAT.Utils.Automata" AutomataSpec.spec
     describe "BellKAT.Utils.Automata.Guarded" GuardedAutomataSpec.spec
-    describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "Paper Tests" PaperSpec.spec
+    describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "distill" $ do
         it "should drop sometimes" $
             applyPolicy @Tag (distill ("A", "B")) [node ("A" :~: "B"), node ("A" :~: "B")]
@@ -96,17 +96,18 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
         it "should take two if able" $
             chooseTreesND [["A":~:"A"], ["A":~:"A"]] [Node ("A" :~: "A") [], Node ("A" :~: "A") []]
                 `shouldBe` [[Just [Node ("A" :~: "A") []], Just [Node ("A" :~: "A") []]]]
-    describe "parallel" $ do
+    describe "BellKAT.Prelude" PreludeSpec.spec
+    describe "parallel [LONG]" $ do
         prop "should be commutative" $ mapSize (const 1) parallelCompositionIsCommutative
         prop "should be associative" $ mapSize (const 1) parallelCompositionIsAssociative
-    describe "sequential" $ do
+    describe "sequential [LONG]" $ do
         prop "should be associative" sequentialCompositionIsAssociative
-    describe "parallel (timely)" $ do
+    describe "parallel (timely) [LONG]" $ do
         prop "should be commutative" $ mapSize (const 1) timelyParallelCompositionIsCommutative
         prop "should be associative" $ mapSize (const 1) timelyParallelCompositionIsAssociative
-    describe "sequential (timely)" $ do
+    describe "sequential (timely) [LONG]" $ do
         prop "should be associative" timelySequentialCompositionIsAssociative
-    describe "sequential (steps)" $ do
+    describe "sequential (steps) [LONG]" $ do
         prop "should be associative" stepsSequentialCompositionIsAssociative
     describe "parallel (steps)" $ do
         prop "should be commutative" $ mapSize (const 1) stepsParallelCompositionIsCommutative
@@ -120,7 +121,6 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "findTreeRootsND" $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)
-    describe "BellKAT.Prelude" PreludeSpec.spec
 
 hasBellPair :: BellPair -> UTree (TaggedBellPair a) -> Bool
 hasBellPair bp = (== bp) . bellPair . rootLabel

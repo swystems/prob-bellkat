@@ -83,7 +83,7 @@ spec = do
                 , Node ("E" ~ "D") [Node ("E" ~ "E") []]
                 ]
             ]]
-    describe "P3" $ do
+    describe "P3 [LONG]" $ do
         it "always returns A~E" $
             arePoliciesEquivalent [[]] p3 (p3 <> test ("A" ~~? "E")) `shouldBe` True
         it "not always creates A~C" $

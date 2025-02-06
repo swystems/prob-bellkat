@@ -13,14 +13,13 @@ module BellKAT.Utils.Automata.NFA
     ) where
 
 import           Data.Pointed
-import qualified Data.Set                     as Set
-import           Data.Set                     (Set)
 import           Data.Foldable (toList)
 import           Data.These
 import           Data.These.Combinators       (isThat, justThere)
 
 import           BellKAT.Utils.Automata.Transitions
 import           BellKAT.Utils.Automata.EpsNFA
+import           BellKAT.Utils.Automata.HyperAction
 import           BellKAT.Definitions.Structures.Basic
 
 data MagicNFA a = MNFA
@@ -98,22 +97,8 @@ instance (ChoiceSemigroup a) => MonoidStar (MagicNFA a) where
 instance Pointed MagicNFA where
     point x = MNFA 0 (singletonTs 0 x 1) (singletonState 1)
 
-newtype HyperAction a = HyperAction (Set a)
-    deriving newtype (Foldable, Pointed)
-
-instance Ord a => ChoiceSemigroup (HyperAction a) where
-    (HyperAction a) <+> (HyperAction b) = HyperAction (a <> b)
-
-instance (Ord a, OrderedSemigroup a) => OrderedSemigroup (HyperAction a) where
-    (HyperAction xs) <.> (HyperAction ys) = HyperAction $
-        Set.fromList [x <.> y | x <- toList xs, y <- toList ys ]
-
 newtype HyperMagicNFA a = HyperMagicNFA (MagicNFA (HyperAction a))
     deriving newtype (ParallelSemigroup, Monoid, ChoiceSemigroup, OrderedSemigroup, MonoidStar)
-
-instance (Ord a, ParallelSemigroup a) => ParallelSemigroup (HyperAction a) where
-    (HyperAction xs) <||> (HyperAction ys) = HyperAction $
-        Set.fromList [x <||> y | x <- toList xs, y <- toList ys ]
 
 instance Pointed HyperMagicNFA where
     point = HyperMagicNFA . point . point

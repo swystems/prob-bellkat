@@ -68,6 +68,7 @@ library:
     - BellKAT.Utils.Automata.Transitions.Guarded
     - BellKAT.Utils.Automata.Execution
     - BellKAT.Utils.Automata.Guarded
+    - BellKAT.Utils.Automata.HyperAction
     - BellKAT.Utils.Automata.GuardedEps
     - BellKAT.DSL
     - BellKAT.Test

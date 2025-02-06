@@ -12,7 +12,10 @@
 -- for ease of writing and checking policies.
 --
 module BellKAT.Prelude (
+    BellKATTag,
     BellKATPolicy,
+    ProbBellKATTest,
+    ProbBellKATAction,
     ProbBellKATPolicy,
     drawHistoriesSVG,
     drawHistoriesText,
@@ -39,7 +42,10 @@ import BellKAT.Test
 type BellKATTag = (Maybe ())
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
 
-type ProbBellKATPolicy = OrderedGuardedPolicy (FreeTest BellKATTag) (TaggedAction BellKATTag)
+type ProbBellKATTest = BoundedTest BellKATTag
+type ProbBellKATAction = TaggedAction BellKATTag
+
+type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
 
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

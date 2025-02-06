@@ -45,6 +45,9 @@ instance DSLTest (BellPairsPredicate (Maybe t)) where
 instance Ord t => DSLTestNeq (FreeTest (Maybe t)) where
     l /~? l' = FTNot $ FTSubset [TaggedBellPair (l :~: l') Nothing]
 
+instance DSLTestNeq (BoundedTest (Maybe t)) where
+    l /~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeGreater 0)
+
 instance Ord t => DSLTest (FreeTest (Maybe t)) where
     l ~~? l' = FTSubset [TaggedBellPair (l :~: l') Nothing]
 

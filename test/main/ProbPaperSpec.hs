@@ -5,11 +5,20 @@ module ProbPaperSpec where
 import Test.Hspec
 
 import BellKAT.Prelude 
+import BellKAT.ActionEmbeddings
+import BellKAT.PolicyEmbeddings 
+import BellKAT.Utils.Automata.Guarded
+import BellKAT.Utils.Automata.Transitions.Guarded
+import BellKAT.Implementations.GuardedAutomataStepQuantum
+import BellKAT.Implementations.ProbAtomicOneStepQuantum
 
 -- | = Example 4.2
 
 e42 :: ProbBellKATPolicy
 e42 = ite ("C" /~? "C") (create "C") (trans "C" ("A", "C")) <> trans "C" ("A", "C")
+
+e42FA :: GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
+e42FA = GFA 0 (gtsFromList [])
 
 f42 :: ProbBellKATPolicy
 f42 = create "C" <> ite ("C" /~? "C") (create "C") (trans "C" ("B", "C"))
@@ -58,5 +67,7 @@ p51iii' = p51iii <> p51iii
 
 spec :: Spec
 spec = do
-    pure ()
+    describe "GuardedAutomatonStepQuantum" $ do
+        it "correctly represents example 4.2 (e)" $
+            getGFA (meaning . mapDesugarActions simpleActionMeaning $ e42) `shouldBe` e42FA
 

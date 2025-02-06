@@ -89,6 +89,7 @@ data OrderedGuardedPolicy t a
     | OGPParallel (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPOrdered (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPIfThenElse t (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    deriving stock (Functor)
 
 instance Semigroup (Policy a) where
     (<>) = APSequence

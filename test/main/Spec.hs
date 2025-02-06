@@ -39,8 +39,8 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Definitions.Atomic" AtomicSpec.spec
     describe "BellKAT.Utils.Automata" AutomataSpec.spec
     describe "BellKAT.Utils.Automata.Guarded" GuardedAutomataSpec.spec
-    describe "Paper Tests" PaperSpec.spec
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
+    describe "Paper Tests" PaperSpec.spec
     describe "distill" $ do
         it "should drop sometimes" $
             applyPolicy @Tag (distill ("A", "B")) [node ("A" :~: "B"), node ("A" :~: "B")]

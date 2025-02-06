@@ -75,3 +75,11 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test tag)
     meaning (OSPStar p) = star (meaning p)
     meaning (OSPParallel p q) = meaning p <||> meaning q
     meaning (OSPChoice p q) = meaning p <+> meaning q
+
+instance (OrderedSemigroup a, Semigroup a, ParallelSemigroup a, Guarded test a, Quantum a tag) 
+  => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs tag)) a where
+    meaning (OGPAtomic ta) = meaning ta
+    meaning (OGPOrdered p q) = meaning p <.> meaning q
+    meaning (OGPSequence p q) = meaning p <> meaning q
+    meaning (OGPParallel p q) = meaning p <||> meaning q
+    meaning (OGPIfThenElse t p q) = ite t (meaning p) (meaning q)

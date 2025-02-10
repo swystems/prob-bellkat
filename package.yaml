@@ -58,6 +58,7 @@ library:
     - BellKAT.Implementations.GuardedAutomataStepQuantum
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Utils.UnorderedTree
+    - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty
     - BellKAT.Utils.Choice
     - BellKAT.Utils.PartialNDEndo

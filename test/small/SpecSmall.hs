@@ -6,8 +6,8 @@ module SpecSmall where
 import Test.SmallCheck
 import Test.SmallCheck.Series
 import           BellKAT.Definitions
-import           Data.Multiset   (Multiset)
-import qualified Data.Multiset   as Mset
+import           BellKAT.Utils.Multiset   (Multiset)
+import qualified BellKAT.Utils.Multiset   as Mset
 import qualified Data.Set   as Set
 import           Data.String (fromString)
 
@@ -36,7 +36,7 @@ instance Serial m t => Serial m (TaggedAction t) where
     series = TaggedAction <$> series <*> series <*> series <*> pure mempty
 
 instance (Monad m) => Serial m (History ())  where
-    series = History . Mset.fromList . map (`Node` Mset.empty) . concat <$> (replicate <$> series <*> series)
+    series = History . Mset.fromList . map (`Node` mempty) . concat <$> (replicate <$> series <*> series)
 
 (~*~) :: Simple OneRoundPolicy () -> Simple OneRoundPolicy () -> History () -> Bool
 p ~*~ q = \h -> applyOneStepPolicyPartial p h == applyOneStepPolicyPartial q h

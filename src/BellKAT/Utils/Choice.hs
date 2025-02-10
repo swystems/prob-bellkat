@@ -12,14 +12,14 @@ import           Data.Foldable              (toList)
 import           Data.Functor.Contravariant (Predicate (..))
 import           Data.List                  (elemIndex, partition, permutations)
 import           Data.Maybe                 (fromJust)
-import           Data.Multiset   (Multiset)
-import qualified Data.Multiset              as Mset
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.Vector.Fixed          (VecList, Arity)
 import qualified Data.Vector.Fixed          as FV
 
 import           BellKAT.Utils.UnorderedTree
+import           BellKAT.Utils.Multiset   (Multiset)
+import qualified BellKAT.Utils.Multiset   as Mset
 
 -- | Part that we have chosen and part that we have left out
 data Partial a = Partial { chosen :: a, rest :: a }

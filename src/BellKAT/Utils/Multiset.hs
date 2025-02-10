@@ -1,0 +1,45 @@
+module BellKAT.Utils.Multiset 
+    ( Multiset
+    , fromList
+    , isSubsetOf
+    , singleton
+    , map
+    , filter
+    , difference
+    ) where
+
+import           Prelude                    hiding (map, filter)
+import           Data.List                  (foldl')
+import           Data.Foldable              (toList)
+import qualified Data.Multiset              as MsetOrig
+import qualified GHC.Exts (IsList, Item, fromList, toList)
+
+newtype Multiset a = MS { unMS :: MsetOrig.Multiset a } 
+    deriving newtype (Eq, Ord, Foldable, Semigroup, Monoid)
+
+instance Ord a => GHC.Exts.IsList (Multiset a) where
+    type Item (Multiset a) = a
+    fromList = MS . GHC.Exts.fromList 
+    toList (MS xs) = GHC.Exts.toList xs
+
+instance Show a => Show (Multiset a) where
+    showsPrec _ (MS a) = 
+        showString "{{" . (\s -> foldl' (flip shows) s (toList a)) . showString "}}"
+
+isSubsetOf :: Ord a => Multiset a -> Multiset a -> Bool
+isSubsetOf (MS x) (MS y) = x `MsetOrig.isSubsetOf` y
+
+fromList :: Ord a => [a] -> Multiset a
+fromList = MS . MsetOrig.fromList
+
+singleton :: a -> Multiset a
+singleton = MS . MsetOrig.singleton
+
+map :: (Ord a, Ord b) => (a -> b) -> Multiset a -> Multiset b
+map f = MS . MsetOrig.map f . unMS
+
+filter :: Ord a => (a -> Bool) -> Multiset a -> Multiset a
+filter f = MS . MsetOrig.filter f . unMS
+
+difference :: Ord a => Multiset a -> Multiset a -> Multiset a
+difference (MS x) (MS y) = MS $ MsetOrig.difference x y

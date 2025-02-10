@@ -3,11 +3,13 @@
 {-# LANGUAGE StrictData         #-}
 module BellKAT.Utils.UnorderedTree where
 
-import           Data.Multiset   (Multiset)
-import qualified Data.Multiset   as Mset
+import           Data.Foldable   (toList)
 import           Data.Tree       (Forest, Tree)
 import qualified Data.Tree       as OrdTree
 import           Test.QuickCheck
+
+import BellKAT.Utils.Multiset (Multiset)
+import qualified BellKAT.Utils.Multiset as Mset
 
 data UTree a = Node { rootLabel :: a, subForest :: Multiset (UTree a) }
     deriving stock (Eq, Ord)
@@ -21,17 +23,17 @@ fromTree :: (Ord a) => Tree a -> UTree a
 fromTree (OrdTree.Node x xs) = Node x $ Mset.fromList (map fromTree xs)
 
 toTree :: UTree a -> Tree a
-toTree (Node x xs) = OrdTree.Node x (map toTree $ Mset.elems xs)
+toTree (Node x xs) = OrdTree.Node x (map toTree $ toList xs)
 
 toForest :: UForest a -> Forest a
-toForest = map toTree . Mset.elems
+toForest = map toTree . toList
 
 hasRoot :: (Eq a) => a -> UTree a -> Bool
 hasRoot p = (== p) . rootLabel
 
 instance (Arbitrary a, Ord a) => Arbitrary (Multiset a) where
     arbitrary = Mset.fromList <$> arbitrary
-    shrink = fmap Mset.fromList . shrink . Mset.elems
+    shrink = fmap Mset.fromList . shrink . toList
 
 instance (Arbitrary a, Ord a) => Arbitrary (UTree a) where
     arbitrary = fromTree <$> arbitrary

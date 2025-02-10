@@ -32,7 +32,6 @@ import           Data.Functor.Contravariant (Predicate (..))
 import           Data.Functor.Classes
 import           Data.List                  (sort)
 import           Data.Monoid                (Endo (..))
-import qualified Data.Multiset              as Mset
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.String                (IsString)
@@ -42,9 +41,10 @@ import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 import           Data.Vector.Fixed          (Arity, VecList)
 import qualified Data.Vector.Fixed          as FV
 import           Test.QuickCheck            hiding (choose, (.&&.))
-import           Data.Multiset              (Multiset)
 
 import           BellKAT.Utils.Choice
+import           BellKAT.Utils.Multiset     (Multiset)
+import qualified BellKAT.Utils.Multiset     as Mset
 import           BellKAT.Utils.UnorderedTree
 --
 -- * Type definitions

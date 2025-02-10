@@ -3,9 +3,9 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ) where
 
 import Data.List (nub)
-import qualified Data.Multiset              as Mset
 import qualified Numeric.Probability.Distribution as P
 
+import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic

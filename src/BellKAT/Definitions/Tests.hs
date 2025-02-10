@@ -15,15 +15,15 @@ module BellKAT.Definitions.Tests
     ) where
 
 import           Data.Maybe
-import qualified Data.Multiset              as Mset
 import           Data.Foldable              (toList)
-import           Data.List                  (sort)
+import           Data.List                  (sort, intercalate)
 import           Data.Functor.Classes
 import           Data.Default
 import           Data.Map                   (Map)
 import qualified Data.Map                   as Map
 import           Data.Containers.ListUtils
 
+import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Definitions.Core
 
@@ -99,7 +99,25 @@ rangeGreater k = (k + 1, Nothing)
 rangeNotGreater :: Int -> Range
 rangeNotGreater k = (0, Just (k + 1))
 
-newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq, Show)
+newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
+
+instance (Show tag, Default tag, Eq tag) => Show (BoundedTest tag) where
+    show (BoundedTest xs) = intercalate "∨" $ map showBounds xs
+
+showBounds ::(Show tag, Default tag, Eq tag) => Bounds tag -> String
+showBounds = intercalate "∧" . map showBound . Map.toList
+
+showBound :: (Show tag, Default tag, Eq tag) => (TaggedBellPair tag, Range) -> String
+showBound (bp, (lb, ub)) = 
+    let lbs = case lb of 
+                0 -> Nothing
+                1 -> Just $ show bp
+                n -> Just $ show n <> "×" <> show bp
+        ubs = case ub of 
+                Nothing -> Nothing
+                Just 1 -> Just $ "¬" <> show bp
+                Just n -> Just $ "¬" <> show n <> "×" <> show bp
+     in intercalate "∧" $ catMaybes [lbs, ubs]
 
 boundedTestSingleton :: TaggedBellPair tag -> Range -> BoundedTest tag
 boundedTestSingleton bps r = BoundedTest [Map.singleton bps r]

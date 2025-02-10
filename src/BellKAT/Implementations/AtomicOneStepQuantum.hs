@@ -10,8 +10,8 @@ import           Data.Foldable              (toList)
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.Default
-import qualified Data.Multiset              as Mset
 
+import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Atomic

@@ -18,7 +18,13 @@ e42 :: ProbBellKATPolicy
 e42 = ite ("C" /~? "C") (create "C") (trans "C" ("A", "C")) <> trans "C" ("A", "C")
 
 e42FA :: GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
-e42FA = GFA 0 (gtsFromList [])
+e42FA = GFA 0 $ gtsFromList 
+    [(0, [("C" /~? "C", Step (tryCreateBellPairFrom . simpleActionMeaning $ create "C") 1)
+         ,("C" ~~? "C", Step (tryCreateBellPairFrom . simpleActionMeaning $ trans "C" ("A", "C")) 2)])
+    ,(1, [(true, Step (tryCreateBellPairFrom . simpleActionMeaning $ trans "C" ("A", "C")) 3)])
+    ,(2, [(true, Step (tryCreateBellPairFrom . simpleActionMeaning $ trans "C" ("A", "C")) 3)])
+    ,(3, [(true, Done)])
+    ]
 
 f42 :: ProbBellKATPolicy
 f42 = create "C" <> ite ("C" /~? "C") (create "C") (trans "C" ("B", "C"))

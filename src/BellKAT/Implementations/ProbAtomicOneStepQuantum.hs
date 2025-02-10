@@ -27,7 +27,7 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
             [ createProbabilitsticAtomicAction 
                 (createRestrictedTest mempty) 
                 (Mset.fromList i) 
-                (P.choose p (Mset.singleton o) mempty)
+                (if p == 1 then pure (Mset.singleton o) else P.choose p (Mset.singleton o) mempty)
             , createProbabilitsticAtomicAction 
                 (createRestrictedTest  [Mset.fromList i]) 
                 mempty 

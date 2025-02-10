@@ -45,8 +45,11 @@ instance DSLTest (BellPairsPredicate (Maybe t)) where
 instance Ord t => DSLTestNeq (FreeTest (Maybe t)) where
     l /~? l' = FTNot $ FTSubset [TaggedBellPair (l :~: l') Nothing]
 
+instance DSLTest (BoundedTest (Maybe t)) where
+    l ~~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeGreater 0)
+
 instance DSLTestNeq (BoundedTest (Maybe t)) where
-    l /~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeGreater 0)
+    l /~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeNotGreater 0)
 
 instance Ord t => DSLTest (FreeTest (Maybe t)) where
     l ~~? l' = FTSubset [TaggedBellPair (l :~: l') Nothing]
@@ -55,35 +58,39 @@ class DSLFunctions p where
     defaultTagged :: Action -> p
     (.%) :: p -> DupKind -> p
 
-instance DSLFunctions (Simple Policy (Maybe tag)) where
-    defaultTagged a = APAtomic $ TaggedAction def a Nothing mempty
+instance DSLFunctions (TaggedAction (Maybe tag)) where
+    defaultTagged a = TaggedAction def a def mempty
+    (TaggedAction p a t _) .% dk = TaggedAction p a t dk
 
-    APAtomic (TaggedAction p a t _) .% dk = APAtomic $ TaggedAction p a t dk
-    _ .% _                                = error "cannot attach dup to this thing"
+instance DSLFunctions (Simple Policy (Maybe tag)) where
+    defaultTagged = APAtomic . defaultTagged
+
+    APAtomic ta .% dk = APAtomic $ ta .% dk
+    _ .% _ = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests Policy test (Maybe tag)) where
-    defaultTagged a = APAtomic [ AAction (TaggedAction def a Nothing mempty) ]
+    defaultTagged = APAtomic . pure . AAction . defaultTagged
 
-    APAtomic (AAction (TaggedAction p a t _) :| []) .% dk = APAtomic [ AAction (TaggedAction p a t dk) ]
-    _ .% _                                = error "cannot attach dup to this thing"
+    APAtomic (AAction ta :| []) .% dk = APAtomic [ AAction $ ta .% dk ]
+    _ .% _ = error "cannot attach dup to this thing"
 
 instance DSLFunctions (Simple OrderedStarPolicy (Maybe tag)) where
-    defaultTagged a = OSPAtomic $ TaggedAction def a Nothing mempty
-    _ .% _                                = error "cannot attach dup to this thing"
+    defaultTagged = OSPAtomic . defaultTagged 
+    _ .% _ = error "cannot attach dup to this thing"
 
 instance DSLFunctions (WithTests OrderedStarPolicy test (Maybe tag)) where
-    defaultTagged a = OSPAtomic $ AAction $ TaggedAction def a Nothing mempty
-    _ .% _                                = error "cannot attach dup to this thing"
+    defaultTagged = OSPAtomic . AAction . defaultTagged
+    _ .% _ = error "cannot attach dup to this thing"
 
 instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
-    defaultTagged a = FPAtomic [ AAction (TaggedAction def a Nothing mempty) ]
+    defaultTagged = FPAtomic . pure .  AAction . defaultTagged
 
-    FPAtomic (AAction (TaggedAction p a t _) :| []) .% dk = FPAtomic [ AAction (TaggedAction p a t dk) ]
-    _ .% _                                = error "cannot attach dup to this thing"
+    FPAtomic (AAction ta :| []) .% dk = FPAtomic [ AAction $ ta .% dk ]
+    _ .% _ = error "cannot attach dup to this thing"
 
 instance DSLFunctions (Simple (OrderedGuardedPolicy test) (Maybe tag)) where
-    defaultTagged a = OGPAtomic $ TaggedAction def a Nothing mempty
-    _ .% _                                = error "cannot attach dup to this thing"
+    defaultTagged = OGPAtomic . defaultTagged
+    _ .% _ = error "cannot attach dup to this thing"
 
 infixl 7 <..>
 

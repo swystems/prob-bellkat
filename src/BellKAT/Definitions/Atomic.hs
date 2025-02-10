@@ -27,6 +27,7 @@ module BellKAT.Definitions.Atomic (
 
 import Data.Default
 import Data.Foldable (toList)
+import Data.List (intercalate)
 
 import qualified Numeric.Probability.Distribution as P
 
@@ -107,14 +108,13 @@ instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            ((<>) <$> outBps1 <*> outBps2)
+            (P.norm $ (<>) <$> outBps1 <*> outBps2)
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
-        showString "["
-            . shows t
-            . showString "] ("
-            . shows (toList inBPs)
+            shows t
+            . showString " "
+            . shows inBPs
             . showString "|>"
-            . showString (P.pretty show outBPs)
-            . showString ")"
+            . showString (intercalate "+" . map (\(bps, p) -> show bps <> "×(" <> show p <> ")" ) . P.decons $ outBPs)
+            . showString ""

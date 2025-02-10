@@ -22,6 +22,7 @@ import           Data.Default
 import           Data.Map                   (Map)
 import qualified Data.Map                   as Map
 import           Data.Containers.ListUtils
+import qualified GHC.Exts (IsList, Item, fromList, toList)
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Structures.Basic
@@ -60,6 +61,11 @@ instance Show (BellPairsPredicate t) where
 newtype RestrictedTest tag = RestrictedTest [TaggedBellPairs tag]
     deriving newtype (Eq, Ord)
 
+instance Ord tag => GHC.Exts.IsList (RestrictedTest tag) where
+    type Item (RestrictedTest tag) = TaggedBellPairs tag
+    fromList = createRestrictedTest
+    toList (RestrictedTest ts) = ts
+
 -- | Constructs `RestrictedTest` in a normalized (non-redundant) form
 createRestrictedTest :: Ord tag => [TaggedBellPairs tag] -> RestrictedTest tag
 createRestrictedTest = RestrictedTest . sort . restrictedTestNormalize
@@ -73,10 +79,10 @@ restrictedTestNormalize (x : xs) =
 
 instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
     showsPrec _ (RestrictedTest []) = showString "TRUE"
-    showsPrec _ (RestrictedTest (x : xs)) = shows (toList x) . showsRest xs
+    showsPrec _ (RestrictedTest (x : xs)) = shows x . showsRest xs
       where
         showsRest [] = id
-        showsRest (y : ys) = showString " /\\ " . shows (toList y) . showsRest ys
+        showsRest (y : ys) = showString " ∧ " . shows y . showsRest ys
 
 -- | Performs multiset union of each set in a `RestrictedTest` with the given `TaggedBellPairs`
 (.+.) :: (Ord tag) => RestrictedTest tag -> TaggedBellPairs tag -> RestrictedTest tag

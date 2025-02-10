@@ -4,6 +4,7 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
 
 import Data.List (nub)
 import qualified Numeric.Probability.Distribution as P
+import qualified GHC.Exts (IsList, Item, fromList, toList) 
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Core
@@ -13,6 +14,11 @@ import BellKAT.Definitions.Atomic
 -- TODO: what's the difference between this design and the one in AtomicOneStepPolicy?
 newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy [ProbabilisticAtomicAction tag]
     deriving newtype (Eq, Show)
+
+instance GHC.Exts.IsList (ProbAtomicOneStepPolicy tag) where
+    type Item (ProbAtomicOneStepPolicy tag) = ProbabilisticAtomicAction tag
+    fromList = ProbAtomicOneStepPolicy
+    toList (ProbAtomicOneStepPolicy xs) = xs
 
 instance Ord tag => OrderedSemigroup (ProbAtomicOneStepPolicy tag) where
     (ProbAtomicOneStepPolicy xs) <.> (ProbAtomicOneStepPolicy ys) = 

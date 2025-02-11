@@ -107,8 +107,11 @@ rangeNotGreater k = (0, Just (k + 1))
 
 newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
 
-instance (Show tag, Default tag, Eq tag) => Show (BoundedTest tag) where
-    show (BoundedTest xs) = intercalate "∨" $ map showBounds xs
+instance (Show tag, Ord tag, Default tag, Eq tag) => Show (BoundedTest tag) where
+    show (BoundedTest xs) 
+      | BoundedTest xs == true = "TRUE" 
+      | BoundedTest xs == false = "FALSE" 
+      | otherwise = intercalate "∨" $ map showBounds xs
 
 showBounds ::(Show tag, Default tag, Eq tag) => Bounds tag -> String
 showBounds = intercalate "∧" . map showBound . Map.toList

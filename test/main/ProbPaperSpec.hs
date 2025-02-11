@@ -23,6 +23,12 @@ type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellK
 e42 :: ProbBellKATPolicy
 e42 = ite ("C" /~? "C") (create "C") (trans "C" ("A", "C")) <> trans "C" ("A", "C")
 
+f42 :: ProbBellKATPolicy
+f42 = create "C" <> ite ("C" /~? "C") (create "C") (trans "C" ("B", "C"))
+
+ef42 :: ProbBellKATPolicy
+ef42 = e42 <||> f42
+
 e42FA :: BellKATAutomaton
 e42FA = GFA 0 $ gtsFromList 
     [(0, [("C" /~? "C", Step (fromBasicAction $ create "C") 1)
@@ -36,7 +42,7 @@ e42FAp :: BellKATAutomaton
 e42FAp = GFA 0 $ gtsFromList 
     [(0, [("C" /~? "C", Step 
             [createProbabilitsticAtomicAction [] [] (P.choose (2/3) ["C" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [[]] [] (P.certainly [])] 1)
+            ] 1)
          ,("C" ~~? "C", Step 
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (P.choose (4/5) ["A" ~ "C"] [])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (P.certainly [])
@@ -52,9 +58,6 @@ e42FAp = GFA 0 $ gtsFromList
     ,(3, [(true, Done)])
     ]
 
-f42 :: ProbBellKATPolicy
-f42 = create "C" <> ite ("C" /~? "C") (create "C") (trans "C" ("B", "C"))
-
 f42FA :: BellKATAutomaton
 f42FA = GFA 0 $ gtsFromList 
     [(0, [(true, Step (fromBasicAction $ create "C") 1)])
@@ -64,8 +67,73 @@ f42FA = GFA 0 $ gtsFromList
     ,(3, [(true, Done)])
     ]
 
-ef42 :: ProbBellKATPolicy
-ef42 = e42 <||> f42
+ef42FA :: BellKATAutomaton
+ef42FA = GFA 0 $ gtsFromList 
+    [(0,
+        [("C" /~? "C", Step 
+            [createProbabilitsticAtomicAction [] [] (pure ["C" ~ "C", "C" ~ "C"])] 1)
+        ,("C" ~~? "C", Step 
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["A" ~ "C", "C" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            ] 2)])
+    ,(1,
+        [("C" /~? "C", Step 
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["C" ~ "C", "A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            ] 3)
+        ,("C" ~~? "C", Step 
+            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (pure ["A" ~ "C", "B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            ] 4)
+        ])
+    ,(2,
+        [("C" /~? "C", Step 
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["C" ~ "C", "A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            ] 3)
+        ,("C" ~~? "C", Step 
+            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (pure ["A" ~ "C", "B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            ] 4)
+        ])
+    ,(3, [(true, Done)])
+    ,(4, [(true, Done)])
+    ]
+
+ef42FAp :: BellKATAutomaton
+ef42FAp = GFA 0 $ gtsFromList 
+    [(0,
+        [("C" /~? "C", Step [pCpC] 1)
+        ,("C" ~~? "C", Step [pApC,pSpC] 2)])
+    ,(1,
+        [("C" /~? "C", Step [pApC, pSpC] 3)
+        ,("C" ~~? "C", Step [pApB, pApS, pBpS, pSpS] 4)
+        ])
+    ,(2,
+        [("C" /~? "C", Step [pApC, pSpC] 3)
+        ,("C" ~~? "C", Step [pApB, pApS, pBpS, pSpS] 4)
+        ])
+    ,(3, [(true, Done)])
+    ,(4, [(true, Done)])
+    ]
+  where
+    pCpC = createProbabilitsticAtomicAction [] [] $ P.fromFreqs 
+        [(["C" ~ "C", "C" ~ "C"], 4/9),(["C" ~ "C"], 4/9), ([], 1/9)]
+    pApC = createProbabilitsticAtomicAction [] ["C" ~ "C"] $ P.fromFreqs 
+        [(["A" ~ "C", "C" ~ "C"], 8/15), (["C" ~ "C"], 2/15), (["A" ~ "C"], 4/15), ([], 1/15)]
+    pSpC = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ P.fromFreqs 
+        [(["C" ~ "C"], 2/3), ([], 1/3)]
+    pApB = createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] $ P.fromFreqs 
+        [(["A" ~ "C", "B" ~ "C"],4/10), (["A" ~ "C"], 4/10), (["B" ~ "C"], 1/10), ([],1/10) ]
+    pApS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] $ P.fromFreqs 
+        [(["A" ~ "C"], 4/5), ([], 1/5)]
+    pSpS = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ pure []
+    pBpS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] $ P.fromFreqs 
+        [(["B" ~ "C"], 1/2), ([], 1/2)]
 
 -- | = Example 5.1
 
@@ -109,24 +177,12 @@ p51iii' = p51iii <> p51iii
 
 -- | = Example 5.3 TODO: don't have star yet
 
-spec :: Spec
-spec = do
-    describe "GuardedAutomatonStepQuantum" $ do
-        it "correctly represents example 4.2 det (e)" $
-            asAutomaton e42 `shouldBe` e42FA
-        it "correctly represents example 4.2 det (f)" $
-            asAutomaton f42 `shouldBe` f42FA
-        it "correctly represents example 4.2 prob (e)" $
-            asAutomatonP e42 `shouldBe` e42FAp
-        it "correctly represents example 4.2 prob (e || f)" $
-            asAutomatonP ef42 `shouldBe` e42FAp
-
 fromBasicAction :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
 
 
 pac :: ProbabilisticActionConfiguration
-pac = PAC [(("C", "A"), 4 / 5)] [("C", 2 / 3)]
+pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)]
 
 probActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 probActionMeaning = probabilisticActionMeaning pac
@@ -139,3 +195,19 @@ asAutomaton x = getGFA (meaning . mapDesugarActions simpleActionMeaning $ x)
 
 asAutomatonP :: ProbBellKATPolicy -> BellKATAutomaton 
 asAutomatonP x = getGFA (meaning . mapDesugarActions probActionMeaning $ x)
+
+spec :: Spec
+spec = do
+    describe "GuardedAutomatonStepQuantum" $ do
+        it "correctly represents example 4.2 det (e)" $
+            asAutomaton e42 `shouldBe` e42FA
+        it "correctly represents example 4.2 det (f)" $
+            asAutomaton f42 `shouldBe` f42FA
+        it "correctly represents example 4.2 det (e || mempty)" $
+            (e42FA <||> mempty) `shouldBe` e42FA
+        it "correctly represents example 4.2 det (e || f)" $
+            (e42FA <||> f42FA) `shouldBe` ef42FA
+        it "correctly represents example 4.2 prob (e)" $
+            asAutomatonP e42 `shouldBe` e42FAp
+        it "correctly represents example 4.2 prob (e || f)" $
+            asAutomatonP ef42 `shouldBe` ef42FAp

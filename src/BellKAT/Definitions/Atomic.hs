@@ -84,6 +84,10 @@ instance (Ord tag) => Eq (ProbabilisticAtomicAction tag) where
     (ProbabilisticAtomicAction t i o) == (ProbabilisticAtomicAction t' i' o') =
         t == t' && i == i' && P.equal o o'
 
+instance Ord tag => Ord (ProbabilisticAtomicAction tag) where
+    (ProbabilisticAtomicAction t i o) <= (ProbabilisticAtomicAction t' i' o') = 
+        (t, i, P.decons $ P.norm o) <= (t', i', P.decons $ P.norm o') -- TODO: sort in a P's newtype
+
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
 createProbabilitsticAtomicAction ::
     Ord tag =>
@@ -116,5 +120,10 @@ instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAc
             . showString " "
             . shows inBPs
             . showString "|>"
-            . showString (intercalate "+" . map (\(bps, p) -> show bps <> "×(" <> show p <> ")" ) . P.decons $ outBPs)
+            . showString (intercalate "+" . map showProbBps . P.decons . P.norm $ outBPs)
             . showString ""
+      where
+        showProbBps (bps, p) 
+          | p /= 1 = show bps <> "×(" <> show p <> ")"
+          | otherwise = show bps
+

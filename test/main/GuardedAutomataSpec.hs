@@ -15,6 +15,7 @@ import           Data.Boolean
 import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.GuardedEps 
 import BellKAT.Utils.Automata.Eps
+import BellKAT.Utils.Automata.Transitions
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Definitions.Structures.Basic
 
@@ -24,6 +25,9 @@ newtype TestAction = TA String deriving newtype (IsString, Show, Eq, Semigroup)
 
 instance ChoiceSemigroup TestAction where
   (<+>) = (<>)
+
+instance ParallelSemigroup TestAction where
+  (TA x) <||> (TA y) = TA (x <> "|" <> y)
 
 newtype Test5 = T5 Word32 deriving newtype (Eq, Bits)
 
@@ -105,6 +109,13 @@ aPostBPre = GFA 0
 
 spec :: Spec
 spec = do
+    describe "Guarded Transitions" $ do
+        it "Correctly does productWithStates" $ do
+            let simpleTS = gtsFromList [(0, [(true, Step () 1)])]
+            let simpleTS' = gtsFromList [(0, [(true, Step () 2)])]
+            productWithStates (const id) (+) simpleTS simpleTS 
+                `shouldBe` 
+                (simpleTS' :: GuardedTransitionSystem Test5 ())
     describe "GuardedEpsFA" $ do
         it "Correctly combines with <> without tests" $ 
             (point "a" <> point "b") `shouldBe` ab
@@ -113,4 +124,9 @@ spec = do
     describe "GuardedFA"$ do 
         it "Correctly combines with <> with tests" $
             (aPost <> bPre) `shouldBe` aPostBPre
-
+        it "Correctly combines `mempty <||> mempty`" $ do
+            mempty <||> mempty `shouldBe` (mempty :: GuardedFA Test5 TestAction)
+        it "Correctly cmoputes `a <||> mempty`" $ do
+            point "a" <||> mempty `shouldBe` (point "a" :: GuardedFA Test5 TestAction)
+        it "Correctly computes `mempty <||> a`" $ do
+            mempty <||> point "a" `shouldBe` (point "a" :: GuardedFA Test5 TestAction)

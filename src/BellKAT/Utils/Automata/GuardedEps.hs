@@ -50,7 +50,7 @@ showGuardedEpsTransition (t, Step (Left Eps) j) = "[" <> show t <> "]" <> "-()->
 showGuardedEpsTransition (t, Step (Right act) a) = showGuardedTransition (t, Step act a)
 showGuardedEpsTransition (t, n) = showGuardedTransition (t, n)
 
-instance DecidableBoolean t => Semigroup (GuardedEpsFA t a) where
+instance (Show t, DecidableBoolean t) => Semigroup (GuardedEpsFA t a) where
     (GEFA aI aT) <> (GEFA bI bT) =
         let
             nbI = bI + numStates aT
@@ -59,7 +59,7 @@ instance DecidableBoolean t => Semigroup (GuardedEpsFA t a) where
             nT = naT <> nbT
          in removeUnreachable $ GEFA aI nT
 
-instance DecidableBoolean t => Guarded t (GuardedEpsFA t a) where
+instance (Show t, DecidableBoolean t) => Guarded t (GuardedEpsFA t a) where
   ite t (GEFA aI aT) (GEFA bI bT) = 
       let 
         naI = aI + 1
@@ -70,7 +70,7 @@ instance DecidableBoolean t => Guarded t (GuardedEpsFA t a) where
             <> singletonGts 0 (notB t) (Left Eps) nbI
        in GEFA 0 (naT <> nbT <> nabT)
 
-instance DecidableBoolean t => Pointed (GuardedEpsFA t) where
+instance (Show t, DecidableBoolean t) => Pointed (GuardedEpsFA t) where
     point x = GEFA 0 (gtsFromList 
         [ (0, [(true, Step (Right x) 1)])
         , (1, [(true, Done)])])

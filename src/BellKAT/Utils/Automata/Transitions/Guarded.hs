@@ -23,10 +23,12 @@ module BellKAT.Utils.Automata.Transitions.Guarded
     , singletonDoneGts
     , gtsFromList
     , loopStates
+    , loopDone
     ) where
 
 import           Data.Bifunctor
 import           Data.Maybe
+import           Data.List (intercalate)
 
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
@@ -49,6 +51,10 @@ isStep _ = False
 
 class HasNext t where
     setDoneToStep :: a -> State -> t a -> t a
+    setStepToDone :: t a -> t a
+
+class HasTests f t | f -> t where
+    mapTests :: (Show t, DecidableBoolean t) => (t -> t) -> f -> f
 
 instance HasStates (Next a) where
     states Done = mempty 
@@ -63,15 +69,22 @@ instance CanMapStates (Next a) where
 
 instance CanProductWithStates Next where
     productWithStates f encode (Step xa xi) (Step ya yi) = Step (f xa ya) (encode xi yi) 
-    productWithStates _ _ _ _ = error "cannot `productWithStates` terminating Next"
+    productWithStates _ _ Done Done = Done 
+    productWithStates _ _ _ _ = error "cannot `productWithStates` Step and Done"
 
 instance HasNext Next where
     setDoneToStep a s Done = Step a s
     setDoneToStep _ _ x = x
 
+    setStepToDone _ = Done
+
 -- | Must guarantee disjointness of options
 newtype GuardedTransitions t a = 
     GTr { gTransitionsToList :: [(t, Next a)] } deriving newtype (Monoid, Eq) -- TODO Eq needs canonicity
+
+instance (Show t, Show a) => Show (GuardedTransitions t a) where
+    show = showGuardedTransitionsWith showGuardedTransition
+
 instance HasStates1 (GuardedTransitions t) where
     states1 = states
     numStates1 = numStates
@@ -99,18 +112,19 @@ instance CanMapStates (GuardedTransitions t a) where
 instance Functor (GuardedTransitions t) where
     fmap f (GTr xs) = GTr $ fmap (second $ fmap f) xs
 
-instance DecidableBoolean t => Semigroup (GuardedTransitions t a) where
+instance (Show t, DecidableBoolean t) => Semigroup (GuardedTransitions t a) where
     (GTr xs) <> (GTr ys) = gTransitionsFromList $ xs <> ys
 
-instance DecidableBoolean t => GHC.Exts.IsList (GuardedTransitions t a) where
+instance (Show t, DecidableBoolean t) => GHC.Exts.IsList (GuardedTransitions t a) where
     type Item (GuardedTransitions t a) = (t, Next a)
     toList = gTransitionsToList
     fromList = gTransitionsFromList
 
 instance HasNext (GuardedTransitions t) where
     setDoneToStep a i (GTr tr) = GTr $ fmap (second $ setDoneToStep a i) tr
+    setStepToDone (GTr tr) = GTr $ fmap (second setStepToDone) tr
 
-instance DecidableBoolean t => CanProductWithStates (GuardedTransitions t) where
+instance (Show t, DecidableBoolean t) => CanProductWithStates (GuardedTransitions t) where
     productWithStates f encode aTr bTr = gTransitionsFromList $
         [ (ta &&* tb, productWithStates f encode na nb)
         | (ta, na) <- gTransitionsToList aTr
@@ -123,10 +137,10 @@ class NextContainer t where
 instance NextContainer (GuardedTransitions t) where
     filterNext f = GTr . filter (f . snd) . gTransitionsToList
 
-mapTests :: DecidableBoolean t => (t -> t) -> GuardedTransitions t a -> GuardedTransitions t a
-mapTests f = gTransitionsFromList . map (first f) . gTransitionsToList 
+instance HasTests (GuardedTransitions t a) t where
+    mapTests f = gTransitionsFromList . map (first f) . gTransitionsToList 
 
-gTransitionsFromList :: DecidableBoolean t => [(t, Next a)] -> GuardedTransitions t a
+gTransitionsFromList :: (Show t, DecidableBoolean t) => [(t, Next a)] -> GuardedTransitions t a
 gTransitionsFromList xs = 
     let nonEmpty = filter (not . isFalse . fst) xs
      in case checkDisjoint (map fst nonEmpty) of
@@ -145,18 +159,19 @@ gTransitionsITE :: Boolean t => t -> Next a -> Next a -> GuardedTransitions t a
 gTransitionsITE t a b = GTr [(t, a), (notB t, b)]
 
 showGuardedTransitionsWith :: ((t, Next a) -> String) -> GuardedTransitions t a -> String
-showGuardedTransitionsWith f = unlines . map f . gTransitionsToList
+showGuardedTransitionsWith f = intercalate "\n" . map f . gTransitionsToList
 
 showGuardedTransition :: (Show t, Show a) => (t, Next a) -> String
 showGuardedTransition (t, Done) = "[" <> show t <> "]" <> "-> $"
 showGuardedTransition (t, Step act j) = 
     "[" <> show t <> "]" <> "-( " <> show act <> " )-> " <> show j
 
-checkDisjoint :: DecidableBoolean t => [t] -> Either String ()
+checkDisjoint :: (Show t, DecidableBoolean t) => [t] -> Either String ()
 checkDisjoint [] = pure ()
-checkDisjoint (x:xs)
-    | all (isFalse . (&&* x)) xs = checkDisjoint xs
-    | otherwise = Left "Non disjoint"
+checkDisjoint (x:xs) = 
+    case filter (not . isFalse . (&&* x)) xs of
+      [] -> checkDisjoint xs
+      (y:_) -> Left $ "Non disjoint: " <> show x <> " and " <> show y
 
 newtype GuardedTransitionSystem t a = 
     GTS { unGTS :: IntMap (GuardedTransitions t a) } deriving newtype Eq
@@ -191,20 +206,29 @@ instance Boolean t => LikeTransitionSystem (GuardedTransitionSystem t) where
     loopStates  = GTS . IM.fromSet (gTransitionsSingleton true . Step ())
     (GTS ts) ! k = ts IM.! k 
 
+instance (Show a, Show t, Boolean t) => Show (GuardedTransitionSystem t a) where
+    show x = unlines $ map showState $ toListOfTransitions x
+      where
+        showState (s, sTr) = 
+            show s 
+            <> ": "
+            <> showGuardedTransitionsWith showGuardedTransition sTr
+
 instance HasNext (GuardedTransitionSystem t) where
     setDoneToStep a i (GTS ts) = GTS $ 
         fmap (setDoneToStep a i) ts <> IM.singleton i gTransitionsEmpty
+    setStepToDone = GTS . fmap setStepToDone . unGTS
 
 instance Functor (GuardedTransitionSystem t) where
     fmap f = GTS . fmap (fmap f) . unGTS
 
-instance DecidableBoolean t => Semigroup (GuardedTransitionSystem t a) where
+instance (Show t, DecidableBoolean t) => Semigroup (GuardedTransitionSystem t a) where
     (GTS xs) <> (GTS ys) = GTS $ IM.unionWith (<>) xs ys
 
-instance DecidableBoolean t => Monoid (GuardedTransitionSystem t a) where
+instance (Show t, DecidableBoolean t) => Monoid (GuardedTransitionSystem t a) where
     mempty = GTS IM.empty
 
-instance DecidableBoolean t => CanProductWithStates (GuardedTransitionSystem t) where
+instance (Show t, DecidableBoolean t) => CanProductWithStates (GuardedTransitionSystem t) where
     productWithStates f encode aT bT = GTS $ IM.fromList 
         [ (encode aFrom bFrom, productWithStates f encode aTo bTo)
         | (aFrom, aTo) <- IM.toList . unGTS $ aT
@@ -213,5 +237,11 @@ instance DecidableBoolean t => CanProductWithStates (GuardedTransitionSystem t) 
 instance NextContainer (GuardedTransitionSystem t) where
     filterNext f = GTS . IM.map (filterNext f) . unGTS
 
-gtsFromList :: DecidableBoolean t => [(State, [(t, Next a)])] -> GuardedTransitionSystem t a
+instance HasTests (GuardedTransitionSystem t a) t where
+    mapTests f = GTS . IM.map (mapTests f) . unGTS
+
+loopDone :: GuardedTransitionSystem t () -> GuardedTransitionSystem t ()
+loopDone = GTS . IM.mapWithKey (\s -> setDoneToStep () s) . unGTS
+
+gtsFromList :: (Show t, DecidableBoolean t) => [(State, [(t, Next a)])] -> GuardedTransitionSystem t a
 gtsFromList = GTS . IM.fromList . map (second gTransitionsFromList)

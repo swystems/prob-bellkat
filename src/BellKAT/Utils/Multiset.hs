@@ -9,7 +9,7 @@ module BellKAT.Utils.Multiset
     ) where
 
 import           Prelude                    hiding (map, filter)
-import           Data.List                  (foldl')
+import           Data.List                  (intercalate)
 import           Data.Foldable              (toList)
 import qualified Data.Multiset              as MsetOrig
 import qualified GHC.Exts (IsList, Item, fromList, toList)
@@ -23,8 +23,7 @@ instance Ord a => GHC.Exts.IsList (Multiset a) where
     toList (MS xs) = GHC.Exts.toList xs
 
 instance Show a => Show (Multiset a) where
-    showsPrec _ (MS a) = 
-        showString "{{" . (\s -> foldl' (flip shows) s (toList a)) . showString "}}"
+    show (MS a) = "{{" <> intercalate "," (show <$> toList a) <> "}}"
 
 isSubsetOf :: Ord a => Multiset a -> Multiset a -> Bool
 isSubsetOf (MS x) (MS y) = x `MsetOrig.isSubsetOf` y

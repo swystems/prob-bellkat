@@ -6,6 +6,7 @@ module BellKAT.Utils.Automata.Guarded
 import qualified Data.IntSet                  as IS
 import           Data.Pointed
 import           Data.Graph
+import           Data.List (intercalate)
 
 import           BellKAT.Definitions.Structures.Basic
 import           BellKAT.Utils.Automata.Eps
@@ -19,13 +20,13 @@ data GuardedFA t a = GFA
     } deriving stock (Eq)
 
 instance (Show a, Show t, Boolean t) => Show (GuardedFA t a) where
-    show x = unlines $
+    show x = intercalate "\n" $
         map showState $ toListOfTransitions (gfaTransition x)
       where
         showState (s, sTr) = 
             (if s == gfaInitial x then "^" else "") 
             <> show s 
-            <> ": "
+            <> (if length (toTransitionsList sTr) <= 1 then ": " else ":\n")
             <> showGuardedTransitionsWith showGuardedTransition sTr
 
 instance HasStates (GuardedFA t a) where
@@ -48,16 +49,16 @@ instance Boolean t => LikeAutomaton (GuardedFA t) where
   initialState = gfaInitial
   transitionSystem = gfaTransition
 
-instance DecidableBoolean t => Pointed (GuardedFA t) where
+instance (Show t, DecidableBoolean t) => Pointed (GuardedFA t) where
     point x = GFA 
         0 
         (singletonGts 0 true x 1 <> singletonDoneGts true 1)
 
-instance DecidableBoolean t => Guarded t (GuardedFA t a) where
+instance (Show t, DecidableBoolean t) => Guarded t (GuardedFA t a) where
     ite t x y = gefaToGfa $ ite t (gfaToGefa x) (gfaToGefa y)
 
 computeGuardedClosures
-    :: DecidableBoolean t
+    :: (Show t, DecidableBoolean t)
     => GuardedTransitionSystem t (Either Eps a)
     -> GuardedTransitionSystem t a
 computeGuardedClosures tr = 
@@ -70,7 +71,7 @@ computeGuardedClosures tr =
     ensureSingleton _ = error "SCC has cycles"
 
     constructClosure 
-        :: DecidableBoolean t
+        :: (Show t, DecidableBoolean t)
         => GuardedTransitionSystem t (Either Eps a)
         -> [Vertex] 
         -> GuardedTransitionSystem t a
@@ -81,7 +82,7 @@ computeGuardedClosures tr =
          in constructClosure epsTS xs (acc <> fromTransitions i opts)
 
     expandEpsilons 
-        :: DecidableBoolean t
+        :: (Show t, DecidableBoolean t)
         => GuardedTransitionSystem t a
         -> (t, Next (Either Eps a)) 
         -> GuardedTransitions t a
@@ -97,56 +98,63 @@ epsTransitionToGraph tr =
         , (_, Step (Left Eps) j) <- gTransitionsToList trI
         ]
 
-gefaToGfa :: DecidableBoolean t => GuardedEpsFA t a -> GuardedFA t a
+gefaToGfa :: (Show t, DecidableBoolean t) => GuardedEpsFA t a -> GuardedFA t a
 gefaToGfa (GEFA i t) =
     removeUnreachable $ GFA i (computeGuardedClosures t)
 
 gfaToGefa :: GuardedFA t a -> GuardedEpsFA t a
 gfaToGefa (GFA i t) = GEFA i (fmap Right t)
 
-instance DecidableBoolean t => Semigroup (GuardedFA t a) where
+instance (Show t, DecidableBoolean t) => Semigroup (GuardedFA t a) where
     a <> b = gefaToGfa (gfaToGefa a <> gfaToGefa b)
 
-productWith :: DecidableBoolean t => (a -> a -> a) -> GuardedFA t a -> GuardedFA t a -> GuardedFA t a
+instance (Show t, DecidableBoolean t) => Monoid (GuardedFA t a) where
+    mempty = GFA 0 (fromTransitions 0 $ gTransitionsSingleton true Done)
+
+productWith :: (Show t, Show a, DecidableBoolean t) => (a -> a -> a) -> GuardedFA t a -> GuardedFA t a -> GuardedFA t a
 productWith f (GFA aI aT) (GFA bI bT) = 
     let aSize = numStates aT
-        aF = () <$ filterNext isDone aT
-        bF = () <$ filterNext isDone bT
+        aF = undefined <$ filterNext isDone aT
+        bF = undefined <$ filterNext isDone bT
         aFinal = numStates aT
         bFinal = numStates bT
         encode x y = x + y * (aSize + 1) -- accounting for final
-        bothT = productWithStates f encode aT bT
-        aFinalT = stepFinalLeft encode aFinal aF (states bT)
-        bFinalT = stepFinalRight encode (states aT) bFinal bF
+        bothT = productWithStates f encode (filterNext isStep aT) (filterNext isStep bT)
+        aFinalT = stepFinalLeft encode aFinal aF (setStepToDone . filterNext isStep $ () <$ bT)
+        bFinalT = stepFinalRight encode (setStepToDone . filterNext isStep $ () <$ aT) bFinal bF
+        bothFinalT = undefined <$ productWithStates undefined encode aF bF
         onlyA = mapStatesMonotonic (`encode` bFinal) aT
         onlyB = mapStatesMonotonic (aFinal `encode`) bT
-        newAF = Left Eps <$ mapStates (`encode` bFinal) aF
-        newBF = Left Eps <$ mapStates (aFinal `encode`) bF
      in gefaToGfa $ GEFA
            (encode aI bI)
            (fmap Right bothT 
                 <> aFinalT
                 <> bFinalT
+                <> fmap Right bothFinalT
                 <> fmap Right onlyA
-                <> fmap Right onlyB
-                <> newAF
-                <> newBF)
+                <> fmap Right onlyB)
   where
     stepFinalLeft 
-        :: DecidableBoolean t 
-        => (Int -> Int -> Int) 
-        -> Int -> GuardedTransitionSystem t () -> States -> GuardedTransitionSystem t (Either Eps a)
-    stepFinalLeft encode lFinal lF rS =
-        Left Eps <$ productStates encode (setDoneToStep () lFinal lF) (loopStates rS)
+        :: (Show t, DecidableBoolean t)
+        => (State -> State -> State) 
+        -> State -- | where to exit on the left
+        -> GuardedTransitionSystem t ()  -- | where to exit from on the left
+        -> GuardedTransitionSystem t () -- | where to keep the right side
+        -> GuardedTransitionSystem t (Either Eps a)
+    stepFinalLeft encode lFinal lF rF =
+        Left Eps <$ productStates encode (setDoneToStep () lFinal lF) (loopDone rF)
 
     stepFinalRight 
-        :: DecidableBoolean t 
-        => (Int -> Int -> Int) 
-        -> States -> Int -> GuardedTransitionSystem t () -> GuardedTransitionSystem t (Either Eps a)
+        :: (Show t, DecidableBoolean t)
+        => (State -> State -> State) 
+        -> GuardedTransitionSystem t () -- | where to keep the left side
+        -> State -- | where to exit on the right 
+        -> GuardedTransitionSystem t () -- | where to exti from on the right
+        -> GuardedTransitionSystem t (Either Eps a)
     stepFinalRight encode lS rFinal rF = stepFinalLeft (flip encode) rFinal rF lS
 
-instance (DecidableBoolean t, ParallelSemigroup a) =>  ParallelSemigroup (GuardedFA t a) where
-    p  <||> q = productWith (<||>) p q 
+instance (Show t, Show a, DecidableBoolean t, ParallelSemigroup a) =>  ParallelSemigroup (GuardedFA t a) where
+    p <||> q = productWith (<||>) p q 
 
-instance (DecidableBoolean t, OrderedSemigroup a) =>  OrderedSemigroup (GuardedFA t a) where
+instance (Show t, Show a, DecidableBoolean t, OrderedSemigroup a) =>  OrderedSemigroup (GuardedFA t a) where
     p  <.> q = productWith (<.>) p q 

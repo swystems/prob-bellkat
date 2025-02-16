@@ -24,6 +24,7 @@ import           Control.Monad.Except
 
 import BellKAT.Utils.Automata.Transitions hiding (State)
 import BellKAT.Utils.Automata.NFA
+import BellKAT.Utils.Automata.Execution.Common
 
 execute :: (Ord s, Show s)
     => ExecutionParams s
@@ -96,15 +97,6 @@ data ExecutionState s = ES
     , esProcessed :: IntMap (Set s)
     }
 
-data ExecutionParams s = EP 
-    { maxOptionsPerState :: Maybe Int
-    , isValidState :: s -> Bool
-    }
-
-instance Default (ExecutionParams s) where
-    def = EP Nothing (const True)
-
-data ExecutionError = TooManyStates | InvalidStateReached
 
 data ExecutionEnvironment a s = EE
     { eeAutomaton :: MagicNFA a

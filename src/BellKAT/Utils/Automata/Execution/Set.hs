@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE StrictData #-}
-module BellKAT.Utils.Automata.Execution
+module BellKAT.Utils.Automata.Execution.Set
     ( execute
     , executeHyper
     , evalExecution

@@ -68,7 +68,7 @@ library:
     - BellKAT.Utils.Automata.Eps
     - BellKAT.Utils.Automata.Transitions
     - BellKAT.Utils.Automata.Transitions.Guarded
-    - BellKAT.Utils.Automata.Execution
+    - BellKAT.Utils.Automata.Execution.Set
     - BellKAT.Utils.Automata.Guarded
     - BellKAT.Utils.Automata.HyperAction
     - BellKAT.Utils.Automata.GuardedEps

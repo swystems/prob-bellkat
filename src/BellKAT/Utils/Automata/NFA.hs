@@ -7,9 +7,6 @@ module BellKAT.Utils.Automata.NFA
     , productWith
     , showStateId
     , enfaToMnfa
-    , HasStates(..) -- TODO: should not be exported here
-    , (!) -- TODO: should not be exported here
-    , transitionsToList -- TODO: should not be exported here
     ) where
 
 import           Data.Pointed

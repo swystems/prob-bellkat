@@ -22,6 +22,7 @@ import           Control.Monad.State.Strict
 import           Control.Monad.Reader
 import           Control.Monad.Except
 
+import BellKAT.Utils.Automata.Transitions hiding (State)
 import BellKAT.Utils.Automata.NFA
 
 execute :: (Ord s, Show s)
@@ -71,7 +72,7 @@ evalExecution :: Ord s
     -> Either ExecutionError b
 evalExecution params executeStep mnfa x m = 
     let env = EE { eeAutomaton = mnfa, eeStepEvaluation = executeStep, eeExecutionParams = params }
-     in (`evalState` initialState mnfa x) . runExceptT . (`runReaderT` env) $ m
+     in (`evalState` initialExecutionState mnfa x) . runExceptT . (`runReaderT` env) $ m
 
 runExecution :: Ord s
     => ExecutionParams s
@@ -82,10 +83,10 @@ runExecution :: Ord s
     -> (Either ExecutionError b, ExecutionState s)
 runExecution params executeStep mnfa x m =
     let env = EE { eeAutomaton = mnfa, eeStepEvaluation = executeStep, eeExecutionParams = params }
-     in (`runState` initialState mnfa x) . runExceptT . (`runReaderT` env) $ m
+     in (`runState` initialExecutionState mnfa x) . runExceptT . (`runReaderT` env) $ m
 
-initialState :: MagicNFA a -> s -> ExecutionState s
-initialState mnfa x = ES
+initialExecutionState :: MagicNFA a -> s -> ExecutionState s
+initialExecutionState mnfa x = ES
             { esPending = IM.singleton (mnfaInitial mnfa) (Set.singleton x)
             , esProcessed = IM.fromSet (const Set.empty) (states $ mnfaTransition mnfa)
             }

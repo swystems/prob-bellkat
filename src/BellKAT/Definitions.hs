@@ -144,9 +144,10 @@ applyStarOrderedPolicyBounded =
 -- | Probabilistic semantic function
 applyProbStarPolicy 
     :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => Simple (OrderedGuardedPolicy (test tag)) tag 
+    => ProbabilisticActionConfiguration 
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
-applyProbStarPolicy = 
+applyProbStarPolicy pac = 
     GASQ.execute (getBPsPredicate . toBPsPredicate) PAOSQ.execute
         . meaning 
-        . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
+        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)

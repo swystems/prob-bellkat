@@ -1,7 +1,9 @@
 {-# LANGUAGE TupleSections #-}
 module BellKAT.Utils.ConvexSetOfDistributions 
     ( C
+    , Convex (..)
     , CD
+    , CSD
     ) where
 
 import           Control.Applicative
@@ -16,14 +18,20 @@ class Convex a where
     combine :: D a -> a
 
 instance Convex (D a) where
-    combine = D.join
+    combine = D.djoin
+
+instance Convex (SD a) where
+    combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: [a] } 
     deriving newtype (Functor, Applicative, Alternative, Monad, Foldable, MonadPlus,
-                                     Semigroup, Monoid, Eq)
+                                     Semigroup, Monoid)
 
-instance Show a => Show (C a) where
-    show (C xs) = "(|" <> intercalate "," (show <$> xs) <> "|)"
+instance (Show a, Ord a) => Eq (C a) where
+    (C xs) == (C ys) = sort xs == sort ys
+
+instance (Ord a, Show a) => Show (C a) where
+    show (C xs) = "(|" <> intercalate "," (show <$> sort xs) <> "|)"
 
 -- | Essentially weighted Minkowski sum
 instance Convex a => Convex (C a) where
@@ -56,3 +64,10 @@ instance Alternative CD where
     (CD xs) <|> (CD ys) = CD (xs <|> ys)
 
 instance MonadPlus CD where
+
+newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq)
+
+instance GHC.Exts.IsList (CSD a) where
+    type Item (CSD a) = SD a
+    toList = unC . unCSD
+    fromList = CSD . C

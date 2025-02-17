@@ -3,6 +3,7 @@ module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location,
     BellPair(..),
+    BellPairs,
     Probability,
     CreateBellPairArgs(..),
     hasLocation,
@@ -67,6 +68,8 @@ instance Ord BellPair where
 
 hasLocation :: Location -> BellPair -> Bool
 hasLocation l (l1 :~: l2) = l == l1 || l == l2
+
+type BellPairs = Multiset BellPair
 
 -- | `BellPair` with an optional tag
 data TaggedBellPair t = TaggedBellPair

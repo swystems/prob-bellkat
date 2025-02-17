@@ -212,9 +212,9 @@ spec = do
             asAutomatonP e42 `shouldBe` e42FAp
         it "correctly represents example 4.2 prob (e || f)" $
             asAutomatonP ef42 `shouldBe` ef42FAp
-    describe "Probabilistic meaning" $ do
+    describe "Probabilistic policy meaning" $ do
         it "correctly computes example 4.2" $ do
-            applyProbStarPolicy ef42 [] `shouldBe` 
+            applyProbStarPolicy pac ef42 [] `shouldBe` 
                 [ [ ([]                     , 23/135)
                   , (["B" ~ "C"]           , 6/135)
                   , (["A" ~ "C"]           , 72/135)

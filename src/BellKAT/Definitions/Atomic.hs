@@ -93,7 +93,7 @@ instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
         createProbabilitsticAtomicAction
             (t1 .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            ((<>) <$> outBpsD1 <*> outBpsD2)
+            (D.norm $ (<>) <$> outBpsD1 <*> outBpsD2)
 
 instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
     (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =

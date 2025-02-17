@@ -143,7 +143,7 @@ instance ParallelSemigroup (OrderedGuardedPolicy t a) where
     (<||>) = OGPParallel
 
 instance OrderedSemigroup (OrderedGuardedPolicy t a) where
-    (<.>) = OGPParallel
+    (<.>) = OGPOrdered
 
 instance Guarded t (OrderedGuardedPolicy t a) where
     ite = OGPIfThenElse

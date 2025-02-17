@@ -7,7 +7,7 @@ import Test.Hspec
 import BellKAT.Prelude
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Policy (TaggedAction) 
-import BellKAT.Definitions.Core (CreateBellPairArgs(..)) 
+import BellKAT.Definitions.Core (CreateBellPairArgs(..), TaggedBellPairs) 
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
 import BellKAT.ActionEmbeddings
 import BellKAT.PolicyEmbeddings 
@@ -149,6 +149,15 @@ f51 = create "C" <> trans "C" ("B", "C")
 p51i :: ProbBellKATPolicy
 p51i = e51 <||> f51
 
+p51mu1 :: D (TaggedBellPairs BellKATTag)
+p51mu1 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 468/1000), (["B" ~ "C"], 81/1000), ([], 127/1000)]
+
+p51mu2 :: D (TaggedBellPairs BellKATTag)
+p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "C"], 171/1000), ([], 181/1000)]
+
+p51pac :: ProbabilisticActionConfiguration
+p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)]
+
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
 
@@ -159,6 +168,15 @@ p51ii = p51i <> p51i
 
 p51ii' :: ProbBellKATPolicy
 p51ii' = p51i' <> p51i'
+
+p51nu1 :: D (TaggedBellPairs BellKATTag)
+p51nu1 = [(["A" ~ "C", "B" ~ "C"], 61884/100000), (["A" ~ "C"], 337896/1000000), (["B" ~ "C"], 27135/1000000), ([], 161129/1000000)]
+
+p51nu2 :: D (TaggedBellPairs BellKATTag)
+p51nu2 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000), (["B" ~ "C"], 91143/1000000), ([], 32761/1000000)]
+
+p51nu3 :: D (TaggedBellPairs BellKATTag)
+p51nu3 = [(["A" ~ "C", "B" ~ "C"], 649296/1000000), (["A" ~ "C"], 277488/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
 
 -- | == III
 
@@ -228,4 +246,13 @@ spec = do
                   , (["C" ~ "C"]           , 10/135)
                   ]
                 ]
+        it "correctly handles example 5.1.I (parallel)" $ do
+            applyProbStarPolicy p51pac p51i [] `shouldBe` 
+                [p51mu1, p51mu2]
+        it "correctly handles example 5.1.I (ordered)" $ do
+            applyProbStarPolicy p51pac p51i' [] `shouldBe` 
+                [p51mu1]
+        it "correctly handles example 5.1.II (parallel)" $ do
+            applyProbStarPolicy p51pac p51ii [] `shouldBe` 
+                [p51nu1,p51nu2,p51nu3]
 

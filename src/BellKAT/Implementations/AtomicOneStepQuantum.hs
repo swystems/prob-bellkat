@@ -29,7 +29,7 @@ execute
 execute (AtomicOneStepPolicy act) bps =
     if getBPsPredicate (toBPsPredicate . aaTest $ act) bps
        then Set.fromList 
-        [ aaOutputBPs act <> rest partial  
+        [ aaOutputBPs act <> rest partial
         | partial <- findElemsND (toList . aaInputBPs $ act) bps]
        else mempty
 

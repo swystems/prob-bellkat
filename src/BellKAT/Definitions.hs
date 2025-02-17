@@ -17,6 +17,7 @@ module BellKAT.Definitions
     , applyOneStepPolicyPartial
     , applyStarPolicy
     , applyStarPolicyH
+    , applyProbStarPolicy
     ) where
 
 import           Data.Set                                (Set)
@@ -27,12 +28,15 @@ import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Policy.Extra
+import           BellKAT.Utils.ConvexSetOfDistributions
 import           BellKAT.ActionEmbeddings 
 import           BellKAT.PolicyEmbeddings
 import qualified BellKAT.Implementations.HistoryQuantum        as HQ
 import qualified BellKAT.Implementations.InterleavingOneStepHistoryQuantum as IOSHQ
 import qualified BellKAT.Implementations.StepHistoryQuantum    as SHQ
 import qualified BellKAT.Implementations.AutomataStepQuantum    as ASQ
+import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
+import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
@@ -136,3 +140,13 @@ applyStarOrderedPolicyBounded =
     handleOrderingError :: Maybe a -> a
     handleOrderingError Nothing = error "couldn't desugar ordered composition"
     handleOrderingError (Just x) = x
+
+-- | Probabilistic semantic function
+applyProbStarPolicy 
+    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    => Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+applyProbStarPolicy = 
+    GASQ.execute (getBPsPredicate . toBPsPredicate) PAOSQ.execute
+        . meaning 
+        . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)

@@ -1,5 +1,5 @@
 {-# LANGUAGE StrictData #-}
-module BellKAT.Definitions.Tests 
+module BellKAT.Definitions.Tests
     (
     FreeTest(..),
     BellPairsPredicate(..),
@@ -108,21 +108,21 @@ rangeNotGreater k = (0, Just (k + 1))
 newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
 
 instance (Show tag, Ord tag, Default tag, Eq tag) => Show (BoundedTest tag) where
-    show (BoundedTest xs) 
-      | BoundedTest xs == true = "TRUE" 
-      | BoundedTest xs == false = "FALSE" 
+    show (BoundedTest xs)
+      | BoundedTest xs == true = "TRUE"
+      | BoundedTest xs == false = "FALSE"
       | otherwise = intercalate "∨" $ map showBounds xs
 
 showBounds ::(Show tag, Default tag, Eq tag) => Bounds tag -> String
 showBounds = intercalate "∧" . map showBound . Map.toList
 
 showBound :: (Show tag, Default tag, Eq tag) => (TaggedBellPair tag, Range) -> String
-showBound (bp, (lb, ub)) = 
-    let lbs = case lb of 
+showBound (bp, (lb, ub)) =
+    let lbs = case lb of
                 0 -> Nothing
                 1 -> Just $ show bp
                 n -> Just $ show n <> "×" <> show bp
-        ubs = case ub of 
+        ubs = case ub of
                 Nothing -> Nothing
                 Just 1 -> Just $ "¬" <> show bp
                 Just n -> Just $ "¬" <> show n <> "×" <> show bp
@@ -137,14 +137,14 @@ andRange (la, ua) (lb, ub) =
                 (Nothing, x) -> x
                 (x, Nothing) -> x
                 (Just x, Just y) -> Just (min x y)
-     in (max la lb, uab) 
+     in (max la lb, uab)
 
 isRangeEmpty :: Range -> Bool
 isRangeEmpty (_, Nothing) = False
 isRangeEmpty (l, Just u) = u <= l
 
 andBounds :: Ord tag => Bounds tag -> Bounds tag -> Maybe (Bounds tag)
-andBounds x y = 
+andBounds x y =
     let newBounds = Map.unionWith andRange x y
      in if any isRangeEmpty newBounds
            then Nothing
@@ -162,12 +162,24 @@ notBounds = concatMap (\(k, r) -> map (Map.singleton k) $ notRange r) . Map.toLi
 instance Ord tag => Boolean (BoundedTest tag) where
     true = BoundedTest [mempty]
     false = BoundedTest []
-    notB (BoundedTest []) = BoundedTest [mempty] 
+    notB (BoundedTest []) = BoundedTest [mempty]
     notB (BoundedTest xs) = BoundedTest $ concatMap notBounds xs
-    (BoundedTest xs) ||* (BoundedTest ys) = 
+    (BoundedTest xs) ||* (BoundedTest ys) =
         BoundedTest $ nubOrd (xs <> ys)
-    (BoundedTest xs) &&* (BoundedTest ys) = 
+    (BoundedTest xs) &&* (BoundedTest ys) =
         BoundedTest $ nubOrd $ catMaybes $ andBounds <$> xs <*> ys
 
 instance Ord tag => DecidableBoolean (BoundedTest tag) where
     isFalse = (== false)
+
+instance Test BoundedTest where
+    toBPsPredicate (BoundedTest xs) = BPsPredicate $ \x -> any (`testBounds` x) xs
+
+testBounds :: Ord tag => Bounds tag -> TaggedBellPairs tag -> Bool
+testBounds bs bps = Map.foldlWithKey (\acc bp rg -> acc && testRange bp rg bps) True bs
+
+testRange :: Ord tag => TaggedBellPair tag -> Range -> TaggedBellPairs tag -> Bool
+testRange bp (lb, ub) bps =
+    let c = Mset.count bp bps
+     in c >= lb && maybe True (c <) ub
+

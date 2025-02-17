@@ -2,6 +2,7 @@
 {-# LANGUAGE StrictData #-}
 module BellKAT.Utils.Automata.Execution.Guarded 
     ( execute
+    , ExecutionParams(..)
     ) where
 
 import           Data.Foldable
@@ -20,7 +21,7 @@ import BellKAT.Utils.Automata.Execution.Common
 import BellKAT.Utils.Automata.Guarded
 
 execute 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k)
+    :: (Boolean t, Ord s, MonadPlus k, Foldable k) -- TODO: MonadPlus vs Monad + Monoid?
     => ExecutionParams s
     -> (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action

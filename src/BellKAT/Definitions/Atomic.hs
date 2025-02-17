@@ -110,4 +110,3 @@ instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAc
             . showString "|>"
             . shows outBPs
             . showString ""
-

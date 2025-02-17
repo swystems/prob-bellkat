@@ -15,6 +15,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
+import BellKAT.Definitions (applyProbStarPolicy)
 
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
 
@@ -211,3 +212,20 @@ spec = do
             asAutomatonP e42 `shouldBe` e42FAp
         it "correctly represents example 4.2 prob (e || f)" $
             asAutomatonP ef42 `shouldBe` ef42FAp
+    describe "Probabilistic meaning" $ do
+        it "correctly computes example 4.2" $ do
+            applyProbStarPolicy ef42 [] `shouldBe` 
+                [ [ ([]                     , 23/135)
+                  , (["B" ~ "C"]           , 6/135)
+                  , (["A" ~ "C"]           , 72/135)
+                  , (["A" ~ "C", "B" ~ "C"], 24/135)
+                  , (["C" ~ "C"]           , 10/135)
+                  ]
+                , [ ([]                    , 41/135)
+                  , (["B" ~ "C"]           , 36/135)
+                  , (["A" ~ "C"]           , 24/135)
+                  , (["A" ~ "C", "B" ~ "C"], 24/135)
+                  , (["C" ~ "C"]           , 10/135)
+                  ]
+                ]
+

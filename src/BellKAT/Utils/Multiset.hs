@@ -6,6 +6,7 @@ module BellKAT.Utils.Multiset
     , map
     , filter
     , difference
+    , count
     ) where
 
 import           Prelude                    hiding (map, filter)
@@ -42,3 +43,6 @@ filter f = MS . MsetOrig.filter f . unMS
 
 difference :: Ord a => Multiset a -> Multiset a -> Multiset a
 difference (MS x) (MS y) = MS $ MsetOrig.difference x y
+
+count :: Ord a => a -> Multiset a -> Int
+count x = MsetOrig.count x . unMS

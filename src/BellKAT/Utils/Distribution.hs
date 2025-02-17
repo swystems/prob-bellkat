@@ -3,8 +3,10 @@ module BellKAT.Utils.Distribution
     , D
     , norm
     , choose
+    , join
     ) where
 
+import qualified Control.Monad as M
 import Data.List (intercalate)
 import GHC.Exts (IsList, Item, fromList, toList)
 
@@ -28,7 +30,7 @@ instance Ord a => Ord (D a) where
 instance (Show a, Ord a) => Show (D a) where
     show = intercalate "+" . map showProb . P.decons . P.norm . unD
       where
-        showProb (x, p) 
+        showProb (x, p)
             | p /= 1 = show x <> "×(" <> show p <> ")"
             | otherwise = show x
 
@@ -37,3 +39,6 @@ norm = D . P.norm . unD
 
 choose :: Probability -> a -> a -> D a
 choose p x y = D $ P.choose p x y
+
+join :: D (D a) -> D a
+join =  D . (unD M.<=< unD)

@@ -1,16 +1,22 @@
 module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
+    , execute
     ) where
 
 import Data.Foldable (toList)
-import qualified GHC.Exts (IsList, Item, fromList, toList) 
+import qualified GHC.Exts (IsList, Item, toList) 
+import GHC.Exts (fromList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
+import Control.Applicative
+import BellKAT.Utils.Choice
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Utils.Distribution as D
+import BellKAT.Utils.ConvexSetOfDistributions
 import BellKAT.Definitions.Core
+import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
 
@@ -47,3 +53,16 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
                         mempty 
                         (pure mempty)]
                 else mempty
+
+execute :: Ord tag => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+execute (ProbAtomicOneStepPolicy xs) bps = foldMap (`executePAA` bps) xs
+
+executePAA :: Ord tag 
+           => ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+executePAA act bps = 
+    if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
+       then fromList [ (<> rest partial) <$> paaOutputBPD act | partial <- findElemsND (toList . paaInputBPs $ act) bps]
+       else empty
+
+
+

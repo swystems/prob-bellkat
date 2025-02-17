@@ -62,6 +62,7 @@ library:
     - BellKAT.Utils.NonEmpty
     - BellKAT.Utils.Choice
     - BellKAT.Utils.PartialNDEndo
+    - BellKAT.Utils.Distribution
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA
     - BellKAT.Utils.Automata.EpsNFA

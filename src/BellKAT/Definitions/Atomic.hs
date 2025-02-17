@@ -27,10 +27,8 @@ module BellKAT.Definitions.Atomic (
 
 import Data.Default
 import Data.Foldable (toList)
-import Data.List (intercalate)
 
-import qualified Numeric.Probability.Distribution as P
-
+import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
@@ -72,28 +70,18 @@ createAtomicAction t inBPs outBPs =
         then AtomicAction t mempty mempty
         else AtomicAction t inBPs outBPs
 
-type Dist = P.T Probability
-
 data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
     { paaTest :: RestrictedTest tag
     , paaInputBPs :: TaggedBellPairs tag
-    , paaOutputBPD :: Dist (TaggedBellPairs tag)
-    }
-
-instance (Ord tag) => Eq (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t i o) == (ProbabilisticAtomicAction t' i' o') =
-        t == t' && i == i' && P.equal o o'
-
-instance Ord tag => Ord (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t i o) <= (ProbabilisticAtomicAction t' i' o') = 
-        (t, i, P.decons $ P.norm o) <= (t', i', P.decons $ P.norm o') -- TODO: sort in a P's newtype
+    , paaOutputBPD :: D (TaggedBellPairs tag)
+    } deriving stock (Eq, Ord)
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
 createProbabilitsticAtomicAction ::
     Ord tag =>
     RestrictedTest tag ->
     TaggedBellPairs tag ->
-    Dist (TaggedBellPairs tag) ->
+    D (TaggedBellPairs tag) ->
     ProbabilisticAtomicAction tag
 createProbabilitsticAtomicAction t inBPs outBPs =
     if t == createRestrictedTest [mempty]
@@ -112,7 +100,7 @@ instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (P.norm $ (<>) <$> outBps1 <*> outBps2)
+            (D.norm $ (<>) <$> outBps1 <*> outBps2)
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
@@ -120,10 +108,6 @@ instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAc
             . showString " "
             . shows inBPs
             . showString "|>"
-            . showString (intercalate "+" . map showProbBps . P.decons . P.norm $ outBPs)
+            . shows outBPs
             . showString ""
-      where
-        showProbBps (bps, p) 
-          | p /= 1 = show bps <> "×(" <> show p <> ")"
-          | otherwise = show bps
 

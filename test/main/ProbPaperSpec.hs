@@ -3,9 +3,9 @@
 module ProbPaperSpec where
 
 import Test.Hspec
-import qualified Numeric.Probability.Distribution as P
 
 import BellKAT.Prelude
+import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Policy (TaggedAction) 
 import BellKAT.Definitions.Core (CreateBellPairArgs(..)) 
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
@@ -41,19 +41,19 @@ e42FA = GFA 0 $ gtsFromList
 e42FAp :: BellKATAutomaton
 e42FAp = GFA 0 $ gtsFromList 
     [(0, [("C" /~? "C", Step 
-            [createProbabilitsticAtomicAction [] [] (P.choose (2/3) ["C" ~ "C"] [])
+            [createProbabilitsticAtomicAction [] [] (D.choose (2/3) ["C" ~ "C"] [])
             ] 1)
          ,("C" ~~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (P.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (P.certainly [])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
             ] 2)])
     ,(1, [(true, Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (P.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (P.certainly [])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
             ] 3)])
     ,(2, [(true, Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (P.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (P.certainly [])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
             ] 3)])
     ,(3, [(true, Done)])
     ]
@@ -121,18 +121,18 @@ ef42FAp = GFA 0 $ gtsFromList
     ,(4, [(true, Done)])
     ]
   where
-    pCpC = createProbabilitsticAtomicAction [] [] $ P.fromFreqs 
+    pCpC = createProbabilitsticAtomicAction [] []
         [(["C" ~ "C", "C" ~ "C"], 4/9),(["C" ~ "C"], 4/9), ([], 1/9)]
-    pApC = createProbabilitsticAtomicAction [] ["C" ~ "C"] $ P.fromFreqs 
+    pApC = createProbabilitsticAtomicAction [] ["C" ~ "C"]
         [(["A" ~ "C", "C" ~ "C"], 8/15), (["C" ~ "C"], 2/15), (["A" ~ "C"], 4/15), ([], 1/15)]
-    pSpC = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ P.fromFreqs 
+    pSpC = createProbabilitsticAtomicAction [["C" ~ "C"]] []
         [(["C" ~ "C"], 2/3), ([], 1/3)]
-    pApB = createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] $ P.fromFreqs 
+    pApB = createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"]
         [(["A" ~ "C", "B" ~ "C"],4/10), (["A" ~ "C"], 4/10), (["B" ~ "C"], 1/10), ([],1/10) ]
-    pApS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] $ P.fromFreqs 
+    pApS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"]
         [(["A" ~ "C"], 4/5), ([], 1/5)]
     pSpS = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ pure []
-    pBpS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] $ P.fromFreqs 
+    pBpS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"]
         [(["B" ~ "C"], 1/2), ([], 1/2)]
 
 -- | = Example 5.1

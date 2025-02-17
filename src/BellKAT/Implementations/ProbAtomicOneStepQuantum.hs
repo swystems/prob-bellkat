@@ -2,7 +2,6 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
     ) where
 
-import qualified Numeric.Probability.Distribution as P
 import Data.Foldable (toList)
 import qualified GHC.Exts (IsList, Item, fromList, toList) 
 import Data.Set (Set)
@@ -10,6 +9,7 @@ import qualified Data.Set as Set
 import Data.Default
 
 import qualified BellKAT.Utils.Multiset              as Mset
+import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
@@ -39,7 +39,7 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
             [ createProbabilitsticAtomicAction 
                 (createRestrictedTest mempty) 
                 (Mset.fromList i) 
-                (if p == 1 then pure (Mset.singleton o) else P.choose p (Mset.singleton o) mempty)
+                (if p == 1 then pure (Mset.singleton o) else D.choose p (Mset.singleton o) mempty)
             ] <> 
                 if i /= mempty 
                 then [createProbabilitsticAtomicAction 

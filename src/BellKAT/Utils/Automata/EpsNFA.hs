@@ -25,7 +25,7 @@ instance LikeAutomaton EpsNFA where
 
 instance Show a => Show (EpsNFA a) where
     show x = unlines $
-        map showState $ toListOfTransitions (enfaTransition x)
+        map showState $ toPairs (enfaTransition x)
       where
         showState (s, sTr) = 
             (if s == enfaInitial x then "^" else "") 

@@ -19,9 +19,9 @@ data GuardedFA t a = GFA
     , gfaTransition :: GuardedTransitionSystem t a
     } deriving stock (Eq)
 
-instance (Show a, Show t, Boolean t) => Show (GuardedFA t a) where
+instance (Show a, Show t, DecidableBoolean t) => Show (GuardedFA t a) where
     show x = intercalate "\n" $
-        map showState $ toListOfTransitions (gfaTransition x)
+        map showState $ toPairs (gfaTransition x)
       where
         showState (s, sTr) = 
             (if s == gfaInitial x then "^" else "") 
@@ -90,11 +90,13 @@ computeGuardedClosures tr =
     expandEpsilons _ (t, Step (Right act) j) = gTransitionsSingleton t (Step act j)
     expandEpsilons acc (t, Step (Left Eps) j) = mapTests (&&* t) $ acc ! j
 
-epsTransitionToGraph :: Boolean t => GuardedTransitionSystem t (Either Eps a) -> Graph
+epsTransitionToGraph 
+    :: (Show t, DecidableBoolean t) 
+    => GuardedTransitionSystem t (Either Eps a) -> Graph
 epsTransitionToGraph tr = 
     buildG (IS.findMin . states $ tr, IS.findMax . states $ tr) 
         [ (i, j) 
-        | (i, trI) <- toListOfTransitions tr
+        | (i, trI) <- toPairs tr
         , (_, Step (Left Eps) j) <- gTransitionsToList trI
         ]
 

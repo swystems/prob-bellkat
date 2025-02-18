@@ -38,7 +38,7 @@ instance CanRestrictStates (MagicNFA a) where
 
 instance Show a => Show (MagicNFA a) where
     show x =
-        concatMap showState . toListOfTransitions . mnfaTransition $ x
+        concatMap showState . toPairs . mnfaTransition $ x
       where
         showState (s, sTr) =
             showStateId x s
@@ -106,7 +106,7 @@ instance Ord a => Semigroup (HyperMagicNFA a) where
 
 instance Show a => Show (HyperMagicNFA a) where
     show (HyperMagicNFA x) =
-        concatMap showState . toListOfTransitions . mnfaTransition $ x
+        concatMap showState . toPairs . mnfaTransition $ x
       where
         showState (s, sTr) =
             showStateId x s

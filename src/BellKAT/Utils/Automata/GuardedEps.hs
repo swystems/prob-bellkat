@@ -35,9 +35,9 @@ instance Boolean t => LikeAutomaton (GuardedEpsFA t) where
     initialState = gefaInitial
     transitionSystem = gefaTransition
 
-instance (Show a, Show t, Boolean t) => Show (GuardedEpsFA t a) where
+instance (Show a, Show t, DecidableBoolean t) => Show (GuardedEpsFA t a) where
     show x = unlines $
-        map showState $ toListOfTransitions (gefaTransition x)
+        map showState $ toPairs (gefaTransition x)
       where
         showState (s, sTr) = 
             (if s == gefaInitial x then "^" else "") 

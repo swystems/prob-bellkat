@@ -32,6 +32,7 @@ dependencies:
   - smallcheck
   - probability
   - Boolean
+  - relude
 
 library:
   source-dirs: src

@@ -15,11 +15,17 @@ module BellKAT.Utils.Automata.Transitions.Core
     -- * Common classes for transitions and transition systems
     , LikeTransitions(..)
     , LikeTransitionSystem(..)
+    -- * Map routines
+    , module Relude.Extra.Map
+    , (!)
     ) where
 
 import           Data.Kind
 import           Data.IntSet                  (IntSet)
 import qualified Data.IntSet                  as IS
+import           Data.Maybe
+
+import Relude.Extra.Map
 
 type State = Int
 type States = IntSet
@@ -70,7 +76,8 @@ class LikeTransitions t where
 
 class (HasStates1 t, Functor t, LikeTransitions (TSTransitions t)) => LikeTransitionSystem t where
     type TSTransitions t :: Type -> Type
-    toListOfTransitions :: t a -> [(Int, TSTransitions t a)]
     fromTransitions :: Int -> TSTransitions t a -> t a
     loopStates :: States -> t ()
-    (!) :: t a -> Int -> TSTransitions t a
+
+(!) :: StaticMap t => t -> Key t -> Val t
+k ! m = fromJust $ k !? m

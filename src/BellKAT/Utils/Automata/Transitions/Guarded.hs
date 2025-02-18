@@ -34,7 +34,7 @@ import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
 import qualified Data.IntSet                  as IS
 import           Data.IntMap.Strict           (IntMap)
-import qualified Data.IntMap.Strict           as IM
+import qualified Data.IntMap.Strict           as IM hiding ((!), (!?))
 
 import BellKAT.Utils.Automata.Transitions
 import BellKAT.Definitions.Structures.Basic
@@ -200,14 +200,27 @@ singletonDoneGts t i = GTS $ IM.singleton i (gTransitionsSingleton t Done)
 
 instance Boolean t => LikeTransitionSystem (GuardedTransitionSystem t) where
     type TSTransitions (GuardedTransitionSystem t) = GuardedTransitions t
-    toListOfTransitions = IM.toList . unGTS
+    -- toListOfTransitions = IM.toList . unGTS
     fromTransitions i ts = GTS $
         IM.singleton i ts <> IM.fromSet (const gTransitionsEmpty) (states ts)
     loopStates  = GTS . IM.fromSet (gTransitionsSingleton true . Step ())
-    (GTS ts) ! k = ts IM.! k 
 
-instance (Show a, Show t, Boolean t) => Show (GuardedTransitionSystem t a) where
-    show x = unlines $ map showState $ toListOfTransitions x
+instance StaticMap (GuardedTransitionSystem t a) where
+    type Key (GuardedTransitionSystem t a) = State
+    type Val (GuardedTransitionSystem t a) = GuardedTransitions t a
+
+    lookup k (GTS ts) = ts !? k 
+    size (GTS ts) = size ts
+    k `member` (GTS ts) = k `member` ts
+
+instance (Show t, DecidableBoolean t) => GHC.Exts.IsList (GuardedTransitionSystem t a) where
+    type Item (GuardedTransitionSystem t a) = (State, GuardedTransitions t a)
+    toList = IM.toList . unGTS
+    -- TODO: construct directly
+    fromList = mconcat . map (uncurry fromTransitions)
+
+instance (Show a, Show t, DecidableBoolean t) => Show (GuardedTransitionSystem t a) where
+    show x = unlines $ map showState $ toPairs x
       where
         showState (s, sTr) = 
             show s 

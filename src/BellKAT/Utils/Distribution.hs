@@ -22,7 +22,7 @@ type Probability = Rational
 
 newtype D a = D { unD :: P.T Probability a } deriving newtype (Functor, Applicative)
 
-instance GHC.Exts.IsList (D a) where
+instance Ord a => GHC.Exts.IsList (D a) where
     type Item (D a) = (a, Probability)
     fromList = D . P.fromFreqs
     toList = P.decons . unD
@@ -32,6 +32,9 @@ instance (Ord a) => Eq (D a) where
 
 instance Ord a => Ord (D a) where
     (D d) <= (D d') = P.decons (P.norm d) <= P.decons (P.norm d')
+
+instance Foldable D where
+    foldMap f = foldMap (f . fst) . P.decons . unD
 
 showProbability :: Probability -> String
 showProbability p = show (numerator p) <> "÷" <> show (denominator p)
@@ -54,7 +57,7 @@ djoin =  D . (unD <=< unD)
 
 newtype SD a = SD { fromSubdistribution :: D (Maybe a) } deriving newtype (Eq, Ord)
 
-instance GHC.Exts.IsList (SD a) where
+instance Ord a => GHC.Exts.IsList (SD a) where
     type Item (SD a) = (a, Probability)
     fromList xs = 
         let totalProbability = sum $ snd <$> xs

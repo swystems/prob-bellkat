@@ -27,10 +27,7 @@ instance Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: Set a }
-    deriving newtype (Foldable, Monoid)
-
-instance (Show a, Ord a) => Eq (C a) where
-    (C xs) == (C ys) = xs == ys
+    deriving newtype (Foldable, Monoid, Eq, Ord)
 
 instance Ord a => Semigroup (C a) where
     (C xs) <> (C ys) = C $ xs <> ys
@@ -53,7 +50,7 @@ instance CPointed C where
     cpure = C . cpure
 
 -- | Essentially weighted Minkowski sum
-instance (Dom C a, Convex a) => Convex (C a) where
+instance (Ord a, Dom C a, Convex a) => Convex (C a) where
     combine = fromList . map (combine . fromList)
         . foldl' (\acc (ca, p) -> (:) <$> fmap (,p) (toList ca) <*> acc) [[]]
         . toList
@@ -75,12 +72,12 @@ instance CPointed CD where
     cpure = CD . cpure . pure
 
 instance Foldable CD where
-    foldMap f = foldMap (foldMap (f . fst) . toList) . unCD
+    foldMap f = foldMap (foldMap f) . unCD
 
 instance CBind CD where
     (CD xs) >>- f = CD $ C $ unC xs >>- (unC . unCD . combine . fmap f)
 
-newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq)
+newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq, Ord)
 
 instance Ord a => GHC.Exts.IsList (CSD a) where
     type Item (CSD a) = SD a

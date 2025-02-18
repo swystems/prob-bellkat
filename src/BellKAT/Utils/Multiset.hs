@@ -25,7 +25,7 @@ instance Ord a => GHC.Exts.IsList (Multiset a) where
     toList (MS xs) = GHC.Exts.toList xs
 
 instance Show a => Show (Multiset a) where
-    show (MS a) = "{{" <> intercalate "," (show <$> toList a) <> "}}"
+    show (MS a) = "⦃" <> intercalate "," (show <$> toList a) <> "⦄"
 
 isSubsetOf :: Ord a => Multiset a -> Multiset a -> Bool
 isSubsetOf (MS x) (MS y) = x `MsetOrig.isSubsetOf` y

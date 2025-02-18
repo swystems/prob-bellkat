@@ -2,6 +2,8 @@ module BellKAT.Implementations.GuardedAutomataStepQuantum
     ( GuardedAutomatonStepQuantum (getGFA)
     , execute
     , executeWith
+    , executeSystem
+    , StateSystem
     ) where
 
 import           Control.Monad
@@ -13,6 +15,7 @@ import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Automata.Guarded
 import qualified BellKAT.Utils.Automata.Execution.Guarded as GAE
 import           BellKAT.Utils.Automata.Execution.Guarded (ExecutionParams)
+import           BellKAT.Utils.Automata.Execution.Guarded.State
 
 newtype GuardedAutomatonStepQuantum t a = GASQ 
     { getGFA :: GuardedFA t a
@@ -43,3 +46,10 @@ execute :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
     -> GuardedAutomatonStepQuantum t a
     -> b -> k b
 execute executeTest executeStep gasq = fromJust . executeWith def executeTest executeStep gasq
+
+executeSystem :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+    => (t -> b -> Bool)
+    -> (a -> b -> k b)
+    -> GuardedAutomatonStepQuantum t a
+    -> b -> StateSystem k b
+executeSystem executeTest executeStep (GASQ gasq) = executeGuarded executeTest executeStep gasq

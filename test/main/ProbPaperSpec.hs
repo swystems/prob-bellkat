@@ -15,7 +15,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
-import BellKAT.Definitions (applyProbStarPolicy)
+import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicySystem)
 
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
 
@@ -257,7 +257,8 @@ spec = do
         it "correctly handles example 5.1.I (ordered)" $ do
             applyProbStarPolicy p51pac Nothing p51i' [] `shouldBe` 
                 [p51mu1]
+        it "computes system for example 5.1.II (parallel)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
         it "correctly handles example 5.1.II (parallel)" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe` 
                 [p51nu1,p51nu2,p51nu3]
-

@@ -145,9 +145,11 @@ applyStarOrderedPolicyBounded =
 applyProbStarPolicy 
     :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
-applyProbStarPolicy pac = 
-    GASQ.execute (getBPsPredicate . toBPsPredicate) PAOSQ.execute
+applyProbStarPolicy pac mbNC = 
+    let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
+     in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
         . meaning 
         . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)

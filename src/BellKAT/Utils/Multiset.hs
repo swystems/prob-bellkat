@@ -7,9 +7,10 @@ module BellKAT.Utils.Multiset
     , filter
     , difference
     , count
+    , min
     ) where
 
-import           Prelude                    hiding (map, filter)
+import           Prelude                    hiding (map, filter, min)
 import           Data.List                  (intercalate)
 import           Data.Foldable              (toList)
 import qualified Data.Multiset              as MsetOrig
@@ -46,3 +47,6 @@ difference (MS x) (MS y) = MS $ MsetOrig.difference x y
 
 count :: Ord a => a -> Multiset a -> Int
 count x = MsetOrig.count x . unMS
+
+min :: Ord a => Multiset a -> Multiset a -> Multiset a
+min (MS x) (MS y) = MS $ MsetOrig.min x y

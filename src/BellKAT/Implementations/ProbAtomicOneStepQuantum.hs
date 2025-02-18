@@ -1,11 +1,12 @@
 module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
+    , NetworkCapacity (NC)
     , execute
+    , executeWithCapacity
     ) where
 
-import Data.Foldable (toList)
-import qualified GHC.Exts (IsList, Item, toList) 
-import GHC.Exts (fromList)
+import qualified GHC.Exts (IsList, Item) 
+import GHC.Exts (fromList, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
@@ -21,7 +22,7 @@ import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
 
 -- TODO: what's the difference between this design and the one in AtomicOneStepPolicy?
-newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy (Set (ProbabilisticAtomicAction tag))
+newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy (Set (ProbabilisticAtomicAction tag)) 
     deriving newtype (Eq)
 
 instance (Show tag, Ord tag, Default tag) => Show (ProbAtomicOneStepPolicy tag) where
@@ -33,12 +34,10 @@ instance Ord tag => GHC.Exts.IsList (ProbAtomicOneStepPolicy tag) where
     toList (ProbAtomicOneStepPolicy xs) = GHC.Exts.toList xs
 
 instance Ord tag => OrderedSemigroup (ProbAtomicOneStepPolicy tag) where
-    (ProbAtomicOneStepPolicy xs) <.> (ProbAtomicOneStepPolicy ys) = 
-        ProbAtomicOneStepPolicy $ Set.fromList $ (<.>) <$> toList xs <*> toList ys
+    x <.> y = fromList $ (<.>) <$> toList x <*> toList y
 
 instance Ord tag => ParallelSemigroup (ProbAtomicOneStepPolicy tag) where
-    (ProbAtomicOneStepPolicy xs) <||> (ProbAtomicOneStepPolicy ys) = 
-        ProbAtomicOneStepPolicy $ Set.fromList $ (<||>) <$> toList xs <*> toList ys
+    x <||> y = fromList $ (<||>) <$> toList x <*> toList y
 
 instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
     tryCreateBellPairFrom (CreateBellPairArgs o i p _) = ProbAtomicOneStepPolicy $ Set.fromList $
@@ -54,15 +53,28 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
                         (pure mempty)]
                 else mempty
 
+newtype NetworkCapacity tag = NC { unNC :: TaggedBellPairs tag } -- TODO: should really be BellPairs
+
+instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
+    type Item (NetworkCapacity tag) = TaggedBellPair tag
+    fromList = NC . fromList
+    toList = toList . unNC
+
 execute :: Ord tag => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
-execute (ProbAtomicOneStepPolicy xs) bps = foldMap (`executePAA` bps) xs
+execute (ProbAtomicOneStepPolicy xs) bps = 
+    foldMap (\paa -> executePAA id paa bps) xs
+
+executeWithCapacity :: Ord tag => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
+    foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
 executePAA :: Ord tag 
-           => ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
-executePAA act bps = 
+           => (TaggedBellPairs tag -> TaggedBellPairs tag) 
+           -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+executePAA fix act bps = 
     if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
-       then fromList [ (<> rest partial) <$> paaOutputBPD act | partial <- findElemsND (toList . paaInputBPs $ act) bps]
+       then fromList [ fix . (<> rest partial) <$> paaOutputBPD act | partial <- findElemsND (toList . paaInputBPs $ act) bps]
        else empty
 
-
-
+fixNetworkCapacity :: Ord tag => NetworkCapacity tag -> TaggedBellPairs tag -> TaggedBellPairs tag
+fixNetworkCapacity (NC x) = Mset.min x

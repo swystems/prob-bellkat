@@ -158,6 +158,9 @@ p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "
 p51pac :: ProbabilisticActionConfiguration
 p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)]
 
+p51nc :: NetworkCapacity BellKATTag
+p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
+
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
 
@@ -230,9 +233,11 @@ spec = do
             asAutomatonP e42 `shouldBe` e42FAp
         it "correctly represents example 4.2 prob (e || f)" $
             asAutomatonP ef42 `shouldBe` ef42FAp
+        it "prints out the example 5.1 II" $
+            print $ asAutomatonP p51ii
     describe "Probabilistic policy meaning" $ do
         it "correctly computes example 4.2" $ do
-            applyProbStarPolicy pac ef42 [] `shouldBe` 
+            applyProbStarPolicy pac Nothing ef42 [] `shouldBe` 
                 [ [ ([]                     , 23/135)
                   , (["B" ~ "C"]           , 6/135)
                   , (["A" ~ "C"]           , 72/135)
@@ -247,12 +252,12 @@ spec = do
                   ]
                 ]
         it "correctly handles example 5.1.I (parallel)" $ do
-            applyProbStarPolicy p51pac p51i [] `shouldBe` 
+            applyProbStarPolicy p51pac Nothing p51i [] `shouldBe` 
                 [p51mu1, p51mu2]
         it "correctly handles example 5.1.I (ordered)" $ do
-            applyProbStarPolicy p51pac p51i' [] `shouldBe` 
+            applyProbStarPolicy p51pac Nothing p51i' [] `shouldBe` 
                 [p51mu1]
         it "correctly handles example 5.1.II (parallel)" $ do
-            applyProbStarPolicy p51pac p51ii [] `shouldBe` 
+            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe` 
                 [p51nu1,p51nu2,p51nu3]
 

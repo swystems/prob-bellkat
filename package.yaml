@@ -33,6 +33,7 @@ dependencies:
   - probability
   - Boolean
   - relude
+  - subcategories
 
 library:
   source-dirs: src

@@ -1,8 +1,10 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.Utils.Automata.Execution.Guarded.State
     ( StateSystem(..)
+    , CanExecuteState
     , executeGuarded
     ) where
 
@@ -11,6 +13,8 @@ import qualified Data.Map.Strict              as Map
 import           Data.Default
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
+import           Control.Subcategory.Functor
+import           Control.Subcategory.Bind
 
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Utils.Automata.Transitions hiding (State)
@@ -21,9 +25,11 @@ import BellKAT.Utils.Automata.Guarded
 
 type ExecutionState k s = StateTransitionSystem k s
 
+type CanExecuteState t k s = (Boolean t, Ord s, Dom k s, Dom k (Int, s), CBind k, Monoid (k (Int, s)), Foldable k)
+
 -- TODO: code can be shared with Execution.Guarded
 executeGuarded 
-    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k)
+    :: (CanExecuteState t k s)
     => (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
     -> GuardedFA t a
@@ -49,12 +55,12 @@ execExecution executeTest executeStep gfa m =
      in (`execState` st) . (`runReaderT` env) $ m
 
 computeFrom 
-    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k) 
+    :: CanExecuteState t k s 
     => Int -> s -> ExecutionMonad k t a s ()
 computeFrom i st = getOrCompute i st >>= mapM_ (uncurry getOrCompute)
 
 getOrCompute 
-    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k) 
+    :: (Boolean t, Ord s, Dom k s, Dom k (Int, s), CBind k, Monoid (k (Int, s)), Foldable k) 
     => Int -> s -> ExecutionMonad k t a s (k (Int, s))
 getOrCompute i st =
     gets (Map.lookup st . (IM.! i)) >>= \case
@@ -65,11 +71,10 @@ getOrCompute i st =
             pure r
 
 compute 
-    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k,
-        MonadReader (ExecutionEnvironment k t a s) m) 
+    :: (CanExecuteState t k s, MonadReader (ExecutionEnvironment k t a s) m) 
     => Int -> s -> m (k (Int, s))
 compute i st = 
     computeTransitionsAtState i st >>= \case
       Nothing -> pure mempty 
       Just Done -> pure mempty -- TODO: should be smthing like mone
-      Just (Step f j) -> pure $ (j,) <$> f
+      Just (Step f j) -> pure $ cmap (j,) f

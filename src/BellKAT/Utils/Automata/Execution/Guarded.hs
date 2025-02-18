@@ -1,10 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.Utils.Automata.Execution.Guarded 
     ( execute
     , executeAll
     , ExecutionParams(..)
+    , CanExecuteGuarded
     ) where
 
 import           Data.Foldable
@@ -14,6 +16,8 @@ import           Control.Monad.Reader
 import           Data.Map.Strict    (Map)
 import qualified Data.Map.Strict    as Map
 import           GHC.Exts (fromList)
+import           Control.Subcategory.Functor
+import           Control.Subcategory.Bind
 
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Utils.Automata.Transitions hiding (State)
@@ -24,8 +28,10 @@ import BellKAT.Utils.Automata.Guarded
 
 import BellKAT.Utils.Automata.Execution.Guarded.Internal
 
+type CanExecuteGuarded t k s = (Boolean t, Ord s, Dom k s, CMonad k, Monoid (k s), Foldable k)
+
 execute
-    :: (Boolean t, Ord s, Monad k, Monoid (k s), Foldable k)
+    :: CanExecuteGuarded t k s
     => ExecutionParams s
     -> (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
@@ -39,7 +45,7 @@ execute params executeTest executeStep gfa x =
          Right r -> Just r
 
 executeAll
-    :: (Boolean t, Ord s, Monad k, Monoid (k s), Foldable k)
+    :: CanExecuteGuarded t k s
     => ExecutionParams s
     -> (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
@@ -84,14 +90,11 @@ initialExecutionState :: GuardedFA t a -> ExecutionState m s
 initialExecutionState gfa = fromList [(x, Map.empty) | x <- statesToList $ states $ gfaTransition gfa ]
 
 getOrComputeAll
-    :: (Foldable k, Boolean t, Ord s, Monad k, Monoid (k s))
-    => Int -> k s -> ExecutionMonad k t a s (Map s (k s))
+    :: CanExecuteGuarded t k s => Int -> k s -> ExecutionMonad k t a s (Map s (k s))
 getOrComputeAll i fs =
     forM_ fs (getOrCompute i) >> gets (! i)
 
-getOrCompute 
-    :: (Boolean t, Ord s, Monad k, Foldable k, Monoid (k s)) 
-    => Int -> s -> ExecutionMonad k t a s (k s)
+getOrCompute :: CanExecuteGuarded t k s => Int -> s -> ExecutionMonad k t a s (k s)
 getOrCompute i st =
     gets (Map.lookup st . (! i)) >>= \case
         Just r -> pure r
@@ -101,16 +104,14 @@ getOrCompute i st =
             modify' (insertWith (<>) i [(st, r)])
             pure r
 
-compute 
-    :: (Boolean t, Ord s, Monoid (k s), Monad k, Foldable k) 
-    => Int -> s -> ExecutionMonad k t a s (k s)
+compute :: CanExecuteGuarded t k s => Int -> s -> ExecutionMonad k t a s (k s)
 compute i st =
     computeTransitionsAtState i st >>= \case
       Nothing -> pure mempty 
-      Just Done -> pure $ pure st
+      Just Done -> pure $ creturn st
       Just (Step f j) -> do
         allTransitions <- getOrComputeAll j f
-        pure $ f >>= (allTransitions Map.!)
+        pure $ f >>- (allTransitions Map.!)
 
 checkStateLimit :: Int -> ExecutionMonad k t a s ()
 checkStateLimit i =

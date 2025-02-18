@@ -16,7 +16,7 @@ import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Automata.Guarded
 import           BellKAT.Utils.Automata.Transitions.Functorial (ComputedState)
 import qualified BellKAT.Utils.Automata.Execution.Guarded as GAE
-import           BellKAT.Utils.Automata.Execution.Guarded (ExecutionParams)
+import           BellKAT.Utils.Automata.Execution.Guarded (ExecutionParams, CanExecuteGuarded)
 import           BellKAT.Utils.Automata.Execution.Guarded.State
 
 newtype GuardedAutomatonStepQuantum t a = GASQ 
@@ -33,7 +33,7 @@ instance (Show t, DecidableBoolean t, CreatesBellPairs (sq tag) tag)
 instance (Show t, Show (sq tag), DecidableBoolean t, ParallelSemigroup (sq tag), CreatesBellPairs (sq tag) tag) 
   => Quantum (GuardedAutomatonStepQuantum t (sq tag)) tag where
 
-executeWith :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
+executeWith :: CanExecuteGuarded t k b
     => ExecutionParams b
     -> (t -> b -> Bool)
     -> (a -> b -> k b)
@@ -42,21 +42,21 @@ executeWith :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
 executeWith params executeTest executeStep (GASQ nfa) = 
     GAE.execute params executeTest executeStep nfa
 
-execute :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
+execute :: CanExecuteGuarded t k b
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a
     -> b -> k b
 execute executeTest executeStep gasq = fromJust . executeWith def executeTest executeStep gasq
 
-executeSystem :: (Ord b, Show b, Boolean t, Monad k, Monoid (k (Int, b)), Foldable k)
+executeSystem :: CanExecuteState t k b
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a
     -> b -> StateSystem k b
 executeSystem executeTest executeStep (GASQ gasq) = executeGuarded executeTest executeStep gasq
 
-executeState :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
+executeState :: CanExecuteGuarded t k b
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a

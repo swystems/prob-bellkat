@@ -2,6 +2,7 @@ module BellKAT.Utils.Automata.Execution.Guarded.Internal where
 
 import           Data.Foldable
 import           Control.Monad.Reader
+import           Control.Subcategory.Bind
 
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Utils.Automata.Transitions hiding (State)
@@ -34,7 +35,7 @@ data ExecutionEnvironment k t a s = EE
     }
 
 computeTransitionsAtState 
-    :: (Boolean t, Ord s, Monad k, Foldable k, MonadReader (ExecutionEnvironment k t a s) m)
+    :: (Boolean t, Ord s, CBind k, Foldable k, MonadReader (ExecutionEnvironment k t a s) m)
     => Int -> s -> m (Maybe (Next (k s)))
 computeTransitionsAtState i st = do
     ts <- reader ((! i) . transitionSystem . eeAutomaton) 

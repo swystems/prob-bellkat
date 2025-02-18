@@ -12,9 +12,8 @@ module BellKAT.Utils.Distribution
 
 import Control.Monad
 import Control.Applicative
-import Data.List (intercalate, intersperse)
+import Data.List (intercalate)
 import GHC.Exts (IsList, Item, fromList, toList)
-import Data.Functor.Classes (Show1(..))
 import Data.Ratio (numerator, denominator)
 
 import qualified Numeric.Probability.Distribution as P
@@ -37,23 +36,12 @@ instance Ord a => Ord (D a) where
 showProbability :: Probability -> String
 showProbability p = show (numerator p) <> "÷" <> show (denominator p)
 
-showsProbability :: Probability -> ShowS
-showsProbability p = shows (numerator p) . showString "÷" . shows (denominator p)
-
 instance (Show a, Ord a) => Show (D a) where
     show = intercalate "+" . map showProb . toList . norm
       where
         showProb (x, p)
             | p /= 1 = show x <> "×" <> showProbability p
             | otherwise = show x
-
-instance Show1 D where
-    liftShowsPrec aShowsPrec _ _ = mconcat 
-        . intersperse (showString "+") . map showProb . toList
-      where
-        showProb (x, p)
-            | p /= 1 = aShowsPrec 0 x . showString "×" . showsProbability p
-            | otherwise = aShowsPrec 0 x
 
 norm :: Ord a => D a -> D a
 norm = D . P.norm . unD

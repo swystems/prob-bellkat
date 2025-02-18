@@ -72,9 +72,11 @@ library:
     - BellKAT.Utils.Automata.Transitions
     - BellKAT.Utils.Automata.Transitions.Core
     - BellKAT.Utils.Automata.Transitions.Guarded
+    - BellKAT.Utils.Automata.Transitions.Functorial
     - BellKAT.Utils.Automata.Execution.Set
     - BellKAT.Utils.Automata.Execution.Common
     - BellKAT.Utils.Automata.Execution.Guarded
+    - BellKAT.Utils.Automata.Execution.Guarded.State
     - BellKAT.Utils.Automata.Guarded
     - BellKAT.Utils.Automata.HyperAction
     - BellKAT.Utils.Automata.GuardedEps

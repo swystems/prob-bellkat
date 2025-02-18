@@ -15,7 +15,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
-import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicySystem)
+import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicySystem, applyProbStarPolicyStates)
 
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
 
@@ -158,8 +158,8 @@ p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "
 p51pac :: ProbabilisticActionConfiguration
 p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)]
 
-p51nc :: NetworkCapacity BellKATTag
-p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
+p51ncI :: NetworkCapacity BellKATTag
+p51ncI = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
@@ -180,6 +180,9 @@ p51nu2 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000
 
 p51nu3 :: D (TaggedBellPairs BellKATTag)
 p51nu3 = [(["A" ~ "C", "B" ~ "C"], 649296/1000000), (["A" ~ "C"], 277488/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
+
+p51ncII :: NetworkCapacity BellKATTag
+p51ncII = ["C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 -- | == III
 
@@ -258,7 +261,9 @@ spec = do
             applyProbStarPolicy p51pac Nothing p51i' [] `shouldBe` 
                 [p51mu1]
         it "computes system for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
+            print $ applyProbStarPolicySystem p51pac (Just p51ncII) p51ii []
+        it "computes meanings for example 5.1.II (parallel)" $ do
+            print $ applyProbStarPolicyStates p51pac (Just p51ncII) p51ii []
         it "correctly handles example 5.1.II (parallel)" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe` 
+            applyProbStarPolicy p51pac (Just p51ncI) p51ii [] `shouldBe` 
                 [p51nu1,p51nu2,p51nu3]

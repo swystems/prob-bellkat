@@ -10,6 +10,7 @@ module BellKAT.Utils.Automata.Transitions.Core
     , filterStates
     , singletonState
     , statesFromList
+    , statesToList
     , statesIntersection
     , statesMember
     -- * Common classes for transitions and transition systems
@@ -38,6 +39,9 @@ singletonState = IS.singleton
 
 statesFromList :: [State] -> States
 statesFromList = IS.fromList
+
+statesToList :: States -> [State]
+statesToList = IS.toList
 
 statesIntersection :: States -> States -> States 
 statesIntersection = IS.intersection

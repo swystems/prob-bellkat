@@ -12,7 +12,6 @@ import           Data.List
 import qualified GHC.Exts (IsList, Item)
 import           GHC.Exts (fromList, toList)
 import           Data.Containers.ListUtils
-import           Data.Functor.Classes (Show1(..))
 
 import           BellKAT.Utils.Distribution as D
 
@@ -34,12 +33,6 @@ instance (Show a, Ord a) => Eq (C a) where
 instance (Ord a, Show a) => Show (C a) where
     show (C xs) = "⦅" <> intercalate "," (show <$> sort (nubOrd xs)) <> "⦆"
 
-instance Show1 C where
-    liftShowsPrec aShow _ _ (C xs)
-      = mconcat $ [showString "⦅"]
-            <> intersperse (showString ",") (aShow 0 <$> xs)
-            <> [showString "⦆"]
-
 instance Ord a => GHC.Exts.IsList (C a) where
     type Item (C a) = a
     toList = unC
@@ -52,12 +45,6 @@ instance Convex a => Convex (C a) where
         . toList
 
 newtype CD a = CD { unCD :: C (D a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq)
-
-instance Show1 CD where
-    liftShowsPrec aShowsPrec aShowList k = 
-        liftShowsPrec 
-            (liftShowsPrec aShowsPrec aShowList) (liftShowList aShowsPrec aShowList) k 
-        . unCD
 
 instance GHC.Exts.IsList (CD a) where
     type Item (CD a) = D a

@@ -5,10 +5,12 @@ module BellKAT.Definitions.Structures.Basic
     , MonoidStar(..)
     , Guarded(..)
     , module Data.Boolean
+    , module Relude.Extra.Map
     , DecidableBoolean(..)
     ) where
 
 import Data.Boolean
+import Relude.Extra.Map
 
 -- parallel composition is left-associative and has lower precedence than `<>`
 infixl 5 <||>
@@ -36,3 +38,6 @@ class Guarded t a | a -> t where
 
 class Boolean a => DecidableBoolean a where
     isFalse :: a -> Bool
+
+
+

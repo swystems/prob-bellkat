@@ -3,7 +3,9 @@ module BellKAT.Implementations.GuardedAutomataStepQuantum
     , execute
     , executeWith
     , executeSystem
+    , executeState
     , StateSystem
+    , ComputedState
     ) where
 
 import           Control.Monad
@@ -13,6 +15,7 @@ import           Data.Default (def)
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Utils.Automata.Guarded
+import           BellKAT.Utils.Automata.Transitions.Functorial (ComputedState)
 import qualified BellKAT.Utils.Automata.Execution.Guarded as GAE
 import           BellKAT.Utils.Automata.Execution.Guarded (ExecutionParams)
 import           BellKAT.Utils.Automata.Execution.Guarded.State
@@ -53,3 +56,10 @@ executeSystem :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
     -> GuardedAutomatonStepQuantum t a
     -> b -> StateSystem k b
 executeSystem executeTest executeStep (GASQ gasq) = executeGuarded executeTest executeStep gasq
+
+executeState :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+    => (t -> b -> Bool)
+    -> (a -> b -> k b)
+    -> GuardedAutomatonStepQuantum t a
+    -> b -> ComputedState k b
+executeState executeTest executeStep (GASQ gasq) = fromJust . GAE.executeAll def executeTest executeStep gasq

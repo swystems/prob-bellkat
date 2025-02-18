@@ -1,50 +1,23 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE StrictData #-}
-{-# LANGUAGE StandaloneDeriving #-}
 module BellKAT.Utils.Automata.Execution.Guarded.State
     ( StateSystem(..)
     , executeGuarded
     ) where
 
--- TODO: usually we abstract these away
-import           Data.IntMap.Strict           (IntMap)
 import qualified Data.IntMap.Strict           as IM
-import           Data.Map.Strict              (Map)
 import qualified Data.Map.Strict              as Map
 import           Data.Default
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
-import           Data.Functor.Classes (Eq1(..), eq1, Show1(..), showsPrec1)
-import           Data.List (intercalate)
 
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Utils.Automata.Transitions hiding (State)
 import BellKAT.Utils.Automata.Transitions.Guarded
+import BellKAT.Utils.Automata.Transitions.Functorial
 import BellKAT.Utils.Automata.Execution.Guarded.Internal
 import BellKAT.Utils.Automata.Guarded
-
-type StateTransitionSystem k s = IntMap (Map s (k (Int, s)))
-
-data StateSystem k s = SS 
-    { ssInitial :: (Int, s) 
-    , ssTransitions :: StateTransitionSystem k s
-    } 
-
-instance (Show1 k, Show s, Eq s) => Show (StateSystem k s) where
-    show x = intercalate "\n" $
-        map showState $ IM.toList (ssTransitions x)
-      where
-        showState (s, sTr) = 
-            (if s == fst (ssInitial x) then "^" else "") 
-            <> show s <> ":\n  "
-            <> intercalate "\n  " (map (showStateTr s) . Map.toList $ sTr)
-        showStateTr i (s, sTr) =
-            (if (i, s) == ssInitial x then "^" else "") 
-            <> show s <> ": " <> showsPrec1 0 sTr ""
-
-instance (Eq1 k, Eq s) => Eq (StateSystem k s) where
-    (SS i t) == (SS i' t') = i == i' && liftEq (liftEq eq1) t t'
 
 type ExecutionState k s = StateTransitionSystem k s
 

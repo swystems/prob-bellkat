@@ -25,7 +25,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Execution.Guarded.Internal
 
 execute
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) -- TODO: MonadPlus vs Monad + Monoid?
+    :: (Boolean t, Ord s, Monad k, Monoid (k s), Foldable k)
     => ExecutionParams s
     -> (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
@@ -39,7 +39,7 @@ execute params executeTest executeStep gfa x =
          Right r -> Just r
 
 executeAll
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) -- TODO: MonadPlus vs Monad + Monoid?
+    :: (Boolean t, Ord s, Monad k, Monoid (k s), Foldable k)
     => ExecutionParams s
     -> (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
@@ -84,13 +84,13 @@ initialExecutionState :: GuardedFA t a -> ExecutionState m s
 initialExecutionState gfa = fromList [(x, Map.empty) | x <- statesToList $ states $ gfaTransition gfa ]
 
 getOrComputeAll
-    :: (Foldable k, Boolean t, Ord s, MonadPlus k)
+    :: (Foldable k, Boolean t, Ord s, Monad k, Monoid (k s))
     => Int -> k s -> ExecutionMonad k t a s (Map s (k s))
 getOrComputeAll i fs =
     forM_ fs (getOrCompute i) >> gets (! i)
 
 getOrCompute 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) 
+    :: (Boolean t, Ord s, Monad k, Foldable k, Monoid (k s)) 
     => Int -> s -> ExecutionMonad k t a s (k s)
 getOrCompute i st =
     gets (Map.lookup st . (! i)) >>= \case
@@ -102,11 +102,11 @@ getOrCompute i st =
             pure r
 
 compute 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) 
+    :: (Boolean t, Ord s, Monoid (k s), Monad k, Foldable k) 
     => Int -> s -> ExecutionMonad k t a s (k s)
 compute i st =
     computeTransitionsAtState i st >>= \case
-      Nothing -> pure mzero 
+      Nothing -> pure mempty 
       Just Done -> pure $ pure st
       Just (Step f j) -> do
         allTransitions <- getOrComputeAll j f

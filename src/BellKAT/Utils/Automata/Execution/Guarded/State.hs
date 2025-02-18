@@ -23,7 +23,7 @@ type ExecutionState k s = StateTransitionSystem k s
 
 -- TODO: code can be shared with Execution.Guarded
 executeGuarded 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) -- TODO: MonadPlus vs Monad + Monoid?
+    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k)
     => (t -> s -> Bool)
     -> (a -> s -> k s) -- | executing one action
     -> GuardedFA t a
@@ -49,12 +49,12 @@ execExecution executeTest executeStep gfa m =
      in (`execState` st) . (`runReaderT` env) $ m
 
 computeFrom 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) 
+    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k) 
     => Int -> s -> ExecutionMonad k t a s ()
 computeFrom i st = getOrCompute i st >>= mapM_ (uncurry getOrCompute)
 
 getOrCompute 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k) 
+    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k) 
     => Int -> s -> ExecutionMonad k t a s (k (Int, s))
 getOrCompute i st =
     gets (Map.lookup st . (IM.! i)) >>= \case
@@ -65,11 +65,11 @@ getOrCompute i st =
             pure r
 
 compute 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k,
+    :: (Boolean t, Ord s, Monad k, Monoid (k (Int, s)), Foldable k,
         MonadReader (ExecutionEnvironment k t a s) m) 
     => Int -> s -> m (k (Int, s))
 compute i st = 
     computeTransitionsAtState i st >>= \case
-      Nothing -> pure mzero 
-      Just Done -> pure mzero -- TODO: should be smthing like mone
+      Nothing -> pure mempty 
+      Just Done -> pure mempty -- TODO: should be smthing like mone
       Just (Step f j) -> pure $ (j,) <$> f

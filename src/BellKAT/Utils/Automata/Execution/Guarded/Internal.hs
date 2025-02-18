@@ -34,7 +34,7 @@ data ExecutionEnvironment k t a s = EE
     }
 
 computeTransitionsAtState 
-    :: (Boolean t, Ord s, MonadPlus k, Foldable k, MonadReader (ExecutionEnvironment k t a s) m)
+    :: (Boolean t, Ord s, Monad k, Foldable k, MonadReader (ExecutionEnvironment k t a s) m)
     => Int -> s -> m (Maybe (Next (k s)))
 computeTransitionsAtState i st = do
     ts <- reader ((! i) . transitionSystem . eeAutomaton) 

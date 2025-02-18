@@ -8,7 +8,6 @@ module BellKAT.Implementations.GuardedAutomataStepQuantum
     , ComputedState
     ) where
 
-import           Control.Monad
 import           Data.Pointed
 import           Data.Maybe                     (fromJust)
 import           Data.Default (def)
@@ -34,7 +33,7 @@ instance (Show t, DecidableBoolean t, CreatesBellPairs (sq tag) tag)
 instance (Show t, Show (sq tag), DecidableBoolean t, ParallelSemigroup (sq tag), CreatesBellPairs (sq tag) tag) 
   => Quantum (GuardedAutomatonStepQuantum t (sq tag)) tag where
 
-executeWith :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+executeWith :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
     => ExecutionParams b
     -> (t -> b -> Bool)
     -> (a -> b -> k b)
@@ -43,21 +42,21 @@ executeWith :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
 executeWith params executeTest executeStep (GASQ nfa) = 
     GAE.execute params executeTest executeStep nfa
 
-execute :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+execute :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a
     -> b -> k b
 execute executeTest executeStep gasq = fromJust . executeWith def executeTest executeStep gasq
 
-executeSystem :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+executeSystem :: (Ord b, Show b, Boolean t, Monad k, Monoid (k (Int, b)), Foldable k)
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a
     -> b -> StateSystem k b
 executeSystem executeTest executeStep (GASQ gasq) = executeGuarded executeTest executeStep gasq
 
-executeState :: (Ord b, Show b, Boolean t, MonadPlus k, Foldable k)
+executeState :: (Ord b, Show b, Boolean t, Monad k, Monoid (k b), Foldable k)
     => (t -> b -> Bool)
     -> (a -> b -> k b)
     -> GuardedAutomatonStepQuantum t a

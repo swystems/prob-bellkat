@@ -6,14 +6,12 @@ module BellKAT.Utils.ConvexSetOfDistributions
     , CSD
     ) where
 
-import           Control.Applicative
-import           Control.Monad
 import           Data.List
 import qualified GHC.Exts (IsList, Item)
 import           GHC.Exts (fromList, toList)
 import           Data.Containers.ListUtils
 
-import           BellKAT.Utils.Distribution as D
+import           BellKAT.Utils.Distribution as D hiding (norm)
 
 class Convex a where
     combine :: D a -> a
@@ -25,10 +23,16 @@ instance Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: [a] }
-    deriving newtype (Functor, Applicative, Foldable, Semigroup, Monoid)
+    deriving newtype (Functor, Applicative, Foldable, Monoid)
 
 instance (Show a, Ord a) => Eq (C a) where
-    (C xs) == (C ys) = sort (nubOrd xs) == sort (nubOrd ys)
+    (C xs) == (C ys) = norm xs == norm ys
+
+instance Ord a => Semigroup (C a) where
+    (C xs) <> (C ys) = C . norm $ xs <> ys
+
+norm :: Ord a => [a] -> [a]
+norm = sort . nubOrd
 
 instance (Ord a, Show a) => Show (C a) where
     show (C xs) = "⦅" <> intercalate "," (show <$> sort (nubOrd xs)) <> "⦆"
@@ -63,12 +67,6 @@ instance Foldable CD where
 
 instance Monad CD where
     (CD xs) >>= f = CD $ C $ unC xs >>= (toList . combine . fmap f)
-
-instance Alternative CD where
-    empty = CD mempty
-    (CD xs) <|> (CD ys) = CD (xs <> ys)
-
-instance MonadPlus CD where
 
 newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq)
 

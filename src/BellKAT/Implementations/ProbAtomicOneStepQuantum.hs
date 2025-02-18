@@ -10,7 +10,6 @@ import GHC.Exts (fromList, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
-import Control.Applicative
 import BellKAT.Utils.Choice
 
 import qualified BellKAT.Utils.Multiset              as Mset
@@ -74,7 +73,7 @@ executePAA :: Ord tag
 executePAA fix act bps = 
     if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
        then fromList [ fix . (<> rest partial) <$> paaOutputBPD act | partial <- findElemsND (toList . paaInputBPs $ act) bps]
-       else empty
+       else mempty
 
 fixNetworkCapacity :: Ord tag => NetworkCapacity tag -> TaggedBellPairs tag -> TaggedBellPairs tag
 fixNetworkCapacity (NC x) = Mset.min x

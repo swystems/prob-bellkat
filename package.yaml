@@ -69,6 +69,7 @@ library:
     - BellKAT.Utils.Automata.EpsNFA
     - BellKAT.Utils.Automata.Eps
     - BellKAT.Utils.Automata.Transitions
+    - BellKAT.Utils.Automata.Transitions.Core
     - BellKAT.Utils.Automata.Transitions.Guarded
     - BellKAT.Utils.Automata.Execution.Set
     - BellKAT.Utils.Automata.Execution.Common

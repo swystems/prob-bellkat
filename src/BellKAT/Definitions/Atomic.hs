@@ -27,6 +27,9 @@ module BellKAT.Definitions.Atomic (
 
 import Data.Default
 import Data.Foldable (toList)
+import Control.Subcategory.Functor
+import Control.Subcategory.Pointed
+import Control.Subcategory.Applicative
 
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
@@ -85,7 +88,7 @@ createProbabilitsticAtomicAction ::
     ProbabilisticAtomicAction tag
 createProbabilitsticAtomicAction t inBPs outBPs =
     if t == createRestrictedTest [mempty]
-        then ProbabilisticAtomicAction t mempty (pure mempty)
+        then ProbabilisticAtomicAction t mempty (cpure mempty)
         else ProbabilisticAtomicAction t inBPs outBPs
 
 instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
@@ -93,14 +96,14 @@ instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
         createProbabilitsticAtomicAction
             (t1 .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (D.norm $ (<>) <$> outBpsD1 <*> outBpsD2)
+            (D.norm $ cmap (uncurry (<>)) $ pair outBpsD1 outBpsD2)
 
 instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
     (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (D.norm $ (<>) <$> outBps1 <*> outBps2)
+            (D.norm $ cmap (uncurry (<>)) $ pair outBps1 outBps2)
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =

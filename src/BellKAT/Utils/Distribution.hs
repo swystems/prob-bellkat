@@ -11,16 +11,33 @@ module BellKAT.Utils.Distribution
     ) where
 
 import Control.Monad
-import Control.Applicative
 import Data.List (intercalate)
 import GHC.Exts (IsList, Item, fromList, toList)
 import Data.Ratio (numerator, denominator)
+import Control.Subcategory.Functor
+import Control.Subcategory.Applicative
+import Control.Subcategory.Pointed
 
 import qualified Numeric.Probability.Distribution as P
 
 type Probability = Rational
 
-newtype D a = D { unD :: P.T Probability a } deriving newtype (Functor, Applicative)
+newtype D a = D { unD :: P.T Probability a } 
+
+instance Constrained D where
+    type Dom D a = Ord a
+
+instance CFunctor D where
+    cmap f = D . fmap f . unD
+
+instance CPointed D where
+    cpure = D . pure
+
+instance CApplicative D where
+    pair (D x) (D y) = D $ (,) <$> x <*> y
+    (D x) <.> (D y) = D $ x <*> y
+    (D x) .> (D y) = D $ x *> y
+    (D x) <. (D y) = D $ x <* y
 
 instance Ord a => GHC.Exts.IsList (D a) where
     type Item (D a) = (a, Probability)
@@ -74,15 +91,17 @@ instance (Show a, Ord a) => Show (SD a) where
             | p /= 1 = show x <> "×(" <> show p <> ")"
             | otherwise = show x
 
-instance Functor SD where
-    fmap f = SD . fmap (fmap f) . fromSubdistribution
+instance Constrained SD where
+    type Dom SD a = Ord a
 
-instance Applicative SD where
-    pure = SD . pure . pure
-    liftA2 f (SD xs) (SD ys) = SD $ liftA2 (liftA2 f) xs ys
+instance CFunctor SD where
+    cmap f = SD . cmap (fmap f) . fromSubdistribution
 
-sdjoin :: SD (SD a) -> SD a
-sdjoin =  SD . djoin . fmap (maybe (pure Nothing) fromSubdistribution) . fromSubdistribution
+instance CPointed SD where
+    cpure = SD . cpure . pure
 
-toSubdistribution :: D a -> SD a
-toSubdistribution = SD . fmap Just
+sdjoin :: Ord a => SD (SD a) -> SD a
+sdjoin =  SD . djoin . cmap (maybe (cpure Nothing) fromSubdistribution) . fromSubdistribution
+
+toSubdistribution :: Ord a => D a -> SD a
+toSubdistribution = SD . cmap Just

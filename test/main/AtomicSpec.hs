@@ -4,6 +4,8 @@
 
 module AtomicSpec (spec) where
 
+import Control.Subcategory.Pointed
+
 import BellKAT.Definitions.Structures
 import BellKAT.DSL
 import BellKAT.Definitions.Atomic
@@ -28,7 +30,7 @@ piS :: ProbabilisticAtomicAction ()
 piS = createProbabilitsticAtomicAction
     (createRestrictedTest [["C" ~ "C"]])
     []
-    (pure [])
+    (cpure [])
 
 piB :: ProbabilisticAtomicAction ()
 piB = createProbabilitsticAtomicAction
@@ -91,7 +93,7 @@ spec = do
             (piS <||> piS) `shouldBe` createProbabilitsticAtomicAction 
                 (createRestrictedTest [["C" ~ "C"]])
                 []
-                (pure [])
+                (cpure [])
         it "composes in parallel piC and piC" $ 
             (piC <||> piC) `shouldBe` createProbabilitsticAtomicAction 
                 (createRestrictedTest [])

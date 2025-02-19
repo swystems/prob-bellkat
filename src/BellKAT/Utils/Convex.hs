@@ -15,7 +15,7 @@ import           Control.Subcategory.Functor
 import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
 
-import           BellKAT.Utils.Distribution as D hiding (norm)
+import           BellKAT.Utils.Distribution as D
 
 class Convex a where
     combine :: D a -> a
@@ -26,7 +26,7 @@ instance Ord a => Convex (D a) where
     combine = D.djoin
     reduceConvexHull = id
 
-instance Convex (SD a) where
+instance Ord a => Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: Set a }
@@ -70,16 +70,16 @@ instance Ord a => GHC.Exts.IsList (CD a) where
     fromList = CD . createC . fromList
 
 instance Ord a => Convex (CD a) where
-    combine = CD . combine . fmap unCD
+    combine = CD . combine . cmap unCD
 
 instance Constrained CD where
     type Dom CD a = Ord a
 
 instance CFunctor CD where
-    cmap f = CD . cmap (fmap f) . unCD
+    cmap f = CD . cmap (cmap f) . unCD
 
 instance CPointed CD where
-    cpure = CD . cpure . pure
+    cpure = CD . cpure . cpure
 
 instance Foldable CD where
     foldMap f = foldMap (foldMap f) . unCD
@@ -90,7 +90,7 @@ instance CBind CD where
 newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 
 instance Ord a => Convex (CSD a) where
-    combine = CSD . combine . fmap unCSD
+    combine = CSD . combine . cmap unCSD
 
 instance Ord a => GHC.Exts.IsList (CSD a) where
     type Item (CSD a) = SD a

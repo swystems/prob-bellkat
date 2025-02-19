@@ -2,6 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ProbPaperSpec where
 
+import Control.Subcategory.Pointed
+
 import Test.Hspec
 
 import BellKAT.Prelude
@@ -46,15 +48,15 @@ e42FAp = GFA 0 $ gtsFromList
             ] 1)
          ,("C" ~~? "C", Step 
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 2)])
     ,(1, [(true, Step 
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 3)])
     ,(2, [(true, Step 
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 3)])
     ,(3, [(true, Done)])
     ]
@@ -72,33 +74,33 @@ ef42FA :: BellKATAutomaton
 ef42FA = GFA 0 $ gtsFromList 
     [(0,
         [("C" /~? "C", Step 
-            [createProbabilitsticAtomicAction [] [] (pure ["C" ~ "C", "C" ~ "C"])] 1)
+            [createProbabilitsticAtomicAction [] [] (cpure ["C" ~ "C", "C" ~ "C"])] 1)
         ,("C" ~~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["A" ~ "C", "C" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (cpure ["A" ~ "C", "C" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 2)])
     ,(1,
         [("C" /~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["C" ~ "C", "A" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (cpure ["C" ~ "C", "A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 3)
         ,("C" ~~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (pure ["A" ~ "C", "B" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["A" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["B" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (cpure ["A" ~ "C", "B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 4)
         ])
     ,(2,
         [("C" /~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (pure ["C" ~ "C", "A" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure ["C" ~ "C"])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C"] (cpure ["C" ~ "C", "A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 3)
         ,("C" ~~? "C", Step 
-            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (pure ["A" ~ "C", "B" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["A" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (pure ["B" ~ "C"])
-            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (pure [])
+            [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (cpure ["A" ~ "C", "B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["A" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["B" ~ "C"])
+            ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 4)
         ])
     ,(3, [(true, Done)])
@@ -132,7 +134,7 @@ ef42FAp = GFA 0 $ gtsFromList
         [(["A" ~ "C", "B" ~ "C"],4/10), (["A" ~ "C"], 4/10), (["B" ~ "C"], 1/10), ([],1/10) ]
     pApS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"]
         [(["A" ~ "C"], 4/5), ([], 1/5)]
-    pSpS = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ pure []
+    pSpS = createProbabilitsticAtomicAction [["C" ~ "C"]] [] $ cpure []
     pBpS = createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"]
         [(["B" ~ "C"], 1/2), ([], 1/2)]
 

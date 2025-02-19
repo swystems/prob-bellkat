@@ -10,7 +10,8 @@ import GHC.Exts (fromList, toList)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
-import BellKAT.Utils.Choice
+import Control.Subcategory.Pointed
+import Control.Subcategory.Functor
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Utils.Distribution as D
@@ -19,6 +20,7 @@ import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
+import BellKAT.Utils.Choice
 
 -- TODO: what's the difference between this design and the one in AtomicOneStepPolicy?
 newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy (Set (ProbabilisticAtomicAction tag)) 
@@ -43,13 +45,13 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
             [ createProbabilitsticAtomicAction 
                 (createRestrictedTest mempty) 
                 (Mset.fromList i) 
-                (if p == 1 then pure (Mset.singleton o) else D.choose p (Mset.singleton o) mempty)
+                (if p == 1 then cpure (Mset.singleton o) else D.choose p (Mset.singleton o) mempty)
             ] <> 
                 if i /= mempty 
                 then [createProbabilitsticAtomicAction 
                         (createRestrictedTest  [Mset.fromList i]) 
                         mempty 
-                        (pure mempty)]
+                        (cpure mempty)]
                 else mempty
 
 newtype NetworkCapacity tag = NC { unNC :: TaggedBellPairs tag } -- TODO: should really be BellPairs
@@ -72,7 +74,7 @@ executePAA :: Ord tag
            -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
 executePAA fix act bps = 
     if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
-       then fromList [ fix . (<> rest partial) <$> paaOutputBPD act | partial <- findElemsND (toList . paaInputBPs $ act) bps]
+       then fromList [ cmap (fix . (<> rest partial)) (paaOutputBPD act) | partial <- findElemsND (toList . paaInputBPs $ act) bps]
        else mempty
 
 fixNetworkCapacity :: Ord tag => NetworkCapacity tag -> TaggedBellPairs tag -> TaggedBellPairs tag

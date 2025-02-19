@@ -19,9 +19,12 @@ import           BellKAT.Utils.Distribution as D hiding (norm)
 
 class Convex a where
     combine :: D a -> a
+    reduceConvexHull :: Set a -> Set a
+    reduceConvexHull = id
 
-instance Convex (D a) where
+instance Ord a => Convex (D a) where
     combine = D.djoin
+    reduceConvexHull = id
 
 instance Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
@@ -29,38 +32,44 @@ instance Convex (SD a) where
 newtype C a = C { unC :: Set a }
     deriving newtype (Foldable, Monoid, Eq, Ord)
 
-instance Ord a => Semigroup (C a) where
-    (C xs) <> (C ys) = C $ xs <> ys
+createC :: Convex a => Set a -> C a
+createC = C . reduceConvexHull 
+
+instance (Convex a, Ord a) => Semigroup (C a) where
+    (C xs) <> (C ys) = createC $ xs <> ys
 
 instance (Ord a, Show a) => Show (C a) where
     show (C xs) = "⦅" <> intercalate "," (show <$> toList xs) <> "⦆"
 
-instance Ord a => GHC.Exts.IsList (C a) where
+instance (Convex a, Ord a) => GHC.Exts.IsList (C a) where
     type Item (C a) = a
     toList = toList . unC
-    fromList = C . fromList
+    fromList = createC . fromList
 
 instance Constrained C where
-    type Dom C a = Ord a
+    type Dom C a = (Ord a, Convex a)
 
 instance CFunctor C where
-    cmap f (C xs) = C $ cmap f xs
+    cmap f (C xs) = createC $ cmap f xs
 
 instance CPointed C where
     cpure = C . cpure
 
 -- | Essentially weighted Minkowski sum
-instance (Ord a, Dom C a, Convex a) => Convex (C a) where
+instance (Ord a, Dom C a) => Convex (C a) where
     combine = fromList . map (combine . fromList)
         . foldl' (\acc (ca, p) -> (:) <$> fmap (,p) (toList ca) <*> acc) [[]]
         . toList
 
-newtype CD a = CD { unCD :: C (D a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq)
+newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq)
 
 instance Ord a => GHC.Exts.IsList (CD a) where
     type Item (CD a) = D a
     toList = toList . unC . unCD
-    fromList = CD . C . fromList
+    fromList = CD . createC . fromList
+
+instance Ord a => Convex (CD a) where
+    combine = CD . combine . fmap unCD
 
 instance Constrained CD where
     type Dom CD a = Ord a
@@ -75,11 +84,14 @@ instance Foldable CD where
     foldMap f = foldMap (foldMap f) . unCD
 
 instance CBind CD where
-    (CD xs) >>- f = CD $ C $ unC xs >>- (unC . unCD . combine . fmap f)
+    (CD xs) >>- f = CD $ createC $ unC xs >>- (unC . unCD . combine . fmap f)
 
-newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Convex, Semigroup, Monoid, Show, Eq, Ord)
+newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
+
+instance Ord a => Convex (CSD a) where
+    combine = CSD . combine . fmap unCSD
 
 instance Ord a => GHC.Exts.IsList (CSD a) where
     type Item (CSD a) = SD a
     toList = toList . unC . unCSD
-    fromList = CSD . C . fromList
+    fromList = CSD . createC . fromList

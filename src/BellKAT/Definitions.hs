@@ -30,7 +30,7 @@ import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Policy.Extra
-import           BellKAT.Utils.ConvexSetOfDistributions
+import           BellKAT.Utils.Convex
 import           BellKAT.ActionEmbeddings 
 import           BellKAT.PolicyEmbeddings
 import qualified BellKAT.Implementations.HistoryQuantum        as HQ

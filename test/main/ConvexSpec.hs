@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-module ConvexSetOfDistributionsSpec where
+module ConvexSpec where
 
 import BellKAT.Definitions.Core
 import BellKAT.Utils.Distribution
-import BellKAT.Utils.ConvexSetOfDistributions
+import BellKAT.Utils.Convex
 
 import Test.Hspec
 

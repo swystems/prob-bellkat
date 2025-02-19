@@ -65,7 +65,7 @@ library:
     - BellKAT.Utils.Choice
     - BellKAT.Utils.PartialNDEndo
     - BellKAT.Utils.Distribution
-    - BellKAT.Utils.ConvexSetOfDistributions
+    - BellKAT.Utils.Convex
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA
     - BellKAT.Utils.Automata.EpsNFA

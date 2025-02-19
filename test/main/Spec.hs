@@ -32,7 +32,7 @@ import qualified PaperSpec
 import qualified AutomataSpec
 import qualified GuardedAutomataSpec
 import qualified TestsSpec
-import qualified ConvexSetOfDistributionsSpec
+import qualified ConvexSpec
 
 main :: IO ()
 main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
@@ -40,7 +40,7 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Definitions.Atomic" AtomicSpec.spec
     describe "BellKAT.Utils.Automata" AutomataSpec.spec
     describe "BellKAT.Utils.Automata.Guarded" GuardedAutomataSpec.spec
-    describe "BellKAT.Utils.ConvexSetOfDistributions" ConvexSetOfDistributionsSpec.spec    
+    describe "BellKAT.Utils.Convex" ConvexSpec.spec    
     describe "Paper Tests" PaperSpec.spec
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "distill" $ do

@@ -14,7 +14,7 @@ import BellKAT.Utils.Choice
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Utils.Distribution as D
-import BellKAT.Utils.ConvexSetOfDistributions
+import BellKAT.Utils.Convex
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures

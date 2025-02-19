@@ -1,6 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
-module BellKAT.Utils.ConvexSetOfDistributions
+module BellKAT.Utils.Convex
     ( C
     , Convex (..)
     , CD

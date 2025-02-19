@@ -33,7 +33,7 @@ newtype C a = C { unC :: Set a }
     deriving newtype (Foldable, Monoid, Eq, Ord)
 
 createC :: Convex a => Set a -> C a
-createC = C . reduceConvexHull 
+createC = C . reduceConvexHull
 
 instance (Convex a, Ord a) => Semigroup (C a) where
     (C xs) <> (C ys) = createC $ xs <> ys
@@ -57,11 +57,12 @@ instance CPointed C where
 
 -- | Essentially weighted Minkowski sum
 instance (Ord a, Dom C a) => Convex (C a) where
-    combine = fromList . map (combine . fromList)
-        . foldl' (\acc (ca, p) -> (:) <$> fmap (,p) (toList ca) <*> acc) [[]]
-        . toList
+    combine = fromList . combineConvexSets . toList
+      where
+        combineConvexSets :: [(C a, Probability)] -> [a]
+        combineConvexSets = map (combine . fromList) . mapM (\(ca, p) -> (,p) <$> toList ca)
 
-newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq)
+newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 
 instance Ord a => GHC.Exts.IsList (CD a) where
     type Item (CD a) = D a
@@ -84,7 +85,7 @@ instance Foldable CD where
     foldMap f = foldMap (foldMap f) . unCD
 
 instance CBind CD where
-    (CD xs) >>- f = CD $ createC $ unC xs >>- (unC . unCD . combine . fmap f)
+    cjoin = mconcat . map combine . toList
 
 newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 

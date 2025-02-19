@@ -57,7 +57,7 @@ execExecution executeTest executeStep gfa m =
 computeFrom 
     :: CanExecuteState t k s 
     => Int -> s -> ExecutionMonad k t a s ()
-computeFrom i st = getOrCompute i st >>= mapM_ (uncurry getOrCompute)
+computeFrom i st = getOrCompute i st >>= mapM_ (uncurry computeFrom)
 
 getOrCompute 
     :: (Boolean t, Ord s, Dom k s, Dom k (Int, s), CBind k, Monoid (k (Int, s)), Foldable k) 

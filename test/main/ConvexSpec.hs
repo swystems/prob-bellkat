@@ -2,11 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ConvexSpec where
 
+import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
+import Control.Subcategory.Functor
 
 import BellKAT.Definitions.Core
+import BellKAT.Utils.Automata.Transitions.Core
 import BellKAT.Utils.Distribution
 import BellKAT.Utils.Convex
+import Data.Map.Strict (Map)
 
 import Test.Hspec
 
@@ -29,5 +33,17 @@ spec = do
                 , [([], 7/10), (["A" :~: "C", "B" :~: "C"], 3/10)]
                 , [([], 13/20), (["A" :~: "B"], 7/100)]
                 ]
+        it "is associative" $ do
+            let x = [[('A', 1/2), ('B', 1/2)]]
+            let k2m :: Map Char (CD Char) 
+                    = [('A', cpure 'A'), ('B', [[('A', 1/2),('B', 1/2)]])]
+            let k2' = (k2m !)
+            let k3m :: Map Char (CD Char) 
+                    = [('B', cpure 'A'), 
+                      ('A', [[('A', 2/3),('B', 1/3)]
+                           ,[('A', 1/2),('B', 1/2)]])]
+            let k3' = (k3m !)
+            let ooo = cmap (cmap k3') (cmap k2' x)
+            (cjoin . cjoin) ooo `shouldBe` (cjoin . cmap cjoin) ooo
 
 

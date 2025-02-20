@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 module ProbPaperSpec where
 
 import Control.Subcategory.Bind
@@ -18,7 +19,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
-import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicySystem, applyProbStarPolicyStates)
+import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicy', applyProbStarPolicySystem, applyProbStarPolicyStates)
 
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
 
@@ -219,7 +220,7 @@ p53nc = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
 
 p53OneAttempt :: ProbBellKATPolicy
 p53OneAttempt = 
-    let n = 10 :: Int
+    let n = 450 :: Int
      in (stimes n (ite ("A" /~? "C") (ucreate ("B", "C")) mempty) 
             <||> stimes n (ite ("B" /~? "C") (ucreate ("B", "C")) mempty)) 
         <> swap "C" ("A", "B")
@@ -299,6 +300,5 @@ spec = do
         it "correctly handles example 5.1.III" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
                 [p51nu1', p51nu2', p51nu3']
-        focus $ it "correctly prints example 5.3 (RSwap, one attempt)" $ do
-            applyProbStarPolicy p53pac (Just p53nc) p53OneAttempt [] `shouldBe`
-                []
+        it "prints probabilities example 5.3 (RSwap, one attempt)" $ do
+            print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) p53OneAttempt []

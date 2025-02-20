@@ -9,9 +9,12 @@ module BellKAT.Utils.Distribution
     , toSubdistribution
     , fromSubdistribution
     , sdjoin
+    , HasMapProbability (..)
+    , RationalOrDouble (..)
     ) where
 
 import Control.Monad
+import Data.Bifunctor
 import Data.List (intercalate)
 import GHC.Exts (IsList, Item, fromList, toList)
 import Control.Subcategory.Functor
@@ -28,9 +31,13 @@ type D' = D Probability
 createD :: (Fractional p, Ord p, Ord a) => P.T p a -> D p a
 createD = D . P.norm . P.fromFreqs . check . P.decons
 
-check :: (Ord p, Num p) => [(a, p)] -> [(a, p)]
+-- TODO: should be zero for Rational
+errorMargin :: (Fractional p) => p
+errorMargin = 1 / (10 ^ (9 :: Int))
+
+check :: (Ord p, Fractional p) => [(a, p)] -> [(a, p)]
 check xs = 
-    if all ((> 0) . snd) xs && sum (map snd xs) == 1 then xs else error "weird probs"
+    if all ((> 0) . snd) xs && abs (sum (map snd xs) - 1) < errorMargin then xs else error "weird probs"
 
 instance Constrained (D p) where
     type Dom (D p) a = Ord a
@@ -111,3 +118,18 @@ sdjoin =  SD . djoin . cmap (maybe (cpure Nothing) fromSubdistribution) . fromSu
 
 toSubdistribution :: (Fractional p, Ord p, Ord a) => D p a -> SD p a
 toSubdistribution = SD . cmap Just
+
+class RealFrac p => RationalOrDouble p where
+    toDouble :: p -> Double
+
+instance RationalOrDouble Rational where
+    toDouble = fromRational
+
+instance RationalOrDouble Double where
+    toDouble = id
+
+class HasMapProbability t where
+    mapProbability :: (RationalOrDouble p, RationalOrDouble p', Ord a) => (p -> p') -> t p a -> t p' a
+
+instance HasMapProbability D where
+    mapProbability f = createD . P.fromFreqs . map (second f) . P.decons .  unD

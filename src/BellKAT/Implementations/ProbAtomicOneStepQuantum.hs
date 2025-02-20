@@ -2,7 +2,9 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
     , NetworkCapacity (NC)
     , execute
+    , execute'
     , executeWithCapacity
+    , executeWithCapacity'
     ) where
 
 import qualified GHC.Exts (IsList, Item) 
@@ -65,9 +67,15 @@ execute :: (Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> Ta
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
 
+execute' :: (RationalOrDouble p, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+execute' p bps = mapProbability fromRational $ execute p bps
+
 executeWithCapacity :: (Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
+
+executeWithCapacity' :: (RationalOrDouble p, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+executeWithCapacity' nc p bps = mapProbability fromRational $ executeWithCapacity nc p bps
 
 executePAA :: (Show tag, Ord tag, Default tag)
            => (TaggedBellPairs tag -> TaggedBellPairs tag) 

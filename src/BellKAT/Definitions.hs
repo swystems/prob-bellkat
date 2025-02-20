@@ -18,6 +18,7 @@ module BellKAT.Definitions
     , applyStarPolicy
     , applyStarPolicyH
     , applyProbStarPolicy
+    , applyProbStarPolicy'
     , applyProbStarPolicySystem
     , applyProbStarPolicyStates
     ) where
@@ -31,6 +32,7 @@ import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Policy.Extra
 import           BellKAT.Utils.Convex
+import           BellKAT.Utils.Distribution
 import           BellKAT.ActionEmbeddings 
 import           BellKAT.PolicyEmbeddings
 import qualified BellKAT.Implementations.HistoryQuantum        as HQ
@@ -150,8 +152,16 @@ applyProbStarPolicy
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
-applyProbStarPolicy pac mbNC = 
-    let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
+applyProbStarPolicy = applyProbStarPolicy'
+
+applyProbStarPolicy' 
+    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    => ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+applyProbStarPolicy' pac mbNC = 
+    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
      in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
         . meaning 
         . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)

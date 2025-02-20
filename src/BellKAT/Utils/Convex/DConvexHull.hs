@@ -1,7 +1,6 @@
 module BellKAT.Utils.Convex.DConvexHull 
     ( reduceConvexHullD
     , isInConvexHullOfD
-    , RationalOrDouble (..)
     ) where
 
 import           Data.Set (Set)
@@ -14,15 +13,6 @@ import           Data.Array.Comfort.Shape (indices, Range(..), Indexed)
 import           Numeric.GLPK
 
 import BellKAT.Utils.Distribution
-
-class RealFrac p => RationalOrDouble p where
-    toDouble :: p -> Double
-
-instance RationalOrDouble Rational where
-    toDouble = fromRational
-
-instance RationalOrDouble Double where
-    toDouble = id
 
 reduceConvexHullD :: (RationalOrDouble p, Ord p, Ord a) => Set (D p a) -> Set (D p a)
 reduceConvexHullD = fromList . reduceDConvexHull' . toList

@@ -126,6 +126,9 @@ instance Foldable (CD p) where
 instance (RationalOrDouble p, Show p) => CBind (CD p) where
     cjoin = mconcat . map combine . toList
 
+instance HasMapProbability CD where
+    mapProbability f = CD . cmap (mapProbability f) . unCD 
+
 newtype CSD p a = CSD { unCSD :: C (SD p a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 
 type CSD' = CSD Probability

@@ -56,11 +56,11 @@ instance GHC.Exts.IsList (ComputedState k s) where
     fromList = CS . fromList
     toList = toList . unCS
 
-instance (Show (k s), Show s, Eq s) => Show (ComputedState k s) where
+instance (GHC.Exts.IsList (k s), Show (k s), Show s, Eq s) => Show (ComputedState k s) where
     show x = intercalate "\n" $
         map showState $ toList x
       where
         showState (s, sTr) = 
             show s <> ":\n  " <> intercalate "\n  " (map (showStateTr s) . Map.toList $ sTr)
         showStateTr _ (s, sTr) =
-            show s <> ": " <> show sTr
+            show s <> ": " <> "(" <> show (length . toList $ sTr) <> ") " <> show sTr

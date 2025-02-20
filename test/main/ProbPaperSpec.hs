@@ -2,17 +2,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ProbPaperSpec where
 
+import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
-
 import Test.Hspec
 
 import BellKAT.Prelude
 import BellKAT.Utils.Distribution as D
-import BellKAT.Definitions.Policy (TaggedAction) 
-import BellKAT.Definitions.Core (CreateBellPairArgs(..), TaggedBellPairs) 
+import BellKAT.Definitions.Policy (TaggedAction)
+import BellKAT.Definitions.Core (CreateBellPairArgs(..), TaggedBellPairs)
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
 import BellKAT.ActionEmbeddings
-import BellKAT.PolicyEmbeddings 
+import BellKAT.PolicyEmbeddings
 import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
@@ -33,7 +33,7 @@ ef42 :: ProbBellKATPolicy
 ef42 = e42 <||> f42
 
 e42FA :: BellKATAutomaton
-e42FA = GFA 0 $ gtsFromList 
+e42FA = GFA 0 $ gtsFromList
     [(0, [("C" /~? "C", Step (fromBasicAction $ create "C") 1)
          ,("C" ~~? "C", Step (fromBasicAction $ trans "C" ("A", "C")) 2)])
     ,(1, [(true, Step (fromBasicAction $ trans "C" ("A", "C")) 3)])
@@ -42,19 +42,19 @@ e42FA = GFA 0 $ gtsFromList
     ]
 
 e42FAp :: BellKATAutomaton
-e42FAp = GFA 0 $ gtsFromList 
-    [(0, [("C" /~? "C", Step 
+e42FAp = GFA 0 $ gtsFromList
+    [(0, [("C" /~? "C", Step
             [createProbabilitsticAtomicAction [] [] (D.choose (2/3) ["C" ~ "C"] [])
             ] 1)
-         ,("C" ~~? "C", Step 
+         ,("C" ~~? "C", Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 2)])
-    ,(1, [(true, Step 
+    ,(1, [(true, Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 3)])
-    ,(2, [(true, Step 
+    ,(2, [(true, Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (D.choose (4/5) ["A" ~ "C"] [])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure [])
             ] 3)])
@@ -62,7 +62,7 @@ e42FAp = GFA 0 $ gtsFromList
     ]
 
 f42FA :: BellKATAutomaton
-f42FA = GFA 0 $ gtsFromList 
+f42FA = GFA 0 $ gtsFromList
     [(0, [(true, Step (fromBasicAction $ create "C") 1)])
     ,(1, [("C" /~? "C", Step (fromBasicAction $ create "C") 2)
          ,("C" ~~? "C", Step (fromBasicAction $ trans "C" ("B", "C")) 3)])
@@ -71,7 +71,7 @@ f42FA = GFA 0 $ gtsFromList
     ]
 
 ef42FA :: BellKATAutomaton
-ef42FA = GFA 0 $ gtsFromList 
+ef42FA = GFA 0 $ gtsFromList
     [(0,
         [("C" /~? "C", Step 
             [createProbabilitsticAtomicAction [] [] (cpure ["C" ~ "C", "C" ~ "C"])] 1)
@@ -80,11 +80,11 @@ ef42FA = GFA 0 $ gtsFromList
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 2)])
     ,(1,
-        [("C" /~? "C", Step 
+        [("C" /~? "C", Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (cpure ["C" ~ "C", "A" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 3)
-        ,("C" ~~? "C", Step 
+        ,("C" ~~? "C", Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (cpure ["A" ~ "C", "B" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["A" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["B" ~ "C"])
@@ -92,11 +92,11 @@ ef42FA = GFA 0 $ gtsFromList
             ] 4)
         ])
     ,(2,
-        [("C" /~? "C", Step 
+        [("C" /~? "C", Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C"] (cpure ["C" ~ "C", "A" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C"]] [] (cpure ["C" ~ "C"])
             ] 3)
-        ,("C" ~~? "C", Step 
+        ,("C" ~~? "C", Step
             [createProbabilitsticAtomicAction [] ["C" ~ "C", "C" ~ "C"] (cpure ["A" ~ "C", "B" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["A" ~ "C"])
             ,createProbabilitsticAtomicAction [["C" ~ "C", "C" ~ "C"]] ["C" ~ "C"] (cpure ["B" ~ "C"])
@@ -108,7 +108,7 @@ ef42FA = GFA 0 $ gtsFromList
     ]
 
 ef42FAp :: BellKATAutomaton
-ef42FAp = GFA 0 $ gtsFromList 
+ef42FAp = GFA 0 $ gtsFromList
     [(0,
         [("C" /~? "C", Step [pCpC] 1)
         ,("C" ~~? "C", Step [pApC,pSpC] 2)])
@@ -160,8 +160,8 @@ p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "
 p51pac :: ProbabilisticActionConfiguration
 p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)]
 
-p51ncI :: NetworkCapacity BellKATTag
-p51ncI = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
+p51nc :: NetworkCapacity BellKATTag
+p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
@@ -175,7 +175,7 @@ p51ii' :: ProbBellKATPolicy
 p51ii' = p51i' <> p51i'
 
 p51nu1 :: D (TaggedBellPairs BellKATTag)
-p51nu1 = [(["A" ~ "C", "B" ~ "C"], 61884/100000), (["A" ~ "C"], 337896/1000000), (["B" ~ "C"], 27135/1000000), ([], 161129/1000000)]
+p51nu1 = [(["A" ~ "C", "B" ~ "C"], 61884/100000), (["A" ~ "C"], 337896/1000000), (["B" ~ "C"], 27135/1000000), ([], 16129/1000000)]
 
 p51nu2 :: D (TaggedBellPairs BellKATTag)
 p51nu2 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000), (["B" ~ "C"], 91143/1000000), ([], 32761/1000000)]
@@ -183,16 +183,13 @@ p51nu2 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000
 p51nu3 :: D (TaggedBellPairs BellKATTag)
 p51nu3 = [(["A" ~ "C", "B" ~ "C"], 649296/1000000), (["A" ~ "C"], 277488/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
 
-p51ncII :: NetworkCapacity BellKATTag
-p51ncII = ["C" ~ "C", "A" ~ "C", "B" ~ "C"]
-
 -- | == III
 
 e51' :: ProbBellKATPolicy
 e51' = create "C" <> ite ("A" /~? "C") (trans "C" ("A", "C")) (trans "C" ("B", "C"))
 
 f51' :: ProbBellKATPolicy
-f51' = create "C" <> ite ("A" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C")) 
+f51' = create "C" <> ite ("A" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
 
 p51iii :: ProbBellKATPolicy
 p51iii = e51' <||> f51'
@@ -217,10 +214,10 @@ probActionMeaning = probabilisticActionMeaning pac
 fromBasicActionP :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicActionP = tryCreateBellPairFrom . probActionMeaning
 
-asAutomaton :: ProbBellKATPolicy -> BellKATAutomaton 
+asAutomaton :: ProbBellKATPolicy -> BellKATAutomaton
 asAutomaton x = getGFA (meaning . mapDesugarActions simpleActionMeaning $ x)
 
-asAutomatonP :: ProbBellKATPolicy -> BellKATAutomaton 
+asAutomatonP :: ProbBellKATPolicy -> BellKATAutomaton
 asAutomatonP x = getGFA (meaning . mapDesugarActions probActionMeaning $ x)
 
 spec :: Spec
@@ -238,11 +235,11 @@ spec = do
             asAutomatonP e42 `shouldBe` e42FAp
         it "correctly represents example 4.2 prob (e || f)" $
             asAutomatonP ef42 `shouldBe` ef42FAp
-        it "prints out the example 5.1 II" $
+        it "prints example 5.1 II" $
             print $ asAutomatonP p51ii
     describe "Probabilistic policy meaning" $ do
         it "correctly computes example 4.2" $ do
-            applyProbStarPolicy pac Nothing ef42 [] `shouldBe` 
+            applyProbStarPolicy pac Nothing ef42 [] `shouldBe`
                 [ [ ([]                     , 23/135)
                   , (["B" ~ "C"]           , 6/135)
                   , (["A" ~ "C"]           , 72/135)
@@ -257,15 +254,21 @@ spec = do
                   ]
                 ]
         it "correctly handles example 5.1.I (parallel)" $ do
-            applyProbStarPolicy p51pac Nothing p51i [] `shouldBe` 
+            applyProbStarPolicy p51pac (Just p51nc) p51i [] `shouldBe`
                 [p51mu1, p51mu2]
         it "correctly handles example 5.1.I (ordered)" $ do
-            applyProbStarPolicy p51pac Nothing p51i' [] `shouldBe` 
+            applyProbStarPolicy p51pac (Just p51nc) p51i' [] `shouldBe`
                 [p51mu1]
-        it "computes system for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51ncII) p51ii []
+        it "prints system for example 5.1.II (parallel)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
         it "computes meanings for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicyStates p51pac (Just p51ncII) p51ii []
+            print $ applyProbStarPolicyStates p51pac (Just p51nc) p51ii []
+        it "combines correctly sequential composition i 5.1.II (parallel)" $ do
+            let k = applyProbStarPolicy p51pac (Just p51nc) p51i
+            (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac (Just p51nc) p51ii []
         it "correctly handles example 5.1.II (parallel)" $ do
-            applyProbStarPolicy p51pac (Just p51ncI) p51ii [] `shouldBe` 
+            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe`
                 [p51nu1,p51nu2,p51nu3]
+        it "correctly handles example 5.1.II (ordered)" $ do
+            applyProbStarPolicy p51pac (Just p51nc) p51ii' [] `shouldBe`
+                [p51nu1]

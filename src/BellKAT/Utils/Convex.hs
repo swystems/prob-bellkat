@@ -16,15 +16,16 @@ import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
 
 import           BellKAT.Utils.Distribution as D
+import           BellKAT.Utils.Convex.DConvexHull
 
 class Convex a where
     combine :: D a -> a
     reduceConvexHull :: Set a -> Set a
     reduceConvexHull = id
 
-instance Ord a => Convex (D a) where
+instance (Ord a) => Convex (D a) where
     combine = D.djoin
-    reduceConvexHull = id
+    reduceConvexHull = reduceDConvexHull
 
 instance Ord a => Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
@@ -53,7 +54,7 @@ instance CFunctor C where
     cmap f (C xs) = createC $ cmap f xs
 
 instance CPointed C where
-    cpure = C . cpure
+    cpure = createC . cpure
 
 -- | Essentially weighted Minkowski sum
 instance (Ord a, Dom C a) => Convex (C a) where
@@ -64,7 +65,7 @@ instance (Ord a, Dom C a) => Convex (C a) where
 
 newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 
-instance Ord a => GHC.Exts.IsList (CD a) where
+instance (Show a, Ord a) => GHC.Exts.IsList (CD a) where
     type Item (CD a) = D a
     toList = toList . unC . unCD
     fromList = CD . createC . fromList
@@ -73,7 +74,7 @@ instance Ord a => Convex (CD a) where
     combine = CD . combine . cmap unCD
 
 instance Constrained CD where
-    type Dom CD a = Ord a
+    type Dom CD a = (Show a, Ord a)
 
 instance CFunctor CD where
     cmap f = CD . cmap (cmap f) . unCD

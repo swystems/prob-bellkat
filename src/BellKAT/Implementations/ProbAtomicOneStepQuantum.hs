@@ -61,15 +61,15 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     fromList = NC . fromList
     toList = toList . unNC
 
-execute :: Ord tag => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+execute :: (Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
 
-executeWithCapacity :: Ord tag => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+executeWithCapacity :: (Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
-executePAA :: Ord tag 
+executePAA :: (Show tag, Ord tag, Default tag)
            => (TaggedBellPairs tag -> TaggedBellPairs tag) 
            -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
 executePAA fix act bps = 

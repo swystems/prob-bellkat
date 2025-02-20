@@ -1,6 +1,7 @@
 module BellKAT.Utils.Convex.DConvexHull 
     ( reduceConvexHullD
     , isInConvexHullOfD
+    , RationalOrDouble (..)
     ) where
 
 import           Data.Set (Set)
@@ -14,42 +15,51 @@ import           Numeric.GLPK
 
 import BellKAT.Utils.Distribution
 
-reduceConvexHullD :: Ord a => Set (D a) -> Set (D a)
+class RealFrac p => RationalOrDouble p where
+    toDouble :: p -> Double
+
+instance RationalOrDouble Rational where
+    toDouble = fromRational
+
+instance RationalOrDouble Double where
+    toDouble = id
+
+reduceConvexHullD :: (RationalOrDouble p, Ord p, Ord a) => Set (D p a) -> Set (D p a)
 reduceConvexHullD = fromList . reduceDConvexHull' . toList
 
-isInConvexHullOfD :: Ord a => D a -> Set (D a) -> Bool
+isInConvexHullOfD :: (RationalOrDouble p, Ord p, Ord a) => D p a -> Set (D p a) -> Bool
 x `isInConvexHullOfD` xsSet = 
     let xs = toList xsSet
         sh = computeShape (x:xs)
      in toDVec sh x `isInConvexHullOf'` map (toDVec sh) xs
 
-computeShape :: Ord a => [D a] -> Set a
+computeShape :: (Fractional p, Ord p, Ord a) => [D p a] -> Set a
 computeShape = foldMap (fromList . map fst . toList)
 
-toArray :: Ord a => Set a -> D a -> Array (Set a) Double
+toArray :: (RationalOrDouble p, Ord p, Ord a) => Set a -> D p a -> Array (Set a) Double
 toArray sh = A.fromMap 
     . Map.unionWith (+) (Map.fromSet (const 0) sh) . fromList 
-    . map (second fromRational) . toList
+    . map (second toDouble) . toList
 
-toDVec :: Ord a => Set a -> D a -> DVec (Set a) a
+toDVec :: (RationalOrDouble p, Ord p, Ord a) => Set a -> D p a -> DVec (Set a) p a
 toDVec sh x = (x,  toArray sh x)
 
-toDVecAll :: Ord a => [D a] -> [DVec (Set a) a]
+toDVecAll :: (RationalOrDouble p, Ord p, Ord a) => [D p a] -> [DVec (Set a) p a]
 toDVecAll xs = map (toDVec $ computeShape xs) xs
 
-reduceDConvexHull' :: Ord a => [D a] -> [D a]
+reduceDConvexHull' :: (RationalOrDouble p, Ord p, Ord a) => [D p a] -> [D p a]
 reduceDConvexHull' = reduceDConvexHullV [] . toDVecAll
 
-type DVec sh a = (D a, Array sh Double)
+type DVec sh p a = (D p a, Array sh Double)
 
-reduceDConvexHullV :: Indexed sh => [DVec sh a] -> [DVec sh a] -> [D a]
+reduceDConvexHullV :: Indexed sh => [DVec sh p a] -> [DVec sh p a] -> [D p a]
 reduceDConvexHullV acc [] = map fst acc
 reduceDConvexHullV acc (x:xs) = 
     if x `isInConvexHullOf'` (acc <> xs)
        then reduceDConvexHullV acc xs
        else reduceDConvexHullV (x:acc) xs
 
-isInConvexHullOf' :: Indexed sh => DVec sh a -> [DVec sh a] -> Bool
+isInConvexHullOf' :: Indexed sh => DVec sh p a -> [DVec sh p a] -> Bool
 x `isInConvexHullOf'` xs = snd x `isInConvexHullOf` map snd xs
 
 isInConvexHullOf :: Indexed sh => Array sh Double -> [Array sh Double] -> Bool

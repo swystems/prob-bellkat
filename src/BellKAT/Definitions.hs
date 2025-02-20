@@ -149,7 +149,7 @@ applyProbStarPolicy
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+    -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 applyProbStarPolicy pac mbNC = 
     let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
      in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
@@ -161,7 +161,7 @@ applyProbStarPolicyStates
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> GASQ.ComputedState CD (TaggedBellPairs tag)
+    -> TaggedBellPairs tag -> GASQ.ComputedState CD' (TaggedBellPairs tag)
 applyProbStarPolicyStates pac mbNC = 
     let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
      in GASQ.executeState (getBPsPredicate . toBPsPredicate) executeRound
@@ -173,7 +173,7 @@ applyProbStarPolicySystem
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> GASQ.StateSystem CD (TaggedBellPairs tag)
+    -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem pac mbNC = 
     let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
      in GASQ.executeSystem (getBPsPredicate . toBPsPredicate) executeRound

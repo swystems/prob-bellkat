@@ -76,7 +76,7 @@ createAtomicAction t inBPs outBPs =
 data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
     { paaTest :: RestrictedTest tag
     , paaInputBPs :: TaggedBellPairs tag
-    , paaOutputBPD :: D (TaggedBellPairs tag)
+    , paaOutputBPD :: D' (TaggedBellPairs tag)
     } deriving stock (Eq, Ord)
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
@@ -84,7 +84,7 @@ createProbabilitsticAtomicAction ::
     Ord tag =>
     RestrictedTest tag ->
     TaggedBellPairs tag ->
-    D (TaggedBellPairs tag) ->
+    D' (TaggedBellPairs tag) ->
     ProbabilisticAtomicAction tag
 createProbabilitsticAtomicAction t inBPs outBPs =
     if t == createRestrictedTest [mempty]

@@ -8,7 +8,9 @@ module BellKAT.Utils.Convex
     , isValidC
     , Convex (..)
     , CD
+    , CD'
     , CSD
+    , CSD'
     ) where
 
 import           Data.List
@@ -18,12 +20,14 @@ import           Data.Set (Set)
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
+import           Data.Kind
 
 import           BellKAT.Utils.Distribution as D
 import           BellKAT.Utils.Convex.DConvexHull
 
 class Convex a where
-    combine :: D a -> a
+    type ConvexP a :: Type 
+    combine :: D (ConvexP a) a -> a
     reduceConvexHull :: Set a -> Set a
     reduceConvexHull = id
 
@@ -42,14 +46,16 @@ isValidC xs = helper xs [] (toList xs)
     helper _ _ [] = True
     helper (p :: a) acc (x:xs') = (x `notMemberC` fromList @a xs')  && helper p (x:acc) xs'
 
-instance (Ord a) => Convex (D a) where
+instance (RationalOrDouble p, Ord a) => Convex (D p a) where
+    type ConvexP (D p a) = p
     combine = D.djoin
     reduceConvexHull = reduceConvexHullD
 
-instance (Ord a) => ComputableConvex (D a) where
+instance (RationalOrDouble p, Ord a) => ComputableConvex (D p a) where
     isInConvexHullOf = isInConvexHullOfD
 
-instance Ord a => Convex (SD a) where
+instance (Fractional p, Ord p, Ord a) => Convex (SD p a) where
+    type ConvexP (SD p a) = p
     combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: Set a }
@@ -85,43 +91,50 @@ instance CPointed C where
     cpure = createC . cpure
 
 -- | Essentially weighted Minkowski sum
-instance (Ord a, Dom C a) => Convex (C a) where
+instance (Fractional (ConvexP a), Ord (ConvexP a), Ord a, Dom C a) => Convex (C a) where
+    type ConvexP (C a) = ConvexP a
     combine = fromList . combineConvexSets . toList
       where
-        combineConvexSets :: [(C a, Probability)] -> [a]
+        combineConvexSets :: [(C a, ConvexP a)] -> [a]
         combineConvexSets = map (combine . fromList) . mapM (\(ca, p) -> (,p) <$> toList ca)
 
-newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord, HasMemberC)
+newtype CD p a = CD { unCD :: C (D p a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord, HasMemberC)
 
-instance (Show a, Ord a) => GHC.Exts.IsList (CD a) where
-    type Item (CD a) = D a
+type CD' = CD Probability
+
+instance (Show a, Ord p, RationalOrDouble p, Ord a) => GHC.Exts.IsList (CD p a) where
+    type Item (CD p a) = D p a
     toList = toList . unC . unCD
     fromList = CD . createC . fromList
 
-instance Ord a => Convex (CD a) where
+instance (RationalOrDouble p, Ord a) => Convex (CD p a) where
+    type ConvexP (CD p a) = p
     combine = CD . combine . cmap unCD
 
-instance Constrained CD where
-    type Dom CD a = (Show a, Ord a)
+instance Constrained (CD p) where
+    type Dom (CD p) a = (Show a, Ord a)
 
-instance CFunctor CD where
+instance RationalOrDouble p => CFunctor (CD p) where
     cmap f = CD . cmap (cmap f) . unCD
 
-instance CPointed CD where
+instance RationalOrDouble p => CPointed (CD p) where
     cpure = CD . cpure . cpure
 
-instance Foldable CD where
+instance Foldable (CD p) where
     foldMap f = foldMap (foldMap f) . unCD
 
-instance CBind CD where
+instance (RationalOrDouble p, Show p) => CBind (CD p) where
     cjoin = mconcat . map combine . toList
 
-newtype CSD a = CSD { unCSD :: C (SD a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
+newtype CSD p a = CSD { unCSD :: C (SD p a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
 
-instance Ord a => Convex (CSD a) where
+type CSD' = CSD Probability
+
+instance (Fractional p, Ord p, Ord a) => Convex (CSD p a) where
+    type ConvexP (CSD p a) = p
     combine = CSD . combine . cmap unCSD
 
-instance Ord a => GHC.Exts.IsList (CSD a) where
-    type Item (CSD a) = SD a
+instance (Fractional p, Ord p, Ord a) => GHC.Exts.IsList (CSD p a) where
+    type Item (CSD p a) = SD p a
     toList = toList . unC . unCSD
     fromList = CSD . createC . fromList

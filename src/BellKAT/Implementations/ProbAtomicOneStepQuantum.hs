@@ -61,17 +61,17 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     fromList = NC . fromList
     toList = toList . unNC
 
-execute :: (Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+execute :: (Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
 
-executeWithCapacity :: (Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+executeWithCapacity :: (Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
 executePAA :: (Show tag, Ord tag, Default tag)
            => (TaggedBellPairs tag -> TaggedBellPairs tag) 
-           -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD (TaggedBellPairs tag)
+           -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executePAA fix act bps = 
     if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
        then fromList [ cmap (fix . (<> rest partial)) (paaOutputBPD act) | partial <- findElemsND (toList . paaInputBPs $ act) bps]

@@ -18,12 +18,12 @@ spec :: Spec
 spec = do
     describe "CD" $ do
         it "correctly computes minkowsky sum" $ do
-            let mu0 = cpure [] :: SD BellPairs
-            let mu' = [([], 1/2), (["A" :~: "B"], 1/10)] :: SD BellPairs
+            let mu0 = cpure [] :: SD' BellPairs
+            let mu' = [([], 1/2), (["A" :~: "B"], 1/10)] :: SD' BellPairs
             -- let mu1 = pure ["A" :~: "B"] :: SD BellPairs
-            let mu2 = cpure ["A" :~: "C", "B" :~: "C"] :: SD BellPairs
             let mu'' = [([], 1/2), (["A" :~: "B"], 2/10), (["A" :~: "C", "B" :~: "C"], 2/10)]
-            let c1 = [mu0, mu'] :: CSD BellPairs
+            let mu2 = cpure ["A" :~: "C", "B" :~: "C"] :: SD' BellPairs
+            let c1 = [mu0, mu'] :: CSD' BellPairs
             let c2 = [mu0, mu2, mu'']
             combine [(c1, 7/10), (c2, 3/10)] `shouldBe` 
                 [ cpure []
@@ -35,10 +35,10 @@ spec = do
                 ]
         it "is associative" $ do
             let x = [[('A', 1/2), ('B', 1/2)]]
-            let k2m :: Map Char (CD Char) 
+            let k2m :: Map Char (CD' Char) 
                     = [('A', cpure 'A'), ('B', [[('A', 1/2),('B', 1/2)]])]
             let k2' = (k2m !)
-            let k3m :: Map Char (CD Char) 
+            let k3m :: Map Char (CD' Char) 
                     = [('B', cpure 'A'), 
                       ('A', [[('A', 2/3),('B', 1/3)]
                            ,[('A', 1/2),('B', 1/2)]])]

@@ -333,6 +333,11 @@ spec = do
         it "combines correctly sequential composition i 5.1.II (parallel)" $ do
             let k = applyProbStarPolicy p51pac (Just p51nc) p51i
             (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac (Just p51nc) p51ii []
+        it "has right generators for example 5.1.II (parallel)" $ do
+            let cd = applyProbStarPolicy p51pac (Just p51nc) p51ii []
+            C.getGenerators cd `shouldContain` [p51nu1]
+            C.getGenerators cd `shouldContain` [p51nu2]
+            p51nu3 `C.memberC` cd `shouldBe` True
         it "correctly handles example 5.1.II (parallel)" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe`
                 [p51nu1,p51nu2,p51nu3]
@@ -344,7 +349,7 @@ spec = do
                 [p51nu1', p51nu2', p51nu3']
         it "prints system of example 5.1.IV (two iterations)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
-        it "prints the probabilities of example 5.1.IV (5 iterations)" $ do
+        it "prints the probabilities of example 5.1.IV (3 iterations) [LONG]" $ do
             let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 3) []
             print result
             putStrLn $ "result size is " <> show (length $ C.getGenerators result)

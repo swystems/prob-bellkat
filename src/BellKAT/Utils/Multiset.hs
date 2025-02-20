@@ -2,6 +2,8 @@ module BellKAT.Utils.Multiset
     ( Multiset
     , fromList
     , isSubsetOf
+    , toSet
+    , toCountMap
     , singleton
     , map
     , filter
@@ -13,6 +15,8 @@ module BellKAT.Utils.Multiset
 import           Prelude                    hiding (map, filter, min)
 import           Data.List                  (intercalate)
 import           Data.Foldable              (toList)
+import           Data.Set                   (Set)
+import           Data.Map.Strict            (Map)
 import qualified Data.Multiset              as MsetOrig
 import qualified GHC.Exts (IsList, Item, fromList, toList)
 
@@ -26,6 +30,12 @@ instance Ord a => GHC.Exts.IsList (Multiset a) where
 
 instance Show a => Show (Multiset a) where
     show (MS a) = "⦃" <> intercalate "," (show <$> toList a) <> "⦄"
+
+toSet :: Multiset a -> Set a
+toSet = MsetOrig.toSet . unMS
+
+toCountMap :: Multiset a -> Map a Int
+toCountMap = MsetOrig.toCountMap . unMS
 
 isSubsetOf :: Ord a => Multiset a -> Multiset a -> Bool
 isSubsetOf (MS x) (MS y) = x `MsetOrig.isSubsetOf` y

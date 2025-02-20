@@ -11,12 +11,14 @@ module BellKAT.Utils.Convex
     , CD'
     , CSD
     , CSD'
+    , getGenerators
     ) where
 
 import           Data.List
 import qualified GHC.Exts (IsList)
 import           GHC.Exts (fromList, toList, Item)
 import           Data.Set (Set)
+import qualified Data.Set as Set
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
@@ -101,6 +103,9 @@ instance (Fractional (ConvexP a), Ord (ConvexP a), Ord a, Dom C a) => Convex (C 
 newtype CD p a = CD { unCD :: C (D p a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord, HasMemberC)
 
 type CD' = CD Probability
+
+getGenerators :: CD p a -> [D p a]
+getGenerators = Set.toList . unC . unCD 
 
 instance (Show a, Ord p, RationalOrDouble p, Ord a) => GHC.Exts.IsList (CD p a) where
     type Item (CD p a) = D p a

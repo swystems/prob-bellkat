@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 module ProbPaperSpec where
 
 import Control.Subcategory.Bind
@@ -10,6 +11,7 @@ import Test.Hspec
 
 import BellKAT.Prelude
 import BellKAT.Utils.Distribution as D
+import BellKAT.Utils.Convex as C
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
 import BellKAT.ActionEmbeddings
 import BellKAT.PolicyEmbeddings
@@ -207,8 +209,8 @@ p51nu3' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 182718/100000
 
 -- | == IV TODO: don't have star yet
 
-p51ivTwo :: ProbBellKATPolicy
-p51ivTwo = whileN 2 ("A" /~? "C" ||* "B" /~? "C") p51iii
+p51iv :: Int -> ProbBellKATPolicy
+p51iv n = whileN n ("A" /~? "C" ||* "B" /~? "C") p51iii
 
 -- | = Example 5.3
 
@@ -224,7 +226,43 @@ p53OneAttempt =
      in (stimes n (ite ("A" /~? "C") (ucreate ("B", "C")) mempty) 
             <||> stimes n (ite ("B" /~? "C") (ucreate ("B", "C")) mempty)) 
         <> swap "C" ("A", "B")
+
+p53 :: Int -> ProbBellKATPolicy 
+p53 n = 
+    whileN n ("A" /~? "C" ||* "B" /~? "C") p53OneAttempt
+
 -- TODO: don't have star yet
+
+-- | == Repater swap protocol
+
+p53'e :: Int -> Int -> ProbBellKATPolicy
+p53'e n k = 
+    whileN n ("A" /~? "C") $
+        (whileN k (hasNotSubset ["A" ~ "C", "A" ~ "C"])
+            (create "C" <.> create "C") <> (trans "C" ("A", "C") <.> trans "C" ("A", "C")))
+        <> distill ("A", "C")
+
+p53'e' :: Int -> Int -> ProbBellKATPolicy
+p53'e' n k = 
+    whileN n ("B" /~? "C") $
+        (whileN k (hasNotSubset ["B" ~ "C", "B" ~ "C"])
+            (create "C" <.> create "C") <> (trans "C" ("B", "C") <.> trans "C" ("B", "C")))
+        <> distill ("B", "C")
+
+p53'nc :: NetworkCapacity BellKATTag
+p53'nc = stimes 4 ["C" ~ "C"] <> stimes 2 ["A" ~ "C"] <> stimes 2 ["B" ~ "C"]
+
+p53'pac :: ProbabilisticActionConfiguration
+p53'pac = PAC 
+    [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)]
+    [("C", 9/10)]
+    [(("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    [("C", 32/1000)]
+
+p53' :: Int -> Int -> ProbBellKATPolicy
+p53' n k = (p53'e n k <||> p53'e' n k) <> swap "C" ("A", "B")
+
+-- | = Auxiliary definitions
 
 fromBasicAction :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
@@ -265,7 +303,7 @@ spec = do
         it "prints example 5.1 III" $
             print $ asAutomatonP p51iii
         it "prints example 5.1 IV (two interations)" $
-            print $ asAutomatonP p51ivTwo
+            print $ asAutomatonP (p51iv 2)
     describe "Probabilistic policy meaning" $ do
         it "correctly computes example 4.2" $ do
             applyProbStarPolicy pac Nothing ef42 [] `shouldBe`
@@ -305,6 +343,16 @@ spec = do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
                 [p51nu1', p51nu2', p51nu3']
         it "prints system of example 5.1.IV (two iterations)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ivTwo []
-        it "prints probabilities example 5.3 (RSwap, one attempt)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
+        focus $ it "prints the probabilities of example 5.1.IV (5 iterations)" $ do
+            let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 4) []
+            print result
+            putStrLn $ "result size is " <> show (length $ C.getGenerators result)
+        it "prints probabilities example 5.3 (Pompli, one attempt)" $ do
             print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) p53OneAttempt []
+        it "prints probabilities example 5.3 (Pompli)" $ do
+            print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) (p53 10) []
+        it "prints system 5.3 (Coopmans)" $ do
+            print $ applyProbStarPolicySystem p53'pac (Just p53'nc) (p53' 2 1) []
+        it "prints probabilities example 5.3 (Coopmans)" $ do
+            print $ applyProbStarPolicy p53'pac (Just p53'nc) (p53' 2 1) []

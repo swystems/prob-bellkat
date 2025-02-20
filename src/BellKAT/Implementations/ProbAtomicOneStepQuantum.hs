@@ -56,7 +56,10 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
                         (cpure mempty)]
                 else mempty
 
-newtype NetworkCapacity tag = NC { unNC :: TaggedBellPairs tag } -- TODO: should really be BellPairs
+newtype NetworkCapacity tag = NC 
+    { unNC :: TaggedBellPairs tag 
+    } deriving newtype (Semigroup)
+    -- TODO: should really be BellPairs
 
 instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     type Item (NetworkCapacity tag) = TaggedBellPair tag

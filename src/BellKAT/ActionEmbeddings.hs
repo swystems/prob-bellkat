@@ -8,8 +8,8 @@ module BellKAT.ActionEmbeddings
 
 import Data.Kind
 import Data.List.NonEmpty (NonEmpty)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core

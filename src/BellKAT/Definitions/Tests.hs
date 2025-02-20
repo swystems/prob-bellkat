@@ -10,6 +10,8 @@ module BellKAT.Definitions.Tests
     (.+.),
     BoundedTest,
     boundedTestSingleton,
+    boundedTestContains,
+    boundedTestNotContains,
     rangeGreater,
     rangeNotGreater,
     ) where
@@ -19,8 +21,8 @@ import           Data.Foldable              (toList, foldl')
 import           Data.List                  (sort, intercalate)
 import           Data.Functor.Classes
 import           Data.Default
-import           Data.Map                   (Map)
-import qualified Data.Map                   as Map
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as Map
 import           Data.Containers.ListUtils
 import qualified GHC.Exts (IsList, Item, fromList, toList)
 
@@ -130,6 +132,13 @@ showBound (bp, (lb, ub)) =
 
 boundedTestSingleton :: TaggedBellPair tag -> Range -> BoundedTest tag
 boundedTestSingleton bps r = BoundedTest [Map.singleton bps r]
+
+boundedTestContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
+boundedTestContains bps = BoundedTest [Map.fromSet (\k -> rangeGreater (Mset.count k bps - 1)) $ Mset.toSet bps]
+
+boundedTestNotContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
+boundedTestNotContains bps = BoundedTest $ 
+    [Map.singleton k $ rangeNotGreater (v - 1) | (k, v) <- Map.toList . Mset.toCountMap $ bps]
 
 andRange :: Range -> Range -> Range
 andRange (la, ua) (lb, ub) =

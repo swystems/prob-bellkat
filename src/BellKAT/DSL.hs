@@ -8,6 +8,7 @@ import           Data.Functor.Contravariant
 import           Data.Default
 import           Data.List.NonEmpty         (NonEmpty (..))
 
+import qualified BellKAT.Utils.Multiset as Mset
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
@@ -27,32 +28,44 @@ create loc = defaultTagged $ Create loc
 ucreate :: DSLFunctions p => (Location, Location) -> p
 ucreate loc = defaultTagged $ UnstableCreate loc
 
-(~) :: Default tag => Location -> Location -> TaggedBellPair tag
-l1 ~ l2 = TaggedBellPair (l1 :~: l2) def
+class LikeBellPair t where
+    (~) :: Location -> Location -> t
+
+instance Default tag => LikeBellPair (TaggedBellPair tag) where
+    l1 ~ l2 = TaggedBellPair (l1 :~: l2) def
+
+instance LikeBellPair BellPair where
+    (~) = (:~:)
 
 class DSLTestNeq t where
-    (/~?) :: Location -> Location -> t
+    hasNotSubset :: BellPairs -> t
+
+(/~?) :: DSLTestNeq t => Location -> Location -> t
+l /~? l' = hasNotSubset [l :~: l']
 
 class DSLTestNeq t => DSLTest t where
-    (~~?) :: Location -> Location -> t
+    hasSubset :: BellPairs -> t
 
-instance DSLTestNeq (BellPairsPredicate (Maybe t)) where
-    l /~? l' = BPsPredicate $ not . any ((== (l :~: l')) . bellPair)
+(~~?) :: DSLTest t => Location -> Location -> t
+l ~~? l' = hasSubset [l :~: l']
 
-instance DSLTest (BellPairsPredicate (Maybe t)) where
-    l ~~? l' = BPsPredicate $ any $ (== (l :~: l')) . bellPair
+instance Ord t => DSLTestNeq (BellPairsPredicate (Maybe t)) where
+    hasNotSubset x = BPsPredicate (not . (Mset.map (@ Nothing) x `Mset.isSubsetOf`))
+
+instance Ord t => DSLTest (BellPairsPredicate (Maybe t)) where
+    hasSubset x = BPsPredicate (Mset.map (@ Nothing) x `Mset.isSubsetOf`)
 
 instance Ord t => DSLTestNeq (FreeTest (Maybe t)) where
-    l /~? l' = FTNot $ FTSubset [TaggedBellPair (l :~: l') Nothing]
+    hasNotSubset x = FTNot $ FTSubset (Mset.map (@ Nothing) x)
 
-instance DSLTest (BoundedTest (Maybe t)) where
-    l ~~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeGreater 0)
+instance Ord t => DSLTest (BoundedTest (Maybe t)) where
+    hasSubset x = boundedTestContains (Mset.map (@ Nothing) x)
 
-instance DSLTestNeq (BoundedTest (Maybe t)) where
-    l /~? l' = boundedTestSingleton (l :~: l' @ Nothing) (rangeNotGreater 0)
+instance Ord t => DSLTestNeq (BoundedTest (Maybe t)) where
+    hasNotSubset x = boundedTestNotContains (Mset.map (@ Nothing) x)
 
 instance Ord t => DSLTest (FreeTest (Maybe t)) where
-    l ~~? l' = FTSubset [TaggedBellPair (l :~: l') Nothing]
+    hasSubset x = FTSubset (Mset.map (@ Nothing) x)
 
 class DSLFunctions p where
     defaultTagged :: Action -> p

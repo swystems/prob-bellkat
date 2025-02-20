@@ -344,8 +344,8 @@ spec = do
                 [p51nu1', p51nu2', p51nu3']
         it "prints system of example 5.1.IV (two iterations)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
-        focus $ it "prints the probabilities of example 5.1.IV (5 iterations)" $ do
-            let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 4) []
+        it "prints the probabilities of example 5.1.IV (5 iterations)" $ do
+            let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 3) []
             print result
             putStrLn $ "result size is " <> show (length $ C.getGenerators result)
         it "prints probabilities example 5.3 (Pompli, one attempt)" $ do

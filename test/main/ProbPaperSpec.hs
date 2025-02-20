@@ -10,8 +10,6 @@ import Test.Hspec
 
 import BellKAT.Prelude
 import BellKAT.Utils.Distribution as D
-import BellKAT.Definitions.Policy (TaggedAction)
-import BellKAT.Definitions.Core (CreateBellPairArgs(..), TaggedBellPairs)
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
 import BellKAT.ActionEmbeddings
 import BellKAT.PolicyEmbeddings
@@ -19,8 +17,7 @@ import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
-import BellKAT.Definitions (applyProbStarPolicy, applyProbStarPolicy', applyProbStarPolicySystem, applyProbStarPolicyStates)
-
+import BellKAT.Definitions
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
 
 -- | = Example 4.2
@@ -286,8 +283,8 @@ spec = do
                 [p51mu1]
         it "prints system for example 5.1.II (parallel)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
-        it "computes meanings for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicyStates p51pac (Just p51nc) p51ii []
+        it "prints system for example 5.1.II (ordered)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii' []
         it "combines correctly sequential composition i 5.1.II (parallel)" $ do
             let k = applyProbStarPolicy p51pac (Just p51nc) p51i
             (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac (Just p51nc) p51ii []

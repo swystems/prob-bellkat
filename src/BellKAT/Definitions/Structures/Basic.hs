@@ -4,6 +4,7 @@ module BellKAT.Definitions.Structures.Basic
     , OrderedSemigroup(..)
     , MonoidStar(..)
     , Guarded(..)
+    , whileN
     , module Data.Boolean
     , module Relude.Extra.Map
     , DecidableBoolean(..)
@@ -39,5 +40,7 @@ class Guarded t a | a -> t where
 class Boolean a => DecidableBoolean a where
     isFalse :: a -> Bool
 
-
+whileN :: (Monoid a, Guarded t a) => Int -> t -> a -> a
+whileN 0 _ _ = mempty
+whileN n t x = ite t (x <> whileN (n - 1) t x) mempty
 

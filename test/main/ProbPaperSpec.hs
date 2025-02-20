@@ -207,6 +207,9 @@ p51nu3' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 182718/100000
 
 -- | == IV TODO: don't have star yet
 
+p51ivTwo :: ProbBellKATPolicy
+p51ivTwo = whileN 2 ("A" /~? "C" ||* "B" /~? "C") p51iii
+
 -- | = Example 5.3
 
 p53pac :: ProbabilisticActionConfiguration
@@ -259,6 +262,10 @@ spec = do
             asAutomatonP ef42 `shouldBe` ef42FAp
         it "prints example 5.1 II" $
             print $ asAutomatonP p51ii
+        it "prints example 5.1 III" $
+            print $ asAutomatonP p51iii
+        it "prints example 5.1 IV (two interations)" $
+            print $ asAutomatonP p51ivTwo
     describe "Probabilistic policy meaning" $ do
         it "correctly computes example 4.2" $ do
             applyProbStarPolicy pac Nothing ef42 [] `shouldBe`
@@ -281,10 +288,10 @@ spec = do
         it "correctly handles example 5.1.I (ordered)" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51i' [] `shouldBe`
                 [p51mu1]
-        it "prints system for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
-        it "prints system for example 5.1.II (ordered)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii' []
+        it "prints system for example 5.1.I (parallel)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51i []
+        it "prints system for example 5.1.I (ordered)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51i' []
         it "combines correctly sequential composition i 5.1.II (parallel)" $ do
             let k = applyProbStarPolicy p51pac (Just p51nc) p51i
             (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac (Just p51nc) p51ii []
@@ -297,5 +304,7 @@ spec = do
         it "correctly handles example 5.1.III" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
                 [p51nu1', p51nu2', p51nu3']
+        it "prints system of example 5.1.IV (two iterations)" $ do
+            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ivTwo []
         it "prints probabilities example 5.3 (RSwap, one attempt)" $ do
             print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) p53OneAttempt []

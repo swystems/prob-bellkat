@@ -15,7 +15,7 @@ module BellKAT.Definitions.Tests
     ) where
 
 import           Data.Maybe
-import           Data.Foldable              (toList)
+import           Data.Foldable              (toList, foldl')
 import           Data.List                  (sort, intercalate)
 import           Data.Functor.Classes
 import           Data.Default
@@ -163,7 +163,7 @@ instance Ord tag => Boolean (BoundedTest tag) where
     true = BoundedTest [mempty]
     false = BoundedTest []
     notB (BoundedTest []) = BoundedTest [mempty]
-    notB (BoundedTest xs) = BoundedTest $ concatMap notBounds xs
+    notB (BoundedTest xs) = foldl' (&&*) true . map (BoundedTest . notBounds) $ xs
     (BoundedTest xs) ||* (BoundedTest ys) =
         BoundedTest $ nubOrd (xs <> ys)
     (BoundedTest xs) &&* (BoundedTest ys) =

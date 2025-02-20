@@ -89,6 +89,7 @@ data OrderedGuardedPolicy t a
     | OGPParallel (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPOrdered (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPIfThenElse t (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    | OGPOne
     deriving stock (Functor)
 
 instance Semigroup (Policy a) where
@@ -138,6 +139,9 @@ instance OrderedSemigroup (OrderedStarPolicy a) where
 
 instance Semigroup (OrderedGuardedPolicy t a) where
     (<>) = OGPSequence
+
+instance Monoid (OrderedGuardedPolicy t a) where
+    mempty = OGPOne
 
 instance ParallelSemigroup (OrderedGuardedPolicy t a) where
     (<||>) = OGPParallel

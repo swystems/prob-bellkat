@@ -21,7 +21,7 @@ import           BellKAT.Utils.Automata.Execution.Guarded.State
 
 newtype GuardedAutomatonStepQuantum t a = GASQ 
     { getGFA :: GuardedFA t a
-    } deriving newtype (Show, Semigroup, ParallelSemigroup, OrderedSemigroup, Pointed)
+    } deriving newtype (Show, Semigroup, Monoid, ParallelSemigroup, OrderedSemigroup, Pointed)
 
 instance (Show t, DecidableBoolean t) => Guarded t (GuardedAutomatonStepQuantum t a) where
     ite t (GASQ a) (GASQ b) = GASQ $ ite t a b

@@ -43,13 +43,15 @@ simpleActionMeaning ta = case taAction ta of
 data ProbabilisticActionConfiguration = PAC 
     { pacTransmitProbability :: Map (Location, Location) Probability
     , pacCreateProbability :: Map Location Probability
+    , pacUCreateProbability :: Map (Location, Location) Probability
+    , pacSwapProbability :: Map Location Probability
     }
 
 probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         (l1 :~: l2 @ taTagIn ta) [l :~: l1 @ taTagOut ta, l :~: l2 @ taTagOut ta]
-        1.0 (taDup ta)
+        (swapProbability pac l) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         (l1 :~: l2 @ taTagIn ta) [l :~: l @ taTagOut ta]
         (transmitProbability pac l (l1, l2)) (taDup ta)
@@ -59,16 +61,37 @@ probabilisticActionMeaning pac ta = case taAction ta of
         (l1 :~: l2 @ taTagIn ta ) [l1 :~: l2 @ taTagOut ta, l1 :~: l2  @ taTagOut ta] 
         0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        (l1 :~: l2 @ taTagIn ta ) [] 0.5 (taDup ta)
+        (l1 :~: l2 @ taTagIn ta ) [] (uCreateProbability pac (l1, l2)) (taDup ta)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
-createProbability pac l = pacCreateProbability pac Map.! l
+createProbability pac l = 
+    case pacCreateProbability pac Map.!? l of
+      Nothing -> error $ "no create probability for " <> show l
+      Just p -> p
+
+swapProbability :: ProbabilisticActionConfiguration -> Location -> Probability
+swapProbability pac l = 
+    case pacSwapProbability pac Map.!? l of
+      Nothing -> error $ "no swap probability for " <> show l
+      Just p -> p
+
+uCreateProbability :: ProbabilisticActionConfiguration -> (Location, Location) -> Probability
+uCreateProbability pac l =
+    case pacUCreateProbability pac Map.!? l of
+      Nothing -> error $ "no ucreate probability for " <> show l
+      Just p -> p
 
 transmitProbability :: ProbabilisticActionConfiguration -> Location -> (Location, Location) -> Probability
 transmitProbability pac l (l1, l2) = 
-    let p1 = if l1 == l then 1 else pacTransmitProbability pac Map.! (l, l1)
-        p2 = if l2 == l then 1 else pacTransmitProbability pac Map.! (l, l2)
+    let p1 = if l1 == l then 1 else transmitProbabilitySingle pac (l, l1)
+        p2 = if l2 == l then 1 else transmitProbabilitySingle pac (l, l2)
      in p1 * p2
+
+transmitProbabilitySingle :: ProbabilisticActionConfiguration -> (Location, Location) -> Probability
+transmitProbabilitySingle pac l = 
+    case pacTransmitProbability pac Map.!? l of
+      Nothing -> error $ "no transmit probability for " <> show l
+      Just p -> p
 
 instance CanDesugarActions (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag

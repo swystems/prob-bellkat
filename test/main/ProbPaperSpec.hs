@@ -4,6 +4,7 @@ module ProbPaperSpec where
 
 import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
+import Data.Semigroup (stimes)
 import Test.Hspec
 
 import BellKAT.Prelude
@@ -158,7 +159,7 @@ p51mu2 :: D (TaggedBellPairs BellKATTag)
 p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "C"], 171/1000), ([], 181/1000)]
 
 p51pac :: ProbabilisticActionConfiguration
-p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)]
+p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)] [] []
 
 p51nc :: NetworkCapacity BellKATTag
 p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
@@ -197,16 +198,39 @@ p51iii = e51' <||> f51'
 p51iii' :: ProbBellKATPolicy
 p51iii' = p51iii <> p51iii
 
+p51nu1' :: D (TaggedBellPairs BellKATTag)
+p51nu1' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 201006/1000000), (["B" ~ "C"], 166374/10000000), ([], 16129/1000000)]
+
+p51nu2' :: D (TaggedBellPairs BellKATTag)
+p51nu2' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 156654/1000000), (["B" ~ "C"], 443574/10000000), ([], 32761/1000000)]
+
+p51nu3' :: D (TaggedBellPairs BellKATTag)
+p51nu3' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 182718/1000000), (["B" ~ "C"], 280674/10000000), ([], 22987/1000000)]
+
 -- | == IV TODO: don't have star yet
 
--- | = Example 5.3 TODO: don't have star yet
+-- | = Example 5.3
+
+p53pac :: ProbabilisticActionConfiguration
+p53pac = PAC [] [] [(("A", "C"), 36/10000), (("B", "C"), 28/10000)] [("C", 32/1000)]
+
+p53nc :: NetworkCapacity BellKATTag
+p53nc = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
+
+p53OneAttempt :: ProbBellKATPolicy
+p53OneAttempt = 
+    let n = 3 :: Int
+     in (stimes n (ite ("A" /~? "C") (ucreate ("B", "C")) mempty) 
+            <||> stimes n (ite ("B" /~? "C") (ucreate ("B", "C")) mempty)) 
+        <> swap "C" ("A", "B")
+-- TODO: don't have star yet
 
 fromBasicAction :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
 
 
 pac :: ProbabilisticActionConfiguration
-pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)]
+pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)] [] []
 
 probActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 probActionMeaning = probabilisticActionMeaning pac
@@ -272,3 +296,9 @@ spec = do
         it "correctly handles example 5.1.II (ordered)" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51ii' [] `shouldBe`
                 [p51nu1]
+        it "correctly handles example 5.1.III" $ do
+            applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
+                [p51nu1', p51nu2', p51nu3']
+        it "correctly prints example 5.3 (RSwap, one attempt)" $ do
+            applyProbStarPolicy p53pac (Just p53nc) p53OneAttempt [] `shouldBe`
+                []

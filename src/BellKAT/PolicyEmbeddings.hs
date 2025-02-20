@@ -76,8 +76,9 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test tag)
     meaning (OSPParallel p q) = meaning p <||> meaning q
     meaning (OSPChoice p q) = meaning p <+> meaning q
 
-instance (OrderedSemigroup a, Semigroup a, ParallelSemigroup a, Guarded test a, Quantum a tag) 
+instance (OrderedSemigroup a, Monoid a, ParallelSemigroup a, Guarded test a, Quantum a tag) 
   => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs tag)) a where
+    meaning OGPOne = mempty
     meaning (OGPAtomic ta) = meaning ta
     meaning (OGPOrdered p q) = meaning p <.> meaning q
     meaning (OGPSequence p q) = meaning p <> meaning q

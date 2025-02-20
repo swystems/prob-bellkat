@@ -96,14 +96,14 @@ instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
         createProbabilitsticAtomicAction
             (t1 .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (D.norm $ cmap (uncurry (<>)) $ pair outBpsD1 outBpsD2)
+            (cmap (uncurry (<>)) $ pair outBpsD1 outBpsD2)
 
 instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
     (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (D.norm $ cmap (uncurry (<>)) $ pair outBps1 outBps2)
+            (cmap (uncurry (<>)) $ pair outBps1 outBps2)
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =

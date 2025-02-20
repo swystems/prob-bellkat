@@ -1,5 +1,7 @@
 module BellKAT.Utils.Convex.DConvexHull 
-    (reduceDConvexHull) where
+    ( reduceConvexHullD
+    , isInConvexHullOfD
+    ) where
 
 import           Data.Set (Set)
 import           Data.Bifunctor
@@ -12,15 +14,31 @@ import           Numeric.GLPK
 
 import BellKAT.Utils.Distribution
 
-reduceDConvexHull :: Ord a => Set (D a) -> Set (D a)
-reduceDConvexHull = fromList . reduceDConvexHull' . toList
+reduceConvexHullD :: Ord a => Set (D a) -> Set (D a)
+reduceConvexHullD = fromList . reduceDConvexHull' . toList
+
+isInConvexHullOfD :: Ord a => D a -> Set (D a) -> Bool
+x `isInConvexHullOfD` xsSet = 
+    let xs = toList xsSet
+        sh = computeShape (x:xs)
+     in toDVec sh x `isInConvexHullOf'` map (toDVec sh) xs
+
+computeShape :: Ord a => [D a] -> Set a
+computeShape = foldMap (fromList . map fst . toList)
+
+toArray :: Ord a => Set a -> D a -> Array (Set a) Double
+toArray sh = A.fromMap 
+    . Map.unionWith (+) (Map.fromSet (const 0) sh) . fromList 
+    . map (second fromRational) . toList
+
+toDVec :: Ord a => Set a -> D a -> DVec (Set a) a
+toDVec sh x = (x,  toArray sh x)
+
+toDVecAll :: Ord a => [D a] -> [DVec (Set a) a]
+toDVecAll xs = map (toDVec $ computeShape xs) xs
 
 reduceDConvexHull' :: Ord a => [D a] -> [D a]
-reduceDConvexHull' xs = 
-    let xsMaps = map (\x -> (x, Map.fromList $ map (second fromRational) $ toList x)) xs
-        allElements = foldMap (Map.keysSet . snd) xsMaps
-        xsMapsAll = second (Map.unionWith (+) (Map.fromSet (const 0) allElements)) <$> xsMaps
-     in reduceDConvexHullV [] $ second A.fromMap <$> xsMapsAll
+reduceDConvexHull' = reduceDConvexHullV [] . toDVecAll
 
 type DVec sh a = (D a, Array sh Double)
 

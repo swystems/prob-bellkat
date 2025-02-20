@@ -1,15 +1,19 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 module BellKAT.Utils.Convex
     ( C
+    , memberC
+    , notMemberC
+    , isValidC
     , Convex (..)
     , CD
     , CSD
     ) where
 
 import           Data.List
-import qualified GHC.Exts (IsList, Item)
-import           GHC.Exts (fromList, toList)
+import qualified GHC.Exts (IsList)
+import           GHC.Exts (fromList, toList, Item)
 import           Data.Set (Set)
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Bind
@@ -23,21 +27,45 @@ class Convex a where
     reduceConvexHull :: Set a -> Set a
     reduceConvexHull = id
 
+class Convex a => ComputableConvex a where
+    isInConvexHullOf :: a -> Set a -> Bool
+
+class GHC.Exts.IsList a => HasMemberC a where
+    memberC :: Item a -> a -> Bool
+
+notMemberC :: HasMemberC a => Item a -> a -> Bool
+x `notMemberC` xs = not $ x `memberC` xs
+
+isValidC :: HasMemberC a => a -> Bool
+isValidC xs = helper xs [] (toList xs)
+  where
+    helper _ _ [] = True
+    helper (p :: a) acc (x:xs') = (x `notMemberC` fromList @a xs')  && helper p (x:acc) xs'
+
 instance (Ord a) => Convex (D a) where
     combine = D.djoin
-    reduceConvexHull = reduceDConvexHull
+    reduceConvexHull = reduceConvexHullD
+
+instance (Ord a) => ComputableConvex (D a) where
+    isInConvexHullOf = isInConvexHullOfD
 
 instance Ord a => Convex (SD a) where
     combine = D.sdjoin . toSubdistribution
 
 newtype C a = C { unC :: Set a }
-    deriving newtype (Foldable, Monoid, Eq, Ord)
+    deriving newtype (Foldable, Eq, Ord)
 
 createC :: Convex a => Set a -> C a
 createC = C . reduceConvexHull
 
+instance (Ord a, ComputableConvex a) => HasMemberC (C a) where
+    x `memberC` (C xs) = x `isInConvexHullOf` xs
+
 instance (Convex a, Ord a) => Semigroup (C a) where
     (C xs) <> (C ys) = createC $ xs <> ys
+
+instance (Convex a, Ord a) => Monoid (C a) where
+    mempty = C mempty
 
 instance (Ord a, Show a) => Show (C a) where
     show (C xs) = "⦅" <> intercalate "," (show <$> toList xs) <> "⦆"
@@ -63,7 +91,7 @@ instance (Ord a, Dom C a) => Convex (C a) where
         combineConvexSets :: [(C a, Probability)] -> [a]
         combineConvexSets = map (combine . fromList) . mapM (\(ca, p) -> (,p) <$> toList ca)
 
-newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord)
+newtype CD a = CD { unCD :: C (D a) } deriving newtype (Semigroup, Monoid, Show, Eq, Ord, HasMemberC)
 
 instance (Show a, Ord a) => GHC.Exts.IsList (CD a) where
     type Item (CD a) = D a

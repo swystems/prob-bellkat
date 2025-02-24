@@ -28,26 +28,17 @@ create loc = defaultTagged $ Create loc
 ucreate :: DSLFunctions p => (Location, Location) -> p
 ucreate loc = defaultTagged $ UnstableCreate loc
 
-class LikeBellPair t where
-    (~) :: Location -> Location -> t
-
-instance Default tag => LikeBellPair (TaggedBellPair tag) where
-    l1 ~ l2 = TaggedBellPair (l1 :~: l2) def
-
-instance LikeBellPair BellPair where
-    (~) = (:~:)
-
 class DSLTestNeq t where
     hasNotSubset :: BellPairs -> t
 
 (/~?) :: DSLTestNeq t => Location -> Location -> t
-l /~? l' = hasNotSubset [l :~: l']
+l /~? l' = hasNotSubset [l ~ l']
 
 class DSLTestNeq t => DSLTest t where
     hasSubset :: BellPairs -> t
 
 (~~?) :: DSLTest t => Location -> Location -> t
-l ~~? l' = hasSubset [l :~: l']
+l ~~? l' = hasSubset [l ~ l']
 
 instance Ord t => DSLTestNeq (BellPairsPredicate (Maybe t)) where
     hasNotSubset x = BPsPredicate (not . (Mset.map (@ Nothing) x `Mset.isSubsetOf`))

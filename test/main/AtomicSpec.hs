@@ -6,8 +6,8 @@ module AtomicSpec (spec) where
 
 import Control.Subcategory.Pointed
 
+import BellKAT.Definitions.Core
 import BellKAT.Definitions.Structures
-import BellKAT.DSL
 import BellKAT.Definitions.Atomic
 import BellKAT.Utils.Distribution as D
 

@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE StrictData      #-}
 module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location,
-    BellPair(..),
+    BellPair,
+    LikeBellPair(..),
     BellPairs,
     Probability,
     CreateBellPairArgs(..),
@@ -31,7 +33,6 @@ import           Data.Bifunctor             (bimap)
 import           Data.Foldable              (toList)
 import           Data.Functor.Contravariant (Predicate (..))
 import           Data.Functor.Classes
-import           Data.List                  (sort)
 import           Data.Monoid                (Endo (..))
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
@@ -53,21 +54,21 @@ import           BellKAT.Utils.UnorderedTree
 newtype Location = Location { name :: String } deriving newtype (Eq, Show, Ord, IsString)
 
 -- | `:~:` is our symbol for entangled pair
-data BellPair = Location :~: Location
+newtype BellPair = BP (Location, Location) deriving newtype (Eq, Ord)
 
-infix 9 :~:
+class LikeBellPair t where
+    (~) :: Location -> Location -> t
+    locations :: t -> (Location, Location)
+
+instance LikeBellPair BellPair where
+    l1 ~ l2 = if l1 <= l2 then BP (l1, l2) else BP (l2, l1)
+    locations (BP x) = x
 
 instance Show BellPair where
-    show (l1 :~: l2) = name l1 <> "~" <> name l2
-
-instance Eq BellPair where
-    l1 :~: l2 == l1' :~: l2' = sort [l1, l2] == sort [l2', l1']
-
-instance Ord BellPair where
-    compare (l1 :~: l2) (l1' :~: l2') = compare (sort [l1, l2]) (sort [l1', l2'])
+    show (BP (l1, l2)) = name l1 <> "~" <> name l2
 
 hasLocation :: Location -> BellPair -> Bool
-hasLocation l (l1 :~: l2) = l == l1 || l == l2
+hasLocation l (BP (l1, l2)) = l == l1 || l == l2
 
 type BellPairs = Multiset BellPair
 
@@ -81,6 +82,10 @@ instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
     showsPrec _ (TaggedBellPair bp t) 
         | t == def = shows bp
         | otherwise = shows bp . showString "/" . shows t
+
+instance Default tag => LikeBellPair (TaggedBellPair tag) where
+    l1 ~ l2 = TaggedBellPair (l1 ~ l2) def
+    locations = locations . bellPair
 
 infix 8 @ -- less than of `(:~:)`
 
@@ -179,7 +184,7 @@ instance Arbitrary Location where
     arbitrary = Location <$> growingElements [[c] | c <- ['A'..'Z']]
 
 instance Arbitrary BellPair where
-    arbitrary = (:~:) <$> arbitrary <*> arbitrary
+    arbitrary = (~) <$> arbitrary <*> arbitrary
 
 instance Arbitrary DupKind where
     arbitrary = DupKind <$> arbitrary <*> arbitrary

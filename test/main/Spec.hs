@@ -45,41 +45,41 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "distill" $ do
         it "should drop sometimes" $
-            applyPolicy @Tag (distill ("A", "B")) [node ("A" :~: "B"), node ("A" :~: "B")]
+            applyPolicy @Tag (distill ("A", "B")) [node ("A" ~ "B"), node ("A" ~ "B")]
                 `historiesShouldSatisfy` any (null . getForest)
     describe "transmit" $ do
         it "should transmit" $
-            applyPolicy @Tag (trans "A" ("A", "R[AB]")) [node ("A" :~: "A")]
-                `historiesShouldSatisfy` all (all (hasBellPair ("A" :~: "R[AB]")) . getForest)
+            applyPolicy @Tag (trans "A" ("A", "R[AB]")) [node ("A" ~ "A")]
+                `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "R[AB]")) . getForest)
         it "should transmit two" $
             applyPolicy @Tag
                     (trans "A" ("A", "R[AB]") <||> trans "B" ("B", "R[AB]"))
-                    [node ("A" :~: "A"), node ("B" :~: "B")]
-                `historiesShouldSatisfy` any (any (hasBellPair ("A" :~: "R[AB]")) . getForest)
+                    [node ("A" ~ "A"), node ("B" ~ "B")]
+                `historiesShouldSatisfy` any (any (hasBellPair ("A" ~ "R[AB]")) . getForest)
         it "should transmit both" $
             applyPolicy @Tag
                     (trans "A" ("A", "B") <||> trans "A" ("A", "B"))
-                    [node ("A" :~: "A"), node ("A" :~: "A")]
-                `historiesShouldSatisfy` all (all (hasBellPair ("A" :~: "B")) . getForest)
+                    [node ("A" ~ "A"), node ("A" ~ "A")]
+                `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "B")) . getForest)
         it "should transmit one out of two" $
             applyPolicy @Tag
                    (trans "A" ("A", "R[AB]"))
-                    [node ("A" :~: "A"), node ("A" :~: "A")]
+                    [node ("A" ~ "A"), node ("A" ~ "A")]
                 `historiesShouldSatisfy` all ((== 2) . length . getForest)
         it "should transmit two out of three" $
             applyPolicy @Tag
                    (trans "A" ("A", "R[AB]") <||> trans "A" ("A", "R[AB]"))
-                   (fromList . replicate 3 $ node ("A" :~: "A"))
+                   (fromList . replicate 3 $ node ("A" ~ "A"))
                 `historiesShouldSatisfy` all ((== 3) . length . getForest)
         it "should not transmit if wrong tag" $
             applyPolicy @Tag (1 ?~ trans "A" ("A", "B"))
-                    [node ("A" :~: "A") .~ 2]
-                `historiesShouldSatisfy` all (all (hasBellPair ("A" :~: "A")) . getForest)
+                    [node ("A" ~ "A") .~ 2]
+                `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "A")) . getForest)
         it "should not transmit if wrong tag but should if the right" $
             applyPolicy @Tag
                 (1 ?~ trans "A" ("A", "B") <||> 1 ?~ trans "A" ("A", "B"))
-                [node ("A" :~: "A") .~ 2, node ("A" :~: "A") .~ 1]
-                `historiesShouldSatisfy` all (any (hasBellPair ("A" :~: "A")) . getForest)
+                [node ("A" ~ "A") .~ 2, node ("A" ~ "A") .~ 1]
+                `historiesShouldSatisfy` all (any (hasBellPair ("A" ~ "A")) . getForest)
     describe "choose" $ do
         it "should choose nothing" $
             choose 0 (["A"] :: [String]) `shouldBe` [chooseNoneOf ["A"]]
@@ -91,13 +91,13 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
             \n (xs :: [Int]) -> all (isPartial (Sum $ length xs) . fmap (Sum . length)) (choose n xs)
     describe "bell pair" $ do
         it "A~B == B~A" $
-            ("A" :~: "B") `shouldBe` ("B" :~: "A")
+            ("A" ~ "B") `shouldBe` (("B" ~ "A") :: BellPair)
         it "A~B /= B~C" $
-            ("A" :~: "B") `shouldNotBe` ("B" :~: "C")
+            ("A" ~ "B") `shouldNotBe` (("B" ~ "C") :: BellPair)
     describe "chooseTreesND" $ do
         it "should take two if able" $
-            chooseTreesND [["A":~:"A"], ["A":~:"A"]] [Node ("A" :~: "A") [], Node ("A" :~: "A") []]
-                `shouldBe` [[Just [Node ("A" :~: "A") []], Just [Node ("A" :~: "A") []]]]
+            chooseTreesND [["A" ~ "A"], ["A" ~ "A" :: BellPair]] [Node ("A" ~ "A") [], Node ("A" ~ "A") []]
+                `shouldBe` [[Just [Node ("A" ~ "A") []], Just [Node ("A" ~ "A") []]]]
     describe "BellKAT.Prelude" PreludeSpec.spec
     describe "parallel [LONG]" $ do
         prop "should be commutative" $ mapSize (const 1) parallelCompositionIsCommutative

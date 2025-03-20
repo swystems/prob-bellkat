@@ -20,6 +20,7 @@ import GHC.Exts (IsList, Item, fromList, toList)
 import Control.Subcategory.Functor
 import Control.Subcategory.Applicative
 import Control.Subcategory.Pointed
+import Data.Typeable
 
 import qualified Numeric.Probability.Distribution as P
 
@@ -119,7 +120,7 @@ sdjoin =  SD . djoin . cmap (maybe (cpure Nothing) fromSubdistribution) . fromSu
 toSubdistribution :: (Fractional p, Ord p, Ord a) => D p a -> SD p a
 toSubdistribution = SD . cmap Just
 
-class RealFrac p => RationalOrDouble p where
+class (Typeable p, Show p, RealFrac p) => RationalOrDouble p where
     toDouble :: p -> Double
 
 instance RationalOrDouble Rational where
@@ -129,7 +130,7 @@ instance RationalOrDouble Double where
     toDouble = id
 
 class HasMapProbability t where
-    mapProbability :: (RationalOrDouble p, RationalOrDouble p', Ord a) => (p -> p') -> t p a -> t p' a
+    mapProbability :: (RationalOrDouble p, RationalOrDouble p', Show a, Typeable a, Ord a) => (p -> p') -> t p a -> t p' a
 
 instance HasMapProbability D where
     mapProbability f = createD . P.fromFreqs . map (second f) . P.decons .  unD

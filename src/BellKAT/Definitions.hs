@@ -25,6 +25,7 @@ module BellKAT.Definitions
 
 import           Data.Set                                (Set)
 import           Data.Default
+import           Data.Typeable
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Definitions.Core
@@ -147,7 +148,7 @@ applyStarOrderedPolicyBounded =
 
 -- | Probabilistic semantic function
 applyProbStarPolicy 
-    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -155,7 +156,7 @@ applyProbStarPolicy
 applyProbStarPolicy = applyProbStarPolicy'
 
 applyProbStarPolicy' 
-    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    :: (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -167,7 +168,7 @@ applyProbStarPolicy' pac mbNC =
         . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyProbStarPolicyStates
-    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -179,7 +180,7 @@ applyProbStarPolicyStates pac mbNC =
         . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyProbStarPolicySystem
-    :: (Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 

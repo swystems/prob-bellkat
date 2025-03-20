@@ -14,6 +14,7 @@ import qualified Data.Set as Set
 import Data.Default
 import Control.Subcategory.Pointed
 import Control.Subcategory.Functor
+import Data.Typeable
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Utils.Distribution as D
@@ -66,21 +67,21 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     fromList = NC . fromList
     toList = toList . unNC
 
-execute :: (Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+execute :: (Typeable tag, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
 
-execute' :: (RationalOrDouble p, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+execute' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 execute' p bps = mapProbability fromRational $ execute p bps
 
-executeWithCapacity :: (Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+executeWithCapacity :: (Typeable tag, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
-executeWithCapacity' :: (RationalOrDouble p, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+executeWithCapacity' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 executeWithCapacity' nc p bps = mapProbability fromRational $ executeWithCapacity nc p bps
 
-executePAA :: (Show tag, Ord tag, Default tag)
+executePAA :: (Show tag, Ord tag, Default tag, Typeable tag)
            => (TaggedBellPairs tag -> TaggedBellPairs tag) 
            -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executePAA fix act bps = 

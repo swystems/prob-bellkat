@@ -23,6 +23,7 @@ import           Control.Subcategory.Functor
 import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
 import           Data.Kind
+import           Data.Typeable
 
 import           BellKAT.Utils.Distribution as D
 import           BellKAT.Utils.Convex.DConvexHull
@@ -48,12 +49,12 @@ isValidC xs = helper xs [] (toList xs)
     helper _ _ [] = True
     helper (p :: a) acc (x:xs') = (x `notMemberC` fromList @a xs')  && helper p (x:acc) xs'
 
-instance (RationalOrDouble p, Ord a) => Convex (D p a) where
+instance (RationalOrDouble p, Show p, Typeable a, Show a, Ord a) => Convex (D p a) where
     type ConvexP (D p a) = p
     combine = D.djoin
     reduceConvexHull = reduceConvexHullD
 
-instance (RationalOrDouble p, Ord a) => ComputableConvex (D p a) where
+instance (Typeable a, RationalOrDouble p, Show p, Show a, Ord a) => ComputableConvex (D p a) where
     isInConvexHullOf = isInConvexHullOfD
 
 instance (Fractional p, Ord p, Ord a) => Convex (SD p a) where
@@ -107,17 +108,17 @@ type CD' = CD Probability
 getGenerators :: CD p a -> [D p a]
 getGenerators = Set.toList . unC . unCD 
 
-instance (Show a, Ord p, RationalOrDouble p, Ord a) => GHC.Exts.IsList (CD p a) where
+instance (Show a, Typeable a, Ord p, RationalOrDouble p, Ord a) => GHC.Exts.IsList (CD p a) where
     type Item (CD p a) = D p a
     toList = toList . unC . unCD
     fromList = CD . createC . fromList
 
-instance (RationalOrDouble p, Ord a) => Convex (CD p a) where
+instance (RationalOrDouble p, Typeable a, Show a, Ord a) => Convex (CD p a) where
     type ConvexP (CD p a) = p
     combine = CD . combine . cmap unCD
 
 instance Constrained (CD p) where
-    type Dom (CD p) a = (Show a, Ord a)
+    type Dom (CD p) a = (Show a, Ord a, Typeable a)
 
 instance RationalOrDouble p => CFunctor (CD p) where
     cmap f = CD . cmap (cmap f) . unCD

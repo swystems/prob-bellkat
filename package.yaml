@@ -115,6 +115,121 @@ executables:
       - hspec
       - bellkat
     main: examples/P3.hs
+  probP4:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P4.hs
+    ghc-options:
+      - -fprof-auto
+      - -rtsopts
+  probPa1:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/Pa1.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probPa:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/Pa.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probPag:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/Pag.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_II_parallel:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_II_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_II_ordered:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_II_ordered.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_I_ordered:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_I_ordered.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_I_parallel:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_I_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_III_one:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_III_one.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_III_two:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_III_two.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_IV:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_IV.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_3_pompili:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_3_pompili.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_3_coopmans:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_3_coopmans.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
 
 tests:
   spec: 

@@ -44,7 +44,7 @@ instance Ord tag => ParallelSemigroup (ProbAtomicOneStepPolicy tag) where
     x <||> y = fromList $ (<||>) <$> toList x <*> toList y
 
 instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs o i p _) = ProbAtomicOneStepPolicy $ Set.fromList $
+    tryCreateBellPairFrom (CreateBellPairArgs i o p _) = ProbAtomicOneStepPolicy $ Set.fromList $
             [ createProbabilitsticAtomicAction 
                 (createRestrictedTest mempty) 
                 (Mset.fromList i) 

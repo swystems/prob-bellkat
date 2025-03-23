@@ -27,20 +27,20 @@ mapDesugarActions = fmap . desugarActions
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta) [l ~ l1 @ taTagOut ta, l ~ l2 @ taTagOut ta]
+        [l ~ l1 @ taTagOut ta, l ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagIn ta)
         1.0 (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta) [l ~ l @ taTagOut ta]
+        [l ~ l @ taTagOut ta] (l1 ~ l2 @ taTagIn ta)
         1.0 (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        (l ~ l @ taTagIn ta ) [] 1.0 (taDup ta)
+        [] (l ~ l @ taTagIn ta ) 1.0 (taDup ta)
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta] 0.0 (taDup ta)
+        [l1 ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagIn ta) 0.0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] 
+        [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] (l1 ~ l2 @ taTagIn ta )
         0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta ) [] 0.5 (taDup ta)
+        [] (l1 ~ l2 @ taTagIn ta ) 0.5 (taDup ta)
 
 data ProbabilisticActionConfiguration = PAC 
     { pacTransmitProbability :: Map (Location, Location) Probability
@@ -52,20 +52,20 @@ data ProbabilisticActionConfiguration = PAC
 probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta) [l ~ l1 @ taTagOut ta, l ~ l2 @ taTagOut ta]
+        [l ~ l1 @ taTagOut ta, l ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagIn ta)
         (swapProbability pac l) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta) [l ~ l @ taTagOut ta]
+        [l ~ l @ taTagOut ta] (l1 ~ l2 @ taTagIn ta)
         (transmitProbability pac l (l1, l2)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        (l ~ l @ taTagIn ta ) [] (createProbability pac l) (taDup ta)
+        [] (l ~ l @ taTagIn ta ) (createProbability pac l) (taDup ta)
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta) [l1 ~ l2 @ taTagIn ta] 0 (taDup ta)
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagIn ta) 0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] 
+        [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] (l1 ~ l2 @ taTagIn ta)  
         0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        (l1 ~ l2 @ taTagIn ta ) [] (uCreateProbability pac (l1, l2)) (taDup ta)
+        [] (l1 ~ l2 @ taTagIn ta) (uCreateProbability pac (l1, l2)) (taDup ta)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 

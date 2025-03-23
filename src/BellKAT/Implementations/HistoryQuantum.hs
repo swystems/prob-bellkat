@@ -43,7 +43,7 @@ instance Ord t => ParallelSemigroup (HistoryQuantum t) where
         }
 
 instance Ord t => CreatesBellPairs (HistoryQuantum t) t where
-    tryCreateBellPairFrom (CreateBellPairArgs bp bps prob dk) = HistoryQuantum
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob dk) = HistoryQuantum
         { requiredRoots = [bps]
         , execute = \h@(History ts) ->
             case findTreeRootsND bps ts of

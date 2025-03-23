@@ -118,8 +118,8 @@ instance Monoid DupKind where
 type Probability = Rational
 
 data CreateBellPairArgs tag = CreateBellPairArgs
-    { cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
-    , cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
+    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
+    , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpProbability :: Probability -- ^ probability of failure for operations that may fail
     , cbpDup         :: DupKind
     }

@@ -12,6 +12,7 @@
 -- for ease of writing and checking policies.
 --
 module BellKAT.Prelude (
+    BellKATTagChar(..),
     BellKATTag,
     BellKATPolicy,
     drawHistoriesSVG,
@@ -37,7 +38,14 @@ import BellKAT.Definitions.Structures
 import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
 
-type BellKATTag = (Maybe ())
+-- | for pretty-printing
+newtype BellKATTagChar = BellKATTagChar Char deriving newtype (Ord, Eq, Show)
+
+instance {-# OVERLAPPING #-} Show (Maybe BellKATTagChar) where
+    show Nothing = "" 
+    show (Just (BellKATTagChar c)) = [c]
+
+type BellKATTag = Maybe BellKATTagChar
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.ProbabilisticPrelude (
+    BellKATTagChar(..),
     BellKATTag,
     ProbBellKATTest,
     ProbBellKATAction,
@@ -26,7 +27,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Options.Applicative as OA
 import Data.Semigroup (stimes)
 
-import BellKAT.Prelude (BellKATTag)
+import BellKAT.Prelude
 import BellKAT.DSL
 import BellKAT.Definitions
 import BellKAT.Definitions.Structures
@@ -40,7 +41,8 @@ type ProbBellKATAction = TaggedAction BellKATTag
 
 type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
 
-applyProbStarPolicyD :: (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+applyProbStarPolicyD 
+    :: (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 

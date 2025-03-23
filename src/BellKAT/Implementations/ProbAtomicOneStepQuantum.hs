@@ -63,7 +63,7 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
 
 newtype NetworkCapacity tag = NC 
     { unNC :: TaggedBellPairs tag 
-    } deriving newtype (Semigroup)
+    } deriving newtype (Monoid, Semigroup)
     -- TODO: should really be BellPairs
 
 instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where

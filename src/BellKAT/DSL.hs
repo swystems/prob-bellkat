@@ -31,35 +31,35 @@ ucreate loc = defaultTagged $ UnstableCreate loc
 destroy :: DSLFunctions p => (Location, Location) -> p
 destroy loc = defaultTagged $ Destroy loc
 
-class DSLTestNeq t where
-    hasNotSubset :: BellPairs -> t
+class DSLTestNeq t tag | t -> tag where
+    hasNotSubset :: TaggedBellPairs tag -> t
 
-(/~?) :: DSLTestNeq t => Location -> Location -> t
+(/~?) :: (Default tag, Ord tag, DSLTestNeq t tag) => Location -> Location -> t
 l /~? l' = hasNotSubset [l ~ l']
 
-class DSLTestNeq t => DSLTest t where
-    hasSubset :: BellPairs -> t
+class DSLTestNeq t tag => DSLTest t tag where
+    hasSubset :: TaggedBellPairs tag -> t
 
-(~~?) :: DSLTest t => Location -> Location -> t
+(~~?) :: (Ord tag, Default tag, DSLTest t tag) => Location -> Location -> t
 l ~~? l' = hasSubset [l ~ l']
 
-instance Ord t => DSLTestNeq (BellPairsPredicate (Maybe t)) where
-    hasNotSubset x = BPsPredicate (not . (Mset.map (@ Nothing) x `Mset.isSubsetOf`))
+instance Ord t => DSLTestNeq (BellPairsPredicate t) t where
+    hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf`))
 
-instance Ord t => DSLTest (BellPairsPredicate (Maybe t)) where
-    hasSubset x = BPsPredicate (Mset.map (@ Nothing) x `Mset.isSubsetOf`)
+instance Ord t => DSLTest (BellPairsPredicate t) t where
+    hasSubset x = BPsPredicate (x `Mset.isSubsetOf`)
 
-instance Ord t => DSLTestNeq (FreeTest (Maybe t)) where
-    hasNotSubset x = FTNot $ FTSubset (Mset.map (@ Nothing) x)
+instance Ord t => DSLTestNeq (FreeTest t) t where
+    hasNotSubset x = FTNot $ FTSubset x
 
-instance Ord t => DSLTest (BoundedTest (Maybe t)) where
-    hasSubset x = boundedTestContains (Mset.map (@ Nothing) x)
+instance Ord t => DSLTest (BoundedTest t) t where
+    hasSubset = boundedTestContains
 
-instance Ord t => DSLTestNeq (BoundedTest (Maybe t)) where
-    hasNotSubset x = boundedTestNotContains (Mset.map (@ Nothing) x)
+instance Ord t => DSLTestNeq (BoundedTest t) t where
+    hasNotSubset = boundedTestNotContains
 
-instance Ord t => DSLTest (FreeTest (Maybe t)) where
-    hasSubset x = FTSubset (Mset.map (@ Nothing) x)
+instance Ord t => DSLTest (FreeTest t) t where
+    hasSubset = FTSubset
 
 class DSLFunctions p where
     defaultTagged :: Action -> p
@@ -124,15 +124,36 @@ dupA = DupKind { dupBefore = False, dupAfter = True }
 dupB :: DupKind
 dupB = DupKind { dupBefore = True, dupAfter = False }
 
+infixl 9 .~
+
 class Taggable a t | a -> t where
     (.~) :: a -> t -> a
 
 instance Taggable (Simple Policy (Maybe t)) t where
-    APAtomic (TaggedAction p a _ dupKind) .~ t = APAtomic (TaggedAction p a (Just t) dupKind)
-    p .~ _                           = p
+    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a (Just t) dupKind)
+    _ .~ _ = error "cannot attach tag to this thing"
+
+instance Taggable (TaggedBellPair (Maybe t)) t where
+    tbp .~ t = tbp { bellPairTag = Just t }
+
+instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
+    OGPAtomic (TaggedAction ti a _ dupKind) .~ t = OGPAtomic (TaggedAction ti a (Just t) dupKind)
+    _ .~ _ = error "cannot attach tag to this thing"
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
     t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) bps && getBPsPredicate t bps
+
+class InverseTaggable a t | a -> t where
+    (~.) :: t -> a -> a
+
+
+instance InverseTaggable (Simple Policy (Maybe t)) t where
+    t ~. APAtomic (TaggedAction _ a to dupKind) = APAtomic (TaggedAction (Just t) a to dupKind)
+    _ ~. _ = error "cannot attach tag to this thing"
+
+instance InverseTaggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
+    t ~. OGPAtomic (TaggedAction _ a to dupKind)= OGPAtomic (TaggedAction (Just t) a to dupKind)
+    _ ~. _ = error "cannot attach tag to this thing"
 
 hasTag :: Eq t => t -> TaggedBellPair (Maybe t) -> Bool
 hasTag tag tbp = Just tag == bellPairTag tbp

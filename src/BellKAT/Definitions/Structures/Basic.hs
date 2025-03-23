@@ -28,6 +28,8 @@ infixl 4 <+>
 class ChoiceSemigroup a where
     (<+>) :: a -> a -> a
 
+infixl 6 <.>
+
 class OrderedSemigroup a where
     (<.>) :: a -> a -> a
 

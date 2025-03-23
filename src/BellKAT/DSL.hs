@@ -28,6 +28,9 @@ create loc = defaultTagged $ Create loc
 ucreate :: DSLFunctions p => (Location, Location) -> p
 ucreate loc = defaultTagged $ UnstableCreate loc
 
+destroy :: DSLFunctions p => (Location, Location) -> p
+destroy loc = defaultTagged $ Destroy loc
+
 class DSLTestNeq t where
     hasNotSubset :: BellPairs -> t
 

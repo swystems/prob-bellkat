@@ -34,6 +34,8 @@ simpleActionMeaning ta = case taAction ta of
         1.0 (taDup ta)
     (Create l)            -> CreateBellPairArgs
         (l ~ l @ taTagIn ta ) [] 1.0 (taDup ta)
+    (Destroy (l1, l2))            -> CreateBellPairArgs
+        (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta] 0.0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
         (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] 
         0.5 (taDup ta)
@@ -57,6 +59,8 @@ probabilisticActionMeaning pac ta = case taAction ta of
         (transmitProbability pac l (l1, l2)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
         (l ~ l @ taTagIn ta ) [] (createProbability pac l) (taDup ta)
+    (Destroy (l1, l2))            -> CreateBellPairArgs
+        (l1 ~ l2 @ taTagIn ta) [l1 ~ l2 @ taTagIn ta] 0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
         (l1 ~ l2 @ taTagIn ta ) [l1 ~ l2 @ taTagOut ta, l1 ~ l2  @ taTagOut ta] 
         0.5 (taDup ta)

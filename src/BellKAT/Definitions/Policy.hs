@@ -17,6 +17,7 @@ data Action
     | Transmit Location (Location, Location)
     | Distill (Location, Location)
     | Create Location
+    | Destroy (Location, Location)
     | UnstableCreate (Location, Location)
     deriving stock (Show)
 

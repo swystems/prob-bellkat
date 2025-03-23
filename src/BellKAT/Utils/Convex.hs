@@ -24,6 +24,7 @@ import           Control.Subcategory.Bind
 import           Control.Subcategory.Pointed
 import           Data.Kind
 import           Data.Typeable
+import qualified Data.Aeson as A
 
 import           BellKAT.Utils.Distribution as D
 import           BellKAT.Utils.Convex.DConvexHull
@@ -147,3 +148,7 @@ instance (Fractional p, Ord p, Ord a) => GHC.Exts.IsList (CSD p a) where
     type Item (CSD p a) = SD p a
     toList = toList . unC . unCSD
     fromList = CSD . createC . fromList
+
+instance (Show a, Ord a, Typeable a, A.ToJSON a, A.ToJSON p, RationalOrDouble p) 
+        => A.ToJSON (CD p a) where
+    toJSON = A.Array . fromList . fmap A.toJSON . toList

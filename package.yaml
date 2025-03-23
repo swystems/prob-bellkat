@@ -37,6 +37,7 @@ dependencies:
   - comfort-array
   - comfort-glpk
   - optparse-applicative
+  - aeson
 
 library:
   source-dirs: src

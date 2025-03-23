@@ -36,8 +36,9 @@ import           Data.Functor.Classes
 import           Data.Monoid                (Endo (..))
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
-import           Data.String                (IsString)
+import           Data.String                (IsString, fromString)
 import           Data.Default
+import qualified Data.Aeson as A
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
 import           Data.Vector.Fixed          (Arity, VecList)
@@ -190,3 +191,9 @@ instance Arbitrary DupKind where
 
 instance (Arbitrary t) => Arbitrary (TaggedBellPair t) where
     arbitrary = TaggedBellPair <$> arbitrary <*> arbitrary
+
+instance A.ToJSON Location where
+    toJSON = A.String . fromString . name
+
+instance Default t => A.ToJSON (TaggedBellPair t) where
+    toJSON = A.toJSON . locations

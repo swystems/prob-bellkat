@@ -18,6 +18,7 @@ import           Data.Foldable              (toList)
 import           Data.Set                   (Set)
 import           Data.Map.Strict            (Map)
 import qualified Data.Multiset              as MsetOrig
+import qualified Data.Aeson as A
 import qualified GHC.Exts (IsList, Item, fromList, toList)
 
 newtype Multiset a = MS { unMS :: MsetOrig.Multiset a } 
@@ -60,3 +61,6 @@ count x = MsetOrig.count x . unMS
 
 min :: Ord a => Multiset a -> Multiset a -> Multiset a
 min (MS x) (MS y) = MS $ MsetOrig.min x y
+
+instance A.ToJSON a => A.ToJSON (Multiset a) where
+    toJSON = A.Array . GHC.Exts.fromList . fmap A.toJSON . toList

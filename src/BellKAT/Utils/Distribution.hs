@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Utils.Distribution
     ( Probability
     , D
@@ -21,6 +22,8 @@ import Control.Subcategory.Functor
 import Control.Subcategory.Applicative
 import Control.Subcategory.Pointed
 import Data.Typeable
+import qualified Data.Aeson as A
+import Data.Aeson ((.=))
 
 import qualified Numeric.Probability.Distribution as P
 
@@ -134,3 +137,8 @@ class HasMapProbability t where
 
 instance HasMapProbability D where
     mapProbability f = createD . P.fromFreqs . map (second f) . P.decons .  unD
+
+instance (A.ToJSON a, A.ToJSON p, Ord a, RationalOrDouble p) => A.ToJSON (D p a) where
+    toJSON = A.Array . fromList . fmap probabilityTermToJSON . toList
+      where 
+        probabilityTermToJSON (x, p) = A.object ["value" .= A.toJSON x, "probability" .= A.toJSON p]

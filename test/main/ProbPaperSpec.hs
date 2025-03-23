@@ -9,7 +9,7 @@ import Control.Subcategory.Pointed
 import Data.Semigroup (stimes)
 import Test.Hspec
 
-import BellKAT.Prelude
+import BellKAT.ProbabilisticPrelude
 import BellKAT.Utils.Distribution as D
 import BellKAT.Utils.Convex as C
 import BellKAT.Definitions.Atomic (createProbabilitsticAtomicAction)
@@ -190,7 +190,7 @@ e51' :: ProbBellKATPolicy
 e51' = create "C" <> ite ("A" /~? "C") (trans "C" ("A", "C")) (trans "C" ("B", "C"))
 
 f51' :: ProbBellKATPolicy
-f51' = create "C" <> ite ("A" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
+f51' = create "C" <> ite ("B" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
 
 p51iii :: ProbBellKATPolicy
 p51iii = e51' <||> f51'
@@ -349,6 +349,9 @@ spec = do
         it "correctly handles example 5.1.III" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
                 [p51nu1', p51nu2', p51nu3']
+        focus $ it "does produce different results for 5.1.III and 5.1.II" $ 
+            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldNotBe`
+                applyProbStarPolicy p51pac (Just p51nc) p51iii' []
         it "prints system of example 5.1.IV (two iterations)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
         it "prints the probabilities of example 5.1.IV (3 iterations) [LONG]" $ do

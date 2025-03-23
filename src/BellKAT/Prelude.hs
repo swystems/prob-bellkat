@@ -14,9 +14,6 @@
 module BellKAT.Prelude (
     BellKATTag,
     BellKATPolicy,
-    ProbBellKATTest,
-    ProbBellKATAction,
-    ProbBellKATPolicy,
     drawHistoriesSVG,
     drawHistoriesText,
     isPolicyValid,
@@ -42,12 +39,6 @@ import BellKAT.Test
 
 type BellKATTag = (Maybe ())
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
-
-type ProbBellKATTest = BoundedTest BellKATTag
-type ProbBellKATAction = TaggedAction BellKATTag
-
-type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
-
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()
 drawHistoriesSVG = mainWith . drawStarPolicySteps

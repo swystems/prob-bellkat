@@ -36,6 +36,7 @@ dependencies:
   - subcategories
   - comfort-array
   - comfort-glpk
+  - optparse-applicative
 
 library:
   source-dirs: src
@@ -89,6 +90,7 @@ library:
     - BellKAT.Test
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude
+    - BellKAT.ProbabilisticPrelude
 
 executables:
   p1:

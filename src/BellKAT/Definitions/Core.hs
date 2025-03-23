@@ -2,7 +2,7 @@
 {-# LANGUAGE StrictData      #-}
 module BellKAT.Definitions.Core (
     -- * Basic definitions
-    Location,
+    Location(..),
     BellPair,
     LikeBellPair(..),
     BellPairs,
@@ -176,7 +176,6 @@ processDupBefore False ts = foldMap subForest ts
 
 processDup :: Ord a => DupKind -> a -> UForest a -> UTree a
 processDup dk x = processDupAfter (dupAfter dk) x . processDupBefore (dupBefore dk)
-
 
 -- * Testing definitions
 

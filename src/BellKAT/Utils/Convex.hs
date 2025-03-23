@@ -12,6 +12,7 @@ module BellKAT.Utils.Convex
     , CSD
     , CSD'
     , getGenerators
+    , computeEventProbabilityRange
     ) where
 
 import           Data.List
@@ -108,6 +109,12 @@ type CD' = CD Probability
 
 getGenerators :: CD p a -> [D p a]
 getGenerators = Set.toList . unC . unCD 
+
+computeEventProbabilityRange :: (Num p, Ord p) => (a -> Bool) -> CD p a -> (p, p)
+computeEventProbabilityRange ev cdp = 
+    let minProb = minimum . map (computeEventProbability ev) . getGenerators $ cdp
+        maxProb = maximum . map (computeEventProbability ev) . getGenerators $ cdp
+     in (minProb, maxProb)
 
 instance (Show a, Typeable a, Ord p, RationalOrDouble p, Ord a) => GHC.Exts.IsList (CD p a) where
     type Item (CD p a) = D p a

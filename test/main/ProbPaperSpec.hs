@@ -6,7 +6,6 @@ module ProbPaperSpec where
 
 import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
-import Data.Semigroup (stimes)
 import Test.Hspec
 
 import BellKAT.ProbabilisticPrelude
@@ -349,9 +348,13 @@ spec = do
         it "correctly handles example 5.1.III" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
                 [p51nu1', p51nu2', p51nu3']
-        focus $ it "does produce different results for 5.1.III and 5.1.II" $ 
+        it "does produce different results for 5.1.III and 5.1.II" $ 
             applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldNotBe`
                 applyProbStarPolicy p51pac (Just p51nc) p51iii' []
+        it "does produce different results for one iteration of 5.1.II and 5.1.III on input B~C" $ do
+            applyProbStarPolicy p51pac (Just p51nc) p51i ["B" ~ "C"]
+            `shouldNotBe`
+            applyProbStarPolicy p51pac (Just p51nc) p51iii ["B" ~ "C"]
         it "prints system of example 5.1.IV (two iterations)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
         it "prints the probabilities of example 5.1.IV (3 iterations) [LONG]" $ do

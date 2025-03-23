@@ -3,8 +3,10 @@ module BellKAT.Utils.Distribution
     ( Probability
     , D
     , D'
+    , toListD
     , choose
     , djoin
+    , computeEventProbability
     , SD
     , SD'
     , toSubdistribution
@@ -87,6 +89,9 @@ choose p x y = createD $ P.choose p x y
 
 djoin :: (Fractional p, Ord p, Ord a) => D p (D p a) -> D p a
 djoin =  createD . (unD <=< unD)
+
+computeEventProbability :: Num p => (a -> Bool) -> D p a -> p
+computeEventProbability ev = sum . map snd . filter (ev . fst) . toListD
 
 newtype SD p a = SD { fromSubdistribution :: D p (Maybe a) } deriving newtype (Eq, Ord)
 type SD' = SD Probability

@@ -12,6 +12,7 @@
           inherit system;
           overlays = [ self.overlays.default ];
         };
+        python = pkgs.python3.withPackages (ps: [ps.click ps.python-lsp-server ps.pylint]);
       in {
         packages.default = pkgs.haskellPackages.bellkat;
         packages.bellkatGHC =
@@ -34,6 +35,7 @@
             pkgs.cabal-install
             pkgs.haskellPackages.haskell-language-server
             pkgs.haskellPackages.graphmod
+            python
           ];
           packages = ps: [ ps.bellkat ];
         };

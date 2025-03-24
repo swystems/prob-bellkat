@@ -106,16 +106,21 @@ def print_result_tex(test_name, result):
     print(r'\paragraph{Output}')
     print(format_result_tex(output))
     print(r'\paragraph{Stats}')
-    print()
-    print(r'\begin{center}\begin{tabular}{llll}')
-    print(r'\toprule')
-    print(r'\bf Num Generators & \bf Success probability & \bf Memory (MiB) & \bf Time(s)\\')
-    print(r'\midrule')
-    print(len(output), '&', format_probability_range_tex(probability), '&', 
-          result.stats['peak_megabytes_allocated'], '&',
-          '{:10.3f}'.format(float(result.stats['total_wall_seconds'])), r'\\')
-    print(r'\bottomrule')
-    print(r'\end{tabular}\end{center}')
+    print(format_stats_tex(output, probability, result.stats))
+
+def format_stats_tex(output, probability, stats):
+    return '\n'.join([
+        r'{\small\begin{center}\begin{tabular}{llll}',
+        r'\toprule',
+        r'\bf Num Generators & \bf Success probability & \bf Memory (MiB) & \bf Time(s)\\',
+        r'\midrule',
+        ' '.join([
+            str(len(output)), '&', format_probability_range_tex(probability), '&', 
+            stats['peak_megabytes_allocated'], '&',
+            '{:10.3f}'.format(float(stats['total_wall_seconds'])), r'\\']),
+        r'\bottomrule',
+        r'\end{tabular}\end{center}}',
+        ])
 
 def format_probability_range_tex(p):
     return '$[' +  format_prob_tex(p[0]) + ',' + format_prob_tex(p[1]) + ']$'

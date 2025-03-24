@@ -20,6 +20,8 @@ module BellKAT.Prelude (
     isPolicyValid,
     memoryBounds,
     arePoliciesEquivalent,
+    applyStarPolicy,
+    applyStarPolicy',
     -- * Re-exports from 'BellKAT.DSL'
     module BellKAT.DSL,
     (~),

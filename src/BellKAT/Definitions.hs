@@ -16,6 +16,7 @@ module BellKAT.Definitions
     , applyOneStepPolicy
     , applyOneStepPolicyPartial
     , applyStarPolicy
+    , applyStarPolicy'
     , applyStarPolicyH
     , applyProbStarPolicy
     , applyProbStarPolicy'
@@ -96,6 +97,14 @@ applyStarPolicy
 applyStarPolicy = 
     ASQ.execute AOSQ.execute . meaning 
         . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
+
+applyStarPolicy' 
+    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
+    => ProbabilisticActionConfiguration 
+    -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
+applyStarPolicy' pac = 
+    ASQ.execute AOSQ.execute . meaning 
+        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyStarOrderedPolicy
     :: (Ord tag, Show tag, Default tag, Test test) 

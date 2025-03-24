@@ -115,6 +115,66 @@ executables:
       - hspec
       - bellkat
     main: examples/P3.hs
+  Pa:
+    dependencies: 
+      - bellkat
+    main: examples/Pa.hs
+    ghc-options:
+      - -rtsopts
+  P5_1_II_parallel:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_II_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  P5_1_II_parallel_three:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_II_parallel_three.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  P5_1_II_ordered_three:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_II_ordered_three.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  P5_1_II_ordered:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_II_ordered.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  P5_1_I_ordered:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_I_ordered.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  P5_1_I_parallel:
+    dependencies: 
+      - bellkat
+    main: examples/P5_1_I_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   probP4:
     dependencies: 
       - bellkat
@@ -162,6 +222,15 @@ executables:
     dependencies: 
       - bellkat
     main: probabilistic-examples/P5_1_II_parallel_three.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_1_II_ordered_three:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_II_ordered_three.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -255,8 +324,6 @@ executables:
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
-    ghc-options:
-      - -rtsopts
 
 tests:
   spec: 

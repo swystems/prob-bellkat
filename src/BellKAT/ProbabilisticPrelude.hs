@@ -49,19 +49,41 @@ applyProbStarPolicyD
     -> TaggedBellPairs tag -> CD Double (TaggedBellPairs tag)
 applyProbStarPolicyD = applyProbStarPolicy'
 
-newtype PbkatCLIOpts = PCO 
+data PbkatMode = PMRun | PMProbability
+
+data PbkatCLIOpts = PCO 
     { pcoJSON :: Bool
+    , pcoMode :: PbkatMode
     }
 
 pcoParser :: OA.Parser PbkatCLIOpts
 pcoParser = PCO 
     <$> OA.flag False True (OA.long "json") 
+    <*> OA.subparser (
+            OA.command "run" 
+                (OA.info (pure PMRun) (OA.progDesc "Run the procotol")) 
+                <>
+            OA.command "probability" 
+                (OA.info (pure PMProbability) (OA.progDesc "Compute event probability"))
+        )
 
-pbkatMain :: (Typeable tag, Default tag, Show tag, Ord tag, RationalOrDouble p, A.ToJSON p) 
-          => CD p (TaggedBellPairs tag) -> BellPairsPredicate tag -> IO ()
-pbkatMain r ev = do
+
+pbkatMain 
+    :: (Typeable tag, Default tag, Show tag, Ord tag, RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
+    => CD p (TaggedBellPairs tag) -> BellPairsPredicate tag -> IO ()
+pbkatMain (r :: CD p (TaggedBellPairs tag)) ev = do
     opts <- OA.execParser $ OA.info pcoParser (OA.progDesc "PBKAT tool")
-    let probRange = computeEventProbabilityRange (getBPsPredicate ev) r
-    if pcoJSON opts
-       then BS.putStr $ A.encode $ A.object ["output" A..= A.toJSON r, "probability" A..= A.toJSON probRange ] 
-        else print r
+    case pcoMode opts of
+      PMRun ->
+        if pcoJSON opts
+           then BS.putStr $ A.encode r
+           else print r
+      PMProbability -> do
+          mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
+          case mbRStored of 
+            Nothing -> error "Couldn't parse input"
+            Just rStored -> 
+                let probRange = computeEventProbabilityRange (getBPsPredicate ev) rStored
+                 in if pcoJSON opts
+                       then BS.putStr $ A.encode probRange
+                       else print probRange

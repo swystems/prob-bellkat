@@ -63,4 +63,7 @@ min :: Ord a => Multiset a -> Multiset a -> Multiset a
 min (MS x) (MS y) = MS $ MsetOrig.min x y
 
 instance A.ToJSON a => A.ToJSON (Multiset a) where
-    toJSON = A.Array . GHC.Exts.fromList . fmap A.toJSON . toList
+    toJSON = A.toJSON . toList
+
+instance (Ord a, A.FromJSON a) => A.FromJSON (Multiset a) where
+    parseJSON = fmap GHC.Exts.fromList . A.parseJSON

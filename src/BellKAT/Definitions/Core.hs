@@ -36,7 +36,7 @@ import           Data.Functor.Classes
 import           Data.Monoid                (Endo (..))
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
-import           Data.String                (IsString, fromString)
+import           Data.String                (IsString)
 import           Data.Default
 import qualified Data.Aeson as A
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
@@ -193,7 +193,13 @@ instance (Arbitrary t) => Arbitrary (TaggedBellPair t) where
     arbitrary = TaggedBellPair <$> arbitrary <*> arbitrary
 
 instance A.ToJSON Location where
-    toJSON = A.String . fromString . name
+    toJSON = A.toJSON . name
+
+instance A.FromJSON Location where
+    parseJSON = fmap Location . A.parseJSON
 
 instance Default t => A.ToJSON (TaggedBellPair t) where
     toJSON = A.toJSON . locations
+
+instance Default t => A.FromJSON (TaggedBellPair t) where
+    parseJSON v = uncurry (~) <$> A.parseJSON v

@@ -158,4 +158,8 @@ instance (Fractional p, Ord p, Ord a) => GHC.Exts.IsList (CSD p a) where
 
 instance (Show a, Ord a, Typeable a, A.ToJSON a, A.ToJSON p, RationalOrDouble p) 
         => A.ToJSON (CD p a) where
-    toJSON = A.Array . fromList . fmap A.toJSON . toList
+    toJSON = A.toJSON . toList
+
+instance (Show a, Ord a, Typeable a, A.FromJSON a, A.FromJSON p, RationalOrDouble p) 
+        => A.FromJSON (CD p a) where
+    parseJSON = fmap fromList . A.parseJSON

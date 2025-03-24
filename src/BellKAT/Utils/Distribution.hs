@@ -25,7 +25,7 @@ import Control.Subcategory.Applicative
 import Control.Subcategory.Pointed
 import Data.Typeable
 import qualified Data.Aeson as A
-import Data.Aeson ((.=))
+import Data.Aeson ((.=), (.:))
 
 import qualified Numeric.Probability.Distribution as P
 
@@ -144,6 +144,12 @@ instance HasMapProbability D where
     mapProbability f = createD . P.fromFreqs . map (second f) . P.decons .  unD
 
 instance (A.ToJSON a, A.ToJSON p, Ord a, RationalOrDouble p) => A.ToJSON (D p a) where
-    toJSON = A.Array . fromList . fmap probabilityTermToJSON . toList
+    toJSON = A.toJSON . fmap probabilityTermToJSON . toList
       where 
-        probabilityTermToJSON (x, p) = A.object ["value" .= A.toJSON x, "probability" .= A.toJSON p]
+        probabilityTermToJSON (x, p) = A.object ["value" .= x, "probability" .= p]
+
+instance (A.FromJSON a, A.FromJSON p, Ord a, RationalOrDouble p) => A.FromJSON (D p a) where
+    parseJSON = fmap fromList . mapM parseProbabilityTerm <=< A.parseJSON
+      where 
+        parseProbabilityTerm = A.withObject "probTerm" $ 
+            \v -> (,) <$> v .: "value" <*> v .: "probability"

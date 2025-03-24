@@ -2,42 +2,57 @@
 import subprocess
 import click
 import json
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 
 
 TESTS = {
-    'Protocol (a)': 'probPa',
-    'Protocol (a1)': 'probPa1',
-    'Protocol (ag)': 'probPag',
-    'Protocol 5.1.I (parallel)': 'probP5_1_I_parallel',
-    'Protocol 5.1.I (ordered)': 'probP5_1_I_ordered',
-    'Protocol 5.1.II (parallel)': 'probP5_1_II_parallel',
-    'Protocol 5.1.II (ordered)': 'probP5_1_II_ordered',
-    'Protocol 5.1.III (one iteration)': 'probP5_1_III_one',
-    'Protocol 5.1.III (two iterations)': 'probP5_1_III_two',
-    'Protocol 5.1.IV (three iterations)': 'probP5_1_IV',
-    'Protocol 5.3 (Pompili)': 'probP5_3_pompili',
-    'Protocol 5.3 (Coopmans)': 'probP5_3_coopmans',
+    'Protocol (a)': 'Pa',
+    'Protocol (a1)': 'Pa1',
+    'Protocol (ag)': 'Pag',
+    'Protocol 5.1.I (parallel)': 'P5_1_I_parallel',
+    'Protocol 5.1.I (ordered)': 'P5_1_I_ordered',
+    'Protocol 5.1.II (parallel)': 'P5_1_II_parallel',
+    'Protocol 5.1.II (ordered)': 'P5_1_II_ordered',
+    'Protocol 5.1.III (one iteration)': 'P5_1_III_one',
+    'Protocol 5.1.III (two iterations)': 'P5_1_III_two',
+    'Protocol 5.1.IV (three iterations)': 'P5_1_IV',
+    'Protocol 5.3 (Pompili)': 'P5_3_pompili',
+    'Protocol 5.3 (Coopmans)': 'P5_3_coopmans',
     }
 
 class RunResult(NamedTuple):
     output: str
+    probability: Optional[str]
     stats: dict[str, int]
 
 def build(test_target):
     subprocess.run(['cabal', '-O2', 'build', test_target], check=True, capture_output=True)
 
-def run(test_target, machine_readable=False) -> dict[str, RunResult]:
-    build(test_target)
-    args = ['cabal', '-O2', 'run', test_target, '--', 
-            '+RTS', '--machine-readable', '-t', '-RTS']
-    
-    if machine_readable:
-        args.append('--json')
+def get_output_filename(example, machine_readable) -> str:
+    suffix = 'json' if machine_readable else 'txt'
+    return f'output/probabilistic-examples/{example}.{suffix}'
 
-    r = subprocess.run(args, capture_output=True, text=True, encoding='utf-8', check=True)
-    return RunResult(output=r.stdout.strip(), stats=dict(eval(r.stderr.strip())))
+def get_probability_filename(example) -> str:
+    return f'output/probabilistic-examples/{example}.prob'
+
+def run_probability(example):
+    probability_file_name = get_probability_filename(example)
+    subprocess.run(['make', probability_file_name], check=True, capture_output=True)
+    with open(probability_file_name, 'r') as probability_f:
+        return probability_f.read().strip()
+
+def run(example, machine_readable=False) -> dict[str, RunResult]:
+    output_file_name = get_output_filename(example, machine_readable)
+    subprocess.run(['make', output_file_name], check=True, capture_output=True)
+    with open(output_file_name, 'r', encoding='utf-8') as output_f:
+        output = output_f.read().strip()
+    with open(f'{output_file_name}.stderr', 'r') as stats_f:
+        stats = dict(eval(stats_f.read().strip()))
+
+    probability = run_probability(example) if machine_readable else None
+
+    return RunResult(output=output, probability=probability, stats=stats)
 
 def print_result(test_name, result):
     print('=' * 4, test_name, '=' * 4)
@@ -73,15 +88,16 @@ def format_bp_tex(bp):
     return f'{l1}\\!\\sim\\!{l2}'
 
 def print_result_tex(test_name, result):
-    parsed_result = json.loads(result.output.strip())
+    output = json.loads(result.output)
+    probability = json.loads(result.probability)
     print()
     print(r'\subsection{', test_name, '}')
     print()
     print(r'\paragraph{Output}')
-    print('Num Generators:', len(parsed_result['output']))
+    print('Num Generators:', len(output))
     print()
-    print('Success Probability Range:', format_probability_range_tex(parsed_result["probability"]))
-    print(format_result_tex(parsed_result['output']))
+    print('Success Probability Range:', format_probability_range_tex(probability))
+    print(format_result_tex(output))
     print()
     print(r'\paragraph{Stats}')
     print()

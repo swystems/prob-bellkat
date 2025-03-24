@@ -2,33 +2,27 @@
 
 import BellKAT.ProbabilisticPrelude
 
-i :: BellKATTagChar
-i = BellKATTagChar 'I'
-
-o :: BellKATTagChar
-o = BellKATTagChar 'O'
-
 e :: Int -> Int -> ProbBellKATPolicy
 e n k = 
     whileN n ("A" /~? "C") $
         (whileN k (hasNotSubset ["A" ~ "C", "A" ~ "C"])
-            (create "C" .~ o <.> create "C" .~ o) <> (o ~. trans "C" ("A", "C") <.> o ~. trans "C" ("A", "C")))
+            (ucreate ("A", "C") <.> ucreate ("A", "C")))
         <> distill ("A", "C")
 
 e' :: Int -> Int -> ProbBellKATPolicy
 e' n k = 
     whileN n ("B" /~? "C") $
         (whileN k (hasNotSubset ["B" ~ "C", "B" ~ "C"])
-            (create "C" .~ i <.> create "C" .~ i) <> (i ~. trans "C" ("B", "C") <.> i ~. trans "C" ("B", "C")))
+            (ucreate ("B", "C") <.> ucreate ("B", "C")))
         <> distill ("B", "C")
 
 p :: Int -> Int -> ProbBellKATPolicy
-p n k = (e n k <||> e' n k) <> swap "C" ("A", "B")
+p n k = (e n k <.> e' n k) <> swap "C" ("A", "B")
 
 networkCapacity :: NetworkCapacity BellKATTag
 networkCapacity = mconcat 
-    [ stimes 2 ["C" ~ "C" .~ o]
-    , stimes 2 ["C" ~ "C" .~ i]
+    [ stimes 2 ["C" ~ "C"]
+    , stimes 2 ["C" ~ "C"]
     , stimes 2 ["A" ~ "C"]
     , stimes 2 ["B" ~ "C"]
     , ["A" ~ "B"]
@@ -44,7 +38,7 @@ actionConfig = PAC
 
 main :: IO ()
 main = 
-    let cdbps = applyProbStarPolicyD actionConfig (Just networkCapacity) (p 8 50) []
+    let cdbps = applyProbStarPolicyD actionConfig (Just networkCapacity) (p 1 449) []
         ev = "A" ~~? "B"
      in do
         pbkatMain cdbps ev

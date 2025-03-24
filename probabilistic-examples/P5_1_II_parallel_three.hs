@@ -1,13 +1,13 @@
 import BellKAT.ProbabilisticPrelude
 
 e :: ProbBellKATPolicy
-e = create "C" <> ite ("A" /~? "C") (trans "C" ("A", "C")) (trans "C" ("B", "C"))
+e = create "C" <> trans "C" ("A", "C")
 
 f :: ProbBellKATPolicy
-f = create "C" <> ite ("B" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
+f = create "C" <> trans "C" ("B", "C")
 
 p :: ProbBellKATPolicy
-p = whileN 3 ("A" /~? "C" ||* "B" /~? "C") (e <||> f)
+p = (e <||> f) <> (e <||> f) <> (e <||> f)
 
 networkCapacity :: NetworkCapacity BellKATTag
 networkCapacity = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
@@ -21,7 +21,7 @@ actionConfig = PAC
     }
 
 main :: IO ()
-main =
+main = 
     let cdbps = applyProbStarPolicy actionConfig (Just networkCapacity) p []
         ev = hasSubset ["A" ~ "C", "B" ~ "C"]
      in pbkatMain cdbps ev 

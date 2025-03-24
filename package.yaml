@@ -158,6 +158,15 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  probP5_1_II_parallel_three:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_II_parallel_three.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   probP5_1_II_ordered:
     dependencies: 
       - bellkat
@@ -221,10 +230,28 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
-  probP5_3_coopmans:
+  probP5_3_coopmans_inner:
     dependencies: 
       - bellkat
-    main: probabilistic-examples/P5_3_coopmans.hs
+    main: probabilistic-examples/P5_3_coopmans_inner.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_3_coopmans_outer:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_3_coopmans_outer.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_3_coopmans_mixed:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_3_coopmans_mixed.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists

@@ -58,7 +58,7 @@ data PbkatCLIOpts = PCO
 
 pcoParser :: OA.Parser PbkatCLIOpts
 pcoParser = PCO 
-    <$> OA.flag False True (OA.long "json") 
+    <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON") 
     <*> OA.subparser (
             OA.command "run" 
                 (OA.info (pure PMRun) (OA.progDesc "Run the procotol")) 
@@ -72,7 +72,7 @@ pbkatMain
     :: (Typeable tag, Default tag, Show tag, Ord tag, RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
     => CD p (TaggedBellPairs tag) -> BellPairsPredicate tag -> IO ()
 pbkatMain (r :: CD p (TaggedBellPairs tag)) ev = do
-    opts <- OA.execParser $ OA.info pcoParser (OA.progDesc "PBKAT tool")
+    opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
     case pcoMode opts of
       PMRun ->
         if pcoJSON opts

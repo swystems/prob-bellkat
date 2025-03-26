@@ -117,7 +117,7 @@ def format_bps_tex(bps):
 
 def format_prob_tex(p):
     if isinstance(p, float) or isinstance(p, int): 
-        return f'{p:10.4f}'
+        return f'{p:.10f}'
     else:
         numerator = p["numerator"]
         denominator = p["denominator"]
@@ -128,8 +128,17 @@ def format_bp_tex(bp):
     return f'{l1}\\!\\sim\\!{l2}'
 
 def print_result_tex(test_name, result: RunResult):
-    output = json.loads(result.output)
-    probability = json.loads(result.probability)
+    try:
+        output = json.loads(result.output)
+    except json.decoder.JSONDecodeError as e:
+        print(f'Error decoding output for {test_name}: {e}', file=sys.stderr)
+        sys.exit(1)
+    try:
+        probability = json.loads(result.probability)
+    except json.decoder.JSONDecodeError as e:
+        print(f'Error decoding probability for {test_name}: {e}', file=sys.stderr)
+        sys.exit(1)
+
     print()
     print(r'\subsection{', test_name, '}')
     print()

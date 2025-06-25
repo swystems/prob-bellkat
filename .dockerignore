@@ -1,1 +1,4 @@
 Dockerfile*
+output/
+dist-newstyle/
+.direnv/

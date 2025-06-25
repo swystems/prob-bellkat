@@ -12,7 +12,8 @@
           inherit system;
           overlays = [ self.overlays.default ];
         };
-        python = pkgs.python3.withPackages (ps: [ps.click ps.python-lsp-server ps.pylint]);
+        python = pkgs.python3.withPackages
+          (ps: [ ps.click ps.python-lsp-server ps.pylint ]);
       in {
         packages.default = pkgs.haskellPackages.bellkat;
         packages.bellkatGHC =
@@ -43,8 +44,9 @@
         overlays = {
           default = final: prev: {
             haskellPackages = prev.haskellPackages.extend (hself: hsuper: {
-              bellkat = hself.callCabal2nix "bellkat"
-                (prev.lib.sourceFilesBySuffices ./. [ ".hs" ".yaml" ]) { };
+              bellkat = (hself.callCabal2nix "bellkat"
+                (prev.lib.sourceFilesBySuffices ./. [ ".hs" ".yaml" ])
+                { }).overrideAttrs (attr: { checkFlags = "--test-options=\"--skip=VERYLONG\""; });
             });
           };
         };

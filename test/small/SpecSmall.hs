@@ -24,7 +24,7 @@ instance Monad m => Serial m Location where
     series = fromString . (:[]) <$> series
 
 instance Monad m => Serial m BellPair where
-    series = (:~:) <$> localDepth (const 1) series <*> localDepth (const 1) series
+    series = (~) <$> localDepth (const 1) series <*> localDepth (const 1) series
 
 instance Monad m => Serial m (TaggedBellPair ()) where
     series = TaggedBellPair <$> series <*> pure ()

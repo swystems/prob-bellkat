@@ -30,4 +30,4 @@ actionConfig = PAC
 main :: IO ()
 main =
     let cdbps = applyStarPolicy' actionConfig p []
-     in BS.putStr $ A.encode cdbps
+     in BS.putStr (A.encode cdbps) >> putStrLn ""

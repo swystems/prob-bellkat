@@ -26,3 +26,6 @@ output/probabilistic-examples/%.txt: probabilistic-examples/%.hs
 		+RTS --machine-readable -t -RTS run \
 		>$@ \
 		2>$@.stderr
+
+README.pdf: README.md
+	pandoc --pdf-engine=lualatex --output $@ $<

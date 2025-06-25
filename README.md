@@ -1,6 +1,20 @@
-# Artifact for "An Algebraic Language for Specifying Quantum Networks"
+---
+title: Artifact for "A Language for Quantifying Quantum Network Behavior"
+toc: true
+colorlinks: true
+urlcolor: blue!50!black
+toccolor: green!30!black
+header-includes: |
+    \usepackage{newunicodechar}
+    \newfontfamily{\fallbackfont}{Symbola}
+    \DeclareTextFontCommand{\textfallback}{\fallbackfont}
+    \newunicodechar{⦅}{\textfallback{⦅}}
+    \newunicodechar{⦆}{\textfallback{⦆}}
+    \newunicodechar{⦄}{\textfallback{⦄}}
+    \newunicodechar{⦃}{\textfallback{⦃}}
+...
 
-The artifact is a [Haskell][haskell] library `bellkat` plus several examples provided as executables within the same [Haskell][haskell] package.
+The artifact is based on a [Haskell][haskell] library `bellkat` plus several examples provided as executables within the same [Haskell][haskell] package.
 We provide two build options: [Nix][nix]-based and [Stack][stack]-based, for each we give a [Docker][docker] file that can simplify the setup of the development environment. 
 Reproducing the results from the paper can be done in two ways:
 
@@ -10,61 +24,49 @@ Reproducing the results from the paper can be done in two ways:
 **Docker note:** please, be aware that `docker run` commands may have to be prefixed with `sudo`,
 depending on the docker setup (see details [here][docker-run]).
 
-## Preparing development environment (recommended to skip)
+# Hardware Dependencies
 
-Please, check [Haskell language server documentation][hls] for editor support (optional).
+ * RAM: up to 9 GB
 
-### Nix
+# Getting Started
 
-  * install [Nix][nix] package manager
-  * enable [Nix flakes][flakes]
-  * **to enter environment run** `nix develop` from the artifact's root
-  * run `hpack` (no arguments) to generate `.cabal` file
+"Getting Started" guide presents only the simplest way to get started with the artifact, namely, using [Docker][docker].
+Instructions to create proper development environments, namely using either standard Haskell's [stack][stack] tool or [nix][nix] package manager are given in [Development Environment](#development-environments) section.
 
-For convenience, we provide `Dockerfile.nixdev` with the environment already set up:
+## Software requirements
 
-```bash
-docker build --tag bellkat:nixdev --file Dockerfile.nixdev . # build the image
-docker run --rm --interactive --tty bellkat:nixdev # to enter the environment
-```
+  * [Docker][docker]
 
-### Stack
+## Docker container creation
 
-  * install [Stack][stack]
-  * install the following extra dependencies: 
+  * Change to artifact's root
+  * Create a [Docker][docker] container by running
 
-     * [Pango][pango] 1.50.6
-     * [Cairo][cairo] 1.21.0
-     * [Zlib][zlib] 1.3
-     * [Glib][glib] 2.72
-     * [Ncurses][ncurses] 6.3
+    ```bash
+    docker build --tag pbkat:latest .
+    ```
 
-     Those can be installed on ubuntu as follows:
+## Running a simple protocol
 
-     ```bash
-     apt-get install libz-dev libtinfo-dev libcairo-dev libpango1.0
-     ```
+To check that everything works as expected we produce a somewhat trivial output for the protocol \S 3(a) using both PBKAT and BellKAT.
 
-For convenience, we provide `Dockerfile.stackdev` with the environment already set up:
+PBKAT:
 
 ```bash
-docker build --tag bellkat:stackdev --file Dockerfile.stackdev . # build the image
-docker run --rm --interactive --tty bellkat:stackdev # to enter the environment
+docker run --rm -it pbkat:latest probPa run
+# ⦅⦃⦄×6901 % 25000+⦃A~B⦄×1701 % 6250+⦃A~C⦄×423 % 1250+⦃B~C⦄×567 % 5000,
+#  ⦃⦄×7351 % 25000+⦃A~B⦄×1701 % 6250+⦃A~C⦄×243 % 1250+⦃B~C⦄×1197 % 5000⦆
 ```
 
-## Building the artifact (recommended to skip)
-
-### Nix
+BellKAT:
 
 ```bash
-cabal build
+docker run --rm -it pbkat:latest Pa run
+# [[],[["A","B"]],[["A","C"]],[["B","C"]]]
 ```
 
-### Stack
 
-```bash
-stack build
-```
+# Step-by-step Guide
 
 ## Syntactic differences with the paper:
 
@@ -102,22 +104,8 @@ Features:
      * `drawHistoriesSVG p` (to create an `.svg` image)
      * `drawHistoriesText p` (to output a textual representation)
 
-## Reproducing the results
 
-### Preparation
-
-  * Docker (recommended): change to artifact's root and create the container by running
-
-    ```bash
-    docker build --tag bellkat:latest .
-    ```
-
-    **Note** all the docker commands below use bind mount to handle input and output files.
-
-  * Stack: change to the artifact root
-  * Nix: change to the artifact root and run `nix develop`
-
-### Example P1 and history in Fig 3 (a)
+## Example P1 and history in Fig 3 (a)
 
 The protocols are specified in `examples/P1.hs`, history would be saved in `P1.svg`.
 
@@ -147,7 +135,7 @@ The protocols are specified in `examples/P1.hs`, history would be saved in `P1.s
     cabal run p1text
     ```
 
-### Example P2 and history in Fig 3 (b)
+## Example P2 and history in Fig 3 (b)
 
 The protocols are specified in `examples/P2.hs`, history would be saved in `P2.svg`.
 
@@ -177,7 +165,7 @@ The protocols are specified in `examples/P2.hs`, history would be saved in `P2.s
     cabal run p2text
     ```
 
-### Example P3
+## Example P3
 
 Perform four checks using `examples/P3.hs` (uses [HSpec][hspec] library, please check its documentation to understand the uses of `describe`, `it` and `shouldBe` within the example):
 
@@ -208,6 +196,66 @@ The first two are related _reachability property_ (discussed on line 942 of the 
     ```bash
     cabal run p3
     ```
+
+## Development environments
+
+### Preparing development environment (recommended to skip)
+
+Please, check [Haskell language server documentation][hls] for editor support (optional).
+
+#### Nix
+
+  * install [Nix][nix] package manager
+  * enable [Nix flakes][flakes]
+  * **to enter environment run** `nix develop` from the artifact's root
+  * run `hpack` (no arguments) to generate `.cabal` file
+
+For convenience, we provide `Dockerfile.nixdev` with the environment already set up:
+
+```bash
+docker build --tag bellkat:nixdev --file Dockerfile.nixdev . # build the image
+docker run --rm --interactive --tty bellkat:nixdev # to enter the environment
+```
+
+#### Stack
+
+  * install [Stack][stack]
+  * install the following extra dependencies: 
+
+     * [Pango][pango] 1.50.6
+     * [Cairo][cairo] 1.21.0
+     * [Zlib][zlib] 1.3
+     * [Glib][glib] 2.72
+     * [Ncurses][ncurses] 6.3
+
+     Those can be installed on ubuntu as follows:
+
+     ```bash
+     apt-get install libz-dev libtinfo-dev libcairo-dev libpango1.0
+     ```
+
+For convenience, we provide `Dockerfile.stackdev` with the environment already set up:
+
+```bash
+docker build --tag bellkat:stackdev --file Dockerfile.stackdev . # build the image
+docker run --rm --interactive --tty bellkat:stackdev # to enter the environment
+```
+
+### Building the artifact (recommended to skip)
+
+#### Nix
+
+```bash
+cabal build
+```
+
+#### Stack
+
+```bash
+stack build
+```
+
+# Reusability Guide
 
 ## Writing and testing your own protocols
 

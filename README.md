@@ -12,7 +12,8 @@ header-includes: |
     \newunicodechar{⦆}{\textfallback{⦆}}
     \newunicodechar{⦄}{\textfallback{⦄}}
     \newunicodechar{⦃}{\textfallback{⦃}}
-...
+---
+
 
 The artifact is based on a [Haskell][haskell] library `bellkat` plus several examples provided as executables within the same [Haskell][haskell] package.
 We provide two build options: [Nix][nix]-based and [Stack][stack]-based, for each we give a [Docker][docker] file that can simplify the setup of the development environment. 

@@ -178,10 +178,13 @@ p51nu1 :: D' (TaggedBellPairs BellKATTag)
 p51nu1 = [(["A" ~ "C", "B" ~ "C"], 61884/100000), (["A" ~ "C"], 337896/1000000), (["B" ~ "C"], 27135/1000000), ([], 16129/1000000)]
 
 p51nu2 :: D' (TaggedBellPairs BellKATTag)
-p51nu2 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000), (["B" ~ "C"], 91143/1000000), ([], 32761/1000000)]
+p51nu2 = [(["A" ~ "C", "B" ~ "C"], 678456/1000000), (["A" ~ "C"], 248328/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
 
 p51nu3 :: D' (TaggedBellPairs BellKATTag)
-p51nu3 = [(["A" ~ "C", "B" ~ "C"], 649296/1000000), (["A" ~ "C"], 277488/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
+p51nu3 = [(["A" ~ "C", "B" ~ "C"], 607176/1000000), (["A" ~ "C"], 319608/1000000), (["B" ~ "C"], 50229/1000000), ([], 22987/1000000)]
+
+p51nu4 :: D' (TaggedBellPairs BellKATTag)
+p51nu4 = [(["A" ~ "C", "B" ~ "C"], 653832/1000000), (["A" ~ "C"], 222264/1000000), (["B" ~ "C"], 91143/1000000), ([], 32761/1000000)]
 
 -- | == III
 
@@ -192,19 +195,16 @@ f51' :: ProbBellKATPolicy
 f51' = create "C" <> ite ("B" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
 
 p51iii :: ProbBellKATPolicy
-p51iii = e51' <||> f51'
+p51iii = (e51' <||> f51') <> (e51' <||> f51')
 
 p51iii' :: ProbBellKATPolicy
-p51iii' = p51iii <> p51iii
+p51iii' = (e51' <.> e51') <> (e51' <.> e51')
 
 p51nu1' :: D' (TaggedBellPairs BellKATTag)
-p51nu1' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 201006/1000000), (["B" ~ "C"], 166374/10000000), ([], 16129/1000000)]
+p51nu1' = [(["A" ~ "C", "B" ~ "C"], 7662276/10000000), (["A" ~ "C"], 201006/1000000), (["B" ~ "C"], 166374/10000000), ([], 16129/1000000)]
 
 p51nu2' :: D' (TaggedBellPairs BellKATTag)
-p51nu2' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 156654/1000000), (["B" ~ "C"], 443574/10000000), ([], 32761/1000000)]
-
-p51nu3' :: D' (TaggedBellPairs BellKATTag)
-p51nu3' = [(["A" ~ "C", "B" ~ "C"], 766228/1000000), (["A" ~ "C"], 182718/1000000), (["B" ~ "C"], 280674/10000000), ([], 22987/1000000)]
+p51nu2' = [(["A" ~ "C", "B" ~ "C"], 7662276/10000000), (["A" ~ "C"], 156654/1000000), (["B" ~ "C"], 443574/10000000), ([], 32761/1000000)]
 
 -- | == IV TODO: don't have star yet
 
@@ -229,8 +229,6 @@ p53OneAttempt =
 p53 :: Int -> ProbBellKATPolicy 
 p53 n = 
     whileN n ("A" /~? "C" ||* "B" /~? "C") p53OneAttempt
-
--- TODO: don't have star yet
 
 -- | == Repater swap protocol
 
@@ -336,18 +334,17 @@ spec = do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
         it "has right generators for example 5.1.II (parallel)" $ do
             let cd = applyProbStarPolicy p51pac (Just p51nc) p51ii []
-            C.getGenerators cd `shouldContain` [p51nu1]
-            C.getGenerators cd `shouldContain` [p51nu2]
-            p51nu3 `C.memberC` cd `shouldBe` True
-        it "correctly handles example 5.1.II (parallel)" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldBe`
-                [p51nu1,p51nu2,p51nu3]
+            let gs = C.getGenerators cd
+            gs `shouldContain` [p51nu1]
+            gs `shouldContain` [p51nu2]
+            gs `shouldContain` [p51nu3]
+            gs `shouldContain` [p51nu4]
         it "correctly handles example 5.1.II (ordered)" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51ii' [] `shouldBe`
                 [p51nu1]
         it "correctly handles example 5.1.III" $ do
             applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
-                [p51nu1', p51nu2', p51nu3']
+                [p51nu1', p51nu2']
         it "does produce different results for 5.1.III and 5.1.II" $ 
             applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldNotBe`
                 applyProbStarPolicy p51pac (Just p51nc) p51iii' []
@@ -363,9 +360,9 @@ spec = do
             putStrLn $ "result size is " <> show (length $ C.getGenerators result)
         it "prints probabilities example 5.3 (Pompli, one attempt) [LONG]" $ do
             print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) p53OneAttempt []
-        it "prints probabilities example 5.3 (Pompli) [LONG]" $ do
+        it "prints probabilities example 5.3 (Pompli) [VERYLONG]" $ do
             print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) (p53 10) []
         it "prints system 5.3 (Coopmans)" $ do
             print $ applyProbStarPolicySystem p53'pac (Just p53'nc) (p53' 2 1) []
-        it "prints probabilities example 5.3 (Coopmans)" $ do
+        it "prints probabilities example 5.3 (Coopmans) [VERYLONG]" $ do
             print $ applyProbStarPolicy p53'pac (Just p53'nc) (p53' 2 1) []

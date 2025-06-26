@@ -194,12 +194,12 @@ def print_tex_footer():
 @click.command()
 @click.option('--tex', is_flag=True, help='Generate output in TeX format (text, otherwise)')
 @click.option('--standalone', is_flag=True, help='Generate standalone TeX output')
-@click.option('--docker', is_flag=True, help='Use docker')
-def main(tex, docker, standalone): # pylint: disable=missing-function-docstring
+@click.option('--mode', type=click.Choice(['direct', 'docker', 'cabal']), default='cabal',
+              help='Which execution mode to use')
+def main(tex, standalone, mode): # pylint: disable=missing-function-docstring
     global MODE # pylint: disable=global-statement
 
-    if docker:
-        MODE = 'docker'
+    MODE = mode
 
     if standalone and not tex:
         print('--standalone can only be used together with --tex', file=sys.stderr)

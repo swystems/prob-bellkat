@@ -14,8 +14,14 @@
         };
         python = pkgs.python3.withPackages
           (ps: [ ps.click ps.python-lsp-server ps.pylint ]);
+        latex = pkgs.texlive.combine { inherit (pkgs.texlive) 
+           scheme-basic collection-latexrecommended stmaryrd booktabs; };
       in {
         packages.default = pkgs.haskellPackages.bellkat;
+        packages.artifact-tools = pkgs.symlinkJoin {
+          name = "artifact-tools";
+          paths = [ python pkgs.gnumake latex ];
+        };
         packages.bellkatGHC =
           pkgs.haskellPackages.ghcWithPackages (ps: [ ps.bellkat ]);
         packages.bellkatGHCWithFC = pkgs.runCommand "bellkatghc-with-fc" {
@@ -32,6 +38,7 @@
           FONTCONFIG_FILE = "${pkgs.fontconfig.out}/etc/fonts/fonts.conf";
           FONTCONFIG_PATH = "${pkgs.fontconfig.out}/etc/fonts/";
           buildInputs = [
+            pkgs.pandoc
             pkgs.ghcid
             pkgs.cabal-install
             pkgs.haskellPackages.haskell-language-server

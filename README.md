@@ -51,25 +51,101 @@ Instructions to create proper development environments, namely using either stan
 
 To check that everything works as expected we produce a somewhat trivial output for the protocol \S 3(a) using both PBKAT and BellKAT.
 
-PBKAT:
+_Generally probabilistic "versions" will be preceded by `prob` in the
+protocol names_
+
+**PBKAT** generating a convex set of distributions as per example **I** from Section 5.1 (parallel
+version), modulo
+fractional/decimal notation:
 
 ```bash
-docker run --rm -it pbkat:latest probPa run
-# ⦅⦃⦄×6901 % 25000+⦃A~B⦄×1701 % 6250+⦃A~C⦄×423 % 1250+⦃B~C⦄×567 % 5000,
-#  ⦃⦄×7351 % 25000+⦃A~B⦄×1701 % 6250+⦃A~C⦄×243 % 1250+⦃B~C⦄×1197 % 5000⦆
+docker run --rm -it pbkat:latest probP5_1_I_parallel run
+# ⦅⦃⦄×127 % 1000+⦃A~C⦄×117 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×81 % 1000,
+#  ⦃⦄×181 % 1000+⦃A~C⦄×81 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×171 % 1000⦆
 ```
 
-BellKAT:
+PBKAT output notation: 
+
+  * `⦅...⦆` denotes a convex set (represented by generators)
+  * `x1 × p1, x2 × p2, ..., xk × pk` represents a probability distribution over a set
+    $\{\texttt{x1}, \texttt{x2}, \ldots, \texttt{xk}\}$ with corresponding probabilities `p1`, `p2`,
+    ..., `pk`.
+  * `⦃...⦄` denotes a _multi_ set
+  * `A~C` denotes a Bell pair as in the paper
+  * `x % y` denotes rational number $\frac{x}{y}$
+
+**BellKAT** generating a set of possible outputs for the same example:
 
 ```bash
-docker run --rm -it pbkat:latest Pa run
-# [[],[["A","B"]],[["A","C"]],[["B","C"]]]
+docker run --rm -it pbkat:latest probP5_1_I_parallel run
+# [[],[["A","C"]],[["A","C"],["B","C"]],[["B","C"]]]
 ```
+
+BellKAT output notation: 
+
+  * `["A", "B"]` denotes a Bell pair $A \sim B$
+  * `[[...], [...], ...]` denotes a multiset
+  * `[[[...], ...], [[...], ...], ...]` denotes a set of multisets
 
 
 # Step-by-step Guide
 
-## Syntactic differences with the paper:
+Before diving into the exact steps required to reproduce the results, we explain the inputs to the
+tool. 
+
+## Inputs to the tool
+
+Here's an overview of how three pieces of the inputs are captured in a tool with concrete
+examples corresponding  the simple protocol analyzed in [Getting Started](#getting-started) (see
+`probabilistic-examples/Pa.hs`):
+
+  * **protocol specification (PBKAT expression)**: embedded DSL (see [Embedded
+    DSL](#embedded-dsl))
+
+    Example:
+    ```haskell
+    p :: ProbBellKATPolicy
+    p = (create "C" <||> create "C") 
+        <> 
+        (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
+        <>
+        (swap "C" ("A", "B"))
+    ```
+
+  * probabilities of basic actions: record of `ProbabilisticActionConfiguration`
+
+      * `pacTransmitProbability` holds probabilities of successful transmission
+
+      * `pacCreateProbability` holds probabilities of successful creation at individual locations
+
+      * `pacUCreateProbability` holds probabilities of successful creation of an already distributed
+        Bell pair (used extensively in case studies)
+
+      * `pacSwapProbability` holds probabilities of successful swap at individual locations
+
+    Example:
+    ```haskell
+    actionConfig = PAC 
+        { pacTransmitProbability = 
+            [(("C", "A"), 8/10)
+            ,(("C", "B"), 7/10)
+            ]
+        , pacCreateProbability = [("C", 9/10)]
+        , pacSwapProbability = [("C", 6/10)]
+        , pacUCreateProbability = []
+        }
+    ```
+
+  * network capacity: record of `NetworkCapacity BellKATTag`
+  * desired output state: record of `BellPairsPredicate BellKATTag` built using tests (see [Embedded
+    DSL](#embedded-dsl))
+
+    Example:
+    ```haskell
+        ev = "A" ~~? "B"
+    ```
+
+## Embedded DSL
 
 Bell pairs (e.g., to specify initial states):
 
@@ -81,122 +157,121 @@ Basic actions:
   * $tr\langle X \rightarrow Y \sim Z \rangle$ is represented by `trans "X" ("Y", "Z")`
   * $sw\langle X \sim Y @ Z \rangle$ is represented by `swap "Z" ("X", "Y")`
   * $di\langle X \sim Y\rangle$ is represented by `distill ("X", "Y")`
+  * $\emptyset \triangleright X \sim Y$ is represented by `ucreate ("X", "Y")`
 
 Operations:
 
   * sequential composition is represented by `<>`
   * parallel composition $||$ is represented by `<||>`
-  * iteration $p^\ast$ is represented by `star p`
+  * ordered composition $\circ$ is represented by `<.>`
+  * conditional $+_\alpha$ is represented by `ite t`, where
+
+     * `t` is the test $\alpha$
+  * _bounded_ loop $(\square +_\alpha 1)^{(n)}$ is represented by `whileN n t`, where 
+
+     * `n` is the number of iterations $n$
+     * `t` is the test $\alpha$
+
+    As per "Data-Availability Statement" the tool does not support unbounded while loops.
 
 Tests:
 
-  * checking absence $[\{\{X \sim Y\}\}]$ is represented by `test ("X" /~? "Y")`
-  * checking presence $\{\{X \sim Y\}\} \blacktriangleright \{\{X \sim Y\}\}$ is represented by `test ("X" ~~? "Y")`
+  * checking absence of $\{\!\{X \sim Y\}\!\}$ is represented by `test ("X" /~? "Y")`
+  * checking presence of $\{\!\{X \sim Y\}\!\}$ is represented by `test ("X" ~~? "Y")`
 
-Features:
+## Reproducing results from the paper
 
-  * Deciding validity of a policy $p$ on inputs from $\mathcal{N}_0$ and set of valid states $\mathcal{N}$
-    (definition 4.10) is represented by `isPolicyValid N0 N p`, where `N` is represented as a predicate $\mathcal{M}(BP) \rightarrow \mathbb{B}$.
-  * Deciding equivalence of policies $p$ and $q$ on inputs from $\mathcal{N}_0$ (Theorem 4.4) is
-    represented by `arePoliciesEquivalent N0 p q`.
+The PBKAT tool can:
 
-  * Drawing histories of protocols (Figure 3): 
+  * produce automata capturing guarded strings of sets **TODO**
+  * produce the execution traces **TODO**
+  * produce the convex set of probability distributions via `run` command (including
+    machine-readable form for the next step via `--json` command)
+  * analyze the produced convex set of distributions via `probability` command
 
-     * `drawHistoriesSVG p` (to create an `.svg` image)
-     * `drawHistoriesText p` (to output a textual representation)
+### Table 1
 
+Each PBKAT row of the table shows the results for a specific protocol with name
+`PROTO` corresponding to a source file `probabilistic-examples/PROTO.hs`. 
 
-## Example P1 and history in Fig 3 (a)
+#### Correspondence table 
 
-The protocols are specified in `examples/P1.hs`, history would be saved in `P1.svg`.
+Below we give a table of correspondence between the protocol names in Table 1 and the values of
+`PROTO`.
 
-  * Docker (recommended)
+|**Protocol**                       |`PROTO`                         |
+|-----------------------------------|--------------------------------|
+|\S 3($a$)                          |`Pa`                            |
+|\S 3($a_1$)                        |`Pa1`                           |
+|Ex. 4.2                            |`Pag`                           |
+|Ex. 5.1(I), $\circ$                |`P5_1_I_ordered`                |
+|Ex. 5.1(I), $||$                   |`P5_1_I_parallel`               |
+|Ex. 5.1(II), $\circ$, 2 iter.      |`P5_1_II_ordered`               |
+|Ex. 5.1(II), $||$, 2 iter.         |`P5_1_II_parallel`              |
+|Ex. 5.1(II), $\circ$, 3 iter.      |`P5_1_II_ordered_three`         |
+|Ex. 5.1(II), $||$, 3 iter.         |`P5_1_II_parallel_three`        |
+|Ex. 5.1(III), 1 iter.              |`P5_1_III_one`                  |
+|Ex. 5.1(III), 2 iter.              |`P5_1_III_two`                  |
+|Ex. 5.1(IV), 3 iter.               |`P5_1_IV`                       |
+|\S 5.3(sw)                         |`P5_3_pompili`                   |
+|\S 5.3(di), outer                  |`P5_3_coopmans_outer`           |
+|\S 5.3(di), inner                  |`P5_3_coopmans_inner`           |
+|\S 5.3(di), mixed                  |`P5_3_coopmans_mixed`           |
 
-    ```bash
-    docker run --rm --mount type=bind,source=$(pwd),target=/opt/bellkat -it bellkat:latest\
-        examples/P1.hs --width 1000 --output P1.svg
-    # or (for textual version)
-    docker run --rm --mount type=bind,source=$(pwd),target=/opt/bellkat -it bellkat:latest\
-        examples/P1Text.hs
-    ```
+#### Generating the results in LaTeX format
 
-  * Stack:
+The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
 
-    ```bash
-    stack run p1 -- --width 1000 --output P1.svg
-    # or (for textual version)
-    stack run p1text
-    ```
+```bash
+docker run pbkat:latest --rm \
+    --mount type=bind,source=$(pwd),target=/opt/pbkat \
+    python collect_stats.py --mode direct --tex --standalone >results.tex
+```
 
-  * Nix:
+Which can then be transformed into `results.pdf` using
 
-    ```bash
-    cabal run p1 -- --width 1000 --output P1.svg
-    # or (for textual version)
-    cabal run p1text
-    ```
+```bash
+docker run pbkat:latest --rm \
+    --mount type=bind,source=$(pwd),target=/opt/pbkat \
+    pdflatex results.tex
+```
 
-## Example P2 and history in Fig 3 (b)
+#### Manual workflow (optional)
 
-The protocols are specified in `examples/P2.hs`, history would be saved in `P2.svg`.
+The workflow for getting results in Table 1 is the following:
 
-  * Docker (recommended)
-
-    ```bash
-    docker run --rm --mount type=bind,source=$(pwd),target=/opt/bellkat -it bellkat:latest\
-        examples/P2.hs --width 1000 --output P2.svg
-    # or (for textual version)
-    docker run --rm --mount type=bind,source=$(pwd),target=/opt/bellkat -it bellkat:latest\
-        examples/P2Text.hs
-    ```
-
-  * Stack:
-
-    ```bash
-    stack run p2 -- --width 1000 --output P2.svg
-    # or (for textual version)
-    stack run p2text
-    ```
-
-  * Nix:
+ 1. The output, i.e., the convex set of distributions over multisets of Bell pairs represented in the table as a number of generators in column $|O|$, and the performance statistics (columns **Memory** and **Time**) is gathered with
 
     ```bash
-    cabal run p2 -- --width 1000 --output P2.svg
-    # or (for textual version)
-    cabal run p2text
+    docker run --rm -i pbkat:latest probPROTO \
+        +RTS --machine-readable -t -RTS --json run \
+        >PROTO.json 2>PROTO.json.stderr
     ```
 
-## Example P3
+     * output goes into `PROTO.json`
+     * statistics goes into `PROTO.json.stderr`
 
-Perform four checks using `examples/P3.hs` (uses [HSpec][hspec] library, please check its documentation to understand the uses of `describe`, `it` and `shouldBe` within the example):
-
-  * check that the protocol always creates a $A \sim E$ Bell pair
-  * check that the protocol does not always creates a $A \sim C$ Bell pair
-  * check that 1 qubit memory at location $A$ are _not_ enough
-  * check that 3 qubits memory at location $A$ are not enough
-  * check that 2 qubits at $A$ and 4 qubits at $D$ are enough
-
-The first two are related _reachability property_ (discussed on line 942 of the paper), while the rest are related to  _memory requirements_ (discussed on line 943 of the paper):
-
-
-  * Docker (recommended)
+ 2. Probability $p(\textbf{Goal})$ of successfully generating the required set of Bell
+    pairs specified in **Goal** column is computed via
 
     ```bash
-    docker run --rm --mount type=bind,source=$(pwd),target=/opt/bellkat -it bellkat:latest\
-        examples/P3.hs
+    docker run --rm -i pbkat:latest probPROTO --json run <PROTO.json
     ```
 
-  * Stack:
+#### Make-automated workflow (optional)
 
-    ```bash
-    stack run p3
-    ```
+All the experimental results can be generated automatically with [make][make] *(needs to be installed on the host machine)* as follows
 
-  * Nix:
 
-    ```bash
-    cabal run p3
-    ```
+```bash
+make MODE=docker all-prob
+```
+
+**NB** they will be stored in `output/probabilistic/examples` directory.
+
+#### Produce nice table
+
+# Reusability Guide
 
 ## Development environments
 
@@ -256,7 +331,6 @@ cabal build
 stack build
 ```
 
-# Reusability Guide
 
 ## Writing and testing your own protocols
 
@@ -332,3 +406,4 @@ If you want to work with your own protocols or modify existing ones you have mul
 [hls]: https://haskell-language-server.readthedocs.io/en/latest/configuration.html#configuring-your-editor
 [HSpec]: https://hspec.github.io/
 [haddock]: https://haskell-haddock.readthedocs.io/en/latest/
+[make]: https://www.gnu.org/software/make/

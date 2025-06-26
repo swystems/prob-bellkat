@@ -10,9 +10,9 @@ WORKDIR /opt/pbkat
 
 RUN nix develop
 
-COPY . /opt/pbkat
+RUN nix profile install .\#artifact-tools --impure
 
-RUN nix build
+COPY . /opt/pbkat
 
 RUN nix profile install . --impure
 

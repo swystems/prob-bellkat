@@ -2,10 +2,13 @@
 import subprocess
 import sys
 import json
+import os
 from os import path
 from typing import NamedTuple, Optional
 
 import click
+
+MODE = 'cabal'
 
 TESTS = {
     'Protocol (a)': 'Pa',
@@ -46,7 +49,7 @@ def get_probability_filename(example) -> str:
 
 def run_make(target):
     try:
-        subprocess.run(['make', target], check=True, capture_output=True, encoding='utf-8')
+        subprocess.run(['make', f'MODE={MODE}', target], check=True, capture_output=True, encoding='utf-8')
     except subprocess.CalledProcessError as e:
         if e.stderr is not None:
             sys.stderr.write(e.stderr)
@@ -64,8 +67,15 @@ def run(example, machine_readable=False) -> RunResult:
     run_make(output_file_name)
     with open(output_file_name, 'r', encoding='utf-8') as output_f:
         output = output_f.read().strip()
-    with open(f'{output_file_name}.stderr', 'r') as stats_f:
-        stats = dict(eval(stats_f.read().strip()))
+    stats_file = f'{output_file_name}.stderr'
+    with open(stats_file, 'r') as stats_f:
+        try:
+            stats = dict(eval(stats_f.read().strip()))
+        except SyntaxError:
+            print(f'{stats_file} is malformed (likely failed run)', file=sys.stderr)
+            print(f'...removing output {output_file_name} and retrying...', file=sys.stderr)
+            os.remove(output_file_name)
+            return run(example, machine_readable)
 
     probability = run_probability(example) if machine_readable else None
     bellkat = run_bellkat(example) if path.exists(get_bellkat_source_filename(example)) else None
@@ -171,14 +181,38 @@ def format_stats_tex(stats, output, probability=None):
 def format_probability_range_tex(p):
     return '$[' +  format_prob_tex(p[0]) + ',' + format_prob_tex(p[1]) + ']$'
 
+def print_tex_header():
+    print(r'\documentclass{article}')
+    print(r'\usepackage{amsmath}')
+    print(r'\usepackage{stmaryrd}')
+    print(r'\usepackage{booktabs}')
+    print(r'\begin{document}')
+
+def print_tex_footer():
+    print(r'\end{document}')
+
 @click.command()
-@click.option('--tex', is_flag=True)
-def main(tex):
+@click.option('--tex', is_flag=True, help='Generate output in TeX format (text, otherwise)')
+@click.option('--standalone', is_flag=True, help='Generate standalone TeX output')
+@click.option('--docker', is_flag=True, help='Use docker')
+def main(tex, docker, standalone): # pylint: disable=missing-function-docstring
+    global MODE # pylint: disable=global-statement
+
+    if docker:
+        MODE = 'docker'
+
+    if standalone and not tex:
+        print('--standalone can only be used together with --tex', file=sys.stderr)
+
+    if standalone:
+        print_tex_header()
     for test_name, test_target in TESTS.items():
         if tex:
             print_result_tex(test_name, run(test_target, machine_readable=True))
         else:
             print_result(test_name, run(test_target))
+    if standalone:
+        print_tex_footer()
 
 if __name__ == '__main__':
-    main()
+    main()  # pylint: disable=no-value-for-parameter

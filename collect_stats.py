@@ -26,7 +26,7 @@ TESTS = {
     'Protocol 5.3 (Pompili)': 'P5_3_pompili',
     'Protocol 5.3 (Coopmans, outer)': 'P5_3_coopmans_outer',
     'Protocol 5.3 (Coopmans, inner)': 'P5_3_coopmans_inner',
-    'Protocol 5.3 (Coopmans, mixed)': 'P5_3_coopmans_mixed',
+#    'Protocol 5.3 (Coopmans, mixed)': 'P5_3_coopmans_mixed',
     }
 
 class BellKATRunResult(NamedTuple):

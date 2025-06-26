@@ -218,7 +218,7 @@ Below we give a table of correspondence between the protocol names in Table 1 an
 |\S 5.3(di), inner                  |`P5_3_coopmans_inner`           |
 |\S 5.3(di), mixed                  |`P5_3_coopmans_mixed`           |
 
-#### Generating the results in LaTeX format
+#### Generating the results as a pdf
 
 The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
 
@@ -236,6 +236,25 @@ docker run --rm -i \
     --mount type=bind,source=$(pwd),target=/opt/pbkat \
     pbkat:latest pdflatex results.tex
 ```
+Structure of the generate PDF is the following:
+
+  * Section name with name of the protocol
+
+  * **Output** showing a convex set of distributions over multisets of Bell pairs for
+    PBKAT
+
+  * **Stats** with the PBKAT statistics that goes into columns of Table 1:
+
+      * Num Generators: $|O|$
+      * Success probability: $p(\textbf{Goal})$
+      * Memory (MiB): **Memory**
+      * Time (s): **Time**
+
+  * If there is a BellKAT version of the protocol there are two more paragraphs:
+
+      * **BellKAT Output** showing a set of possible multisets of BellPairs
+      * **BellKAT Stats** with the BellKAT statistics that goes into columns of Table 1 similar to that of
+        PBKAT
 
 #### Manual workflow (optional)
 
@@ -245,8 +264,8 @@ The workflow for getting results in Table 1 is the following:
 
     ```bash
     docker run --rm -i pbkat:latest probPROTO \
-        +RTS --machine-readable -t -RTS --json run \
-        >PROTO.json 2>PROTO.json.stderr
+        +RTS --machine-readable -t -RTS --json 
+        run >PROTO.json 2>PROTO.json.stderr
     ```
 
      * output goes into `PROTO.json`
@@ -269,8 +288,6 @@ make MODE=docker all-prob
 ```
 
 **NB** they will be stored in `output/probabilistic/examples` directory.
-
-#### Produce nice table
 
 # Reusability Guide
 

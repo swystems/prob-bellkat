@@ -59,7 +59,7 @@ version), modulo
 fractional/decimal notation:
 
 ```bash
-docker run --rm -it pbkat:latest probP5_1_I_parallel run
+docker run --rm -i pbkat:latest probP5_1_I_parallel run
 # ⦅⦃⦄×127 % 1000+⦃A~C⦄×117 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×81 % 1000,
 #  ⦃⦄×181 % 1000+⦃A~C⦄×81 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×171 % 1000⦆
 ```
@@ -77,7 +77,7 @@ PBKAT output notation:
 **BellKAT** generating a set of possible outputs for the same example:
 
 ```bash
-docker run --rm -it pbkat:latest probP5_1_I_parallel run
+docker run --rm -i pbkat:latest probP5_1_I_parallel run
 # [[],[["A","C"]],[["A","C"],["B","C"]],[["B","C"]]]
 ```
 
@@ -223,17 +223,18 @@ Below we give a table of correspondence between the protocol names in Table 1 an
 The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
 
 ```bash
-docker run pbkat:latest --rm \
+docker run --rm -i \
     --mount type=bind,source=$(pwd),target=/opt/pbkat \
-    python collect_stats.py --mode direct --tex --standalone >results.tex
+    pbkat:latest python collect_stats.py \
+        --mode direct --tex --standalone >results.tex
 ```
 
 Which can then be transformed into `results.pdf` using
 
 ```bash
-docker run pbkat:latest --rm \
+docker run --rm -i \
     --mount type=bind,source=$(pwd),target=/opt/pbkat \
-    pdflatex results.tex
+    pbkat:latest pdflatex results.tex
 ```
 
 #### Manual workflow (optional)

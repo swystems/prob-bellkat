@@ -18,10 +18,6 @@
            scheme-basic collection-latexrecommended stmaryrd booktabs; };
       in {
         packages.default = pkgs.haskellPackages.bellkat;
-        packages.artifact-tools = pkgs.symlinkJoin {
-          name = "artifact-tools";
-          paths = [ python pkgs.gnumake latex ];
-        };
         packages.bellkatGHC =
           pkgs.haskellPackages.ghcWithPackages (ps: [ ps.bellkat ]);
         packages.bellkatGHCWithFC = pkgs.runCommand "bellkatghc-with-fc" {
@@ -44,6 +40,7 @@
             pkgs.haskellPackages.haskell-language-server
             pkgs.haskellPackages.graphmod
             python
+            latex
           ];
           packages = ps: [ ps.bellkat ];
         };

@@ -10,12 +10,9 @@ WORKDIR /opt/pbkat
 
 RUN nix develop
 
-RUN nix profile install .\#artifact-tools --impure
-
-COPY . /opt/pbkat
-
-RUN nix profile install . --impure
-
 ENV LANG=C.UTF-8
 
-CMD ["bash"]
+RUN echo "[safe] \
+    directory = /opt/pbkat" > ~/.gitconfig
+
+ENTRYPOINT ["nix", "develop"]

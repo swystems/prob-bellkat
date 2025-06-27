@@ -1,7 +1,7 @@
 MODE = cabal
 
 ifeq ($(MODE),cabal)
-	build_and_run = cabal -O2 build $(1) && cabal -O2 run $(1) --
+	build_and_run = cabal build $(1) && cabal run $(1) --
 else ifeq ($(MODE),docker)
 	build_and_run = docker run --rm -i pbkat:latest $(1)
 else ifeq ($(MODE),direct)

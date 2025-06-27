@@ -19,19 +19,16 @@ header-includes: |
 ---
 
 
-The artifact is based on a [Haskell][haskell] library `bellkat` plus several examples provided as executables within the same [Haskell][haskell] package.
-We provide two build options: [Nix][nix]-based and [Stack][stack]-based, for each we give a [Docker][docker] file that can simplify the setup of the development environment. 
-Reproducing the results from the paper can be done in two ways:
-
-  * from a respective development environment ([Nix][nix]- or [Stack][stack]-based) 
-  * using an _executable_ [Docker][docker] container providing a [Haskell][haskell] interpreter with `bellkat` already "in scope" (recommended, see "Preparation" section in "Reproducing the results" below)
+The artifact is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
+We provide two build options: [Nix][nix]-based and [Stack][stack]-based (details are in [Reusability guide](#reusability-guide)). 
+For ease of reproducibility we also provide a `Dockerfile` with a ready-to-use [Nix][nix]-based environment.
 
 **Docker note:** please, be aware that `docker run` commands may have to be prefixed with `sudo`,
 depending on the docker setup (see details [here][docker-run]).
 
 # Hardware Dependencies
 
- * RAM: up to 9 GB
+ * RAM: up to 10 GB
 
 # Getting Started
 
@@ -51,7 +48,32 @@ Instructions to create proper development environments, namely using either stan
     docker build --tag pbkat:latest .
     ```
 
-## Running a simple protocol
+## Entering the container
+
+The following command allows one to enter the container environment making the current directory
+available exposed from within the container.
+
+```bash
+docker run --rm -it --mount type=bind,source=$(pwd),target=/optbkat pbkat:latest
+```
+
+**!!!** Henceforth and until [Reusability Guide](#reusability-guide) it is assumed that all actions are performed from within the container.
+
+## Testing basic functionality of the tool
+
+### Building the tool
+
+```bash
+    cabal build
+```
+
+### Testing the tool
+
+```bash
+    cabal test --test-options="--skip=VERYLONG"
+```
+
+### Running a simple protocol
 
 To check that everything works as expected we produce a somewhat trivial output for the protocol \S 3(a) using both PBKAT and BellKAT.
 
@@ -60,10 +82,10 @@ protocol names_
 
 **PBKAT** generating a convex set of distributions as per example **I** from Section 5.1 (parallel
 version), modulo
-fractional/decimal notation:
+fractional/decimal notation and some formatting for readability:
 
 ```bash
-docker run --rm -i pbkat:latest probP5_1_I_parallel run
+cabal run probP5_1_I_parallel run
 # ⦅⦃⦄×127 % 1000+⦃A~C⦄×117 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×81 % 1000,
 #  ⦃⦄×181 % 1000+⦃A~C⦄×81 % 250+⦃A~C,B~C⦄×81 % 250+⦃B~C⦄×171 % 1000⦆
 ```
@@ -81,7 +103,7 @@ PBKAT output notation:
 **BellKAT** generating a set of possible outputs for the same example:
 
 ```bash
-docker run --rm -i pbkat:latest probP5_1_I_parallel run
+cabal run 5_1_I_parallel run
 # [[],[["A","C"]],[["A","C"],["B","C"]],[["B","C"]]]
 ```
 
@@ -227,19 +249,17 @@ Below we give a table of correspondence between the protocol names in Table 1 an
 The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
 
 ```bash
-docker run --rm -i \
-    --mount type=bind,source=$(pwd),target=/opt/pbkat \
-    pbkat:latest python collect_stats.py \
-        --mode direct --tex --standalone >results.tex
+./collect_stats.py --tex --standalone >results.tex
 ```
 
 Which can then be transformed into `results.pdf` using
 
 ```bash
-docker run --rm -i \
-    --mount type=bind,source=$(pwd),target=/opt/pbkat \
-    pbkat:latest pdflatex results.tex
+pdflatex results.tex
 ```
+
+**!** Since the container mounted the current folder, the `results.pdf` can be opened from the host.
+
 Structure of the generate PDF is the following:
 
   * Section name with name of the protocol
@@ -267,8 +287,7 @@ The workflow for getting results in Table 1 is the following:
  1. The output, i.e., the convex set of distributions over multisets of Bell pairs represented in the table as a number of generators in column $|O|$, and the performance statistics (columns **Memory** and **Time**) is gathered with
 
     ```bash
-    docker run --rm -i pbkat:latest probPROTO \
-        +RTS --machine-readable -t -RTS --json 
+    cabal run probPROTO -- +RTS --machine-readable -t -RTS --json \
         run >PROTO.json 2>PROTO.json.stderr
     ```
 
@@ -279,29 +298,29 @@ The workflow for getting results in Table 1 is the following:
     pairs specified in **Goal** column is computed via
 
     ```bash
-    docker run --rm -i pbkat:latest probPROTO --json run <PROTO.json
+    cabal run probPROTO -- probability <PROTO.json
     ```
 
 #### Make-automated workflow (optional)
 
-All the experimental results can be generated automatically with [make][make] *(needs to be installed on the host machine)* as follows
+All the experimental results can be generated automatically as follows
 
 
 ```bash
-make MODE=docker all-prob
+make all-prob
 ```
 
-**NB** they will be stored in `output/probabilistic/examples` directory.
+**!** the outputs will be stored in `output/probabilistic/examples` directory.
 
 ### Reproducing the execution traces
 
 The general way to produce execution traces for protocol `PROTO` is to execute:
 
 ```bash
-docker run --rm -i pbkat:latest probPROTO execution-trace
+cabal run probPROTO execution-trace
 ```
 
-E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#correspondence-table)) the output will be:
+E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#correspondence-table)) the output will be (formatted for readability):
 
 
 ```
@@ -310,7 +329,8 @@ E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#corresponden
 1:
   ⦃⦄: ⦅(2,⦃⦄)⦆
   ⦃C~C⦄: ⦅(2,⦃⦄)×1 % 5+(2,⦃A~C⦄)×4 % 5,(2,⦃⦄)×3 % 10+(2,⦃B~C⦄)×7 % 10⦆
-  ⦃C~C,C~C⦄: ⦅(2,⦃⦄)×3 % 50+(2,⦃A~C⦄)×6 % 25+(2,⦃A~C,B~C⦄)×14 % 25+(2,⦃B~C⦄)×7 % 50⦆
+  ⦃C~C,C~C⦄: ⦅(2,⦃⦄)×3 % 50+(2,⦃A~C⦄)×6 % 25
+              +(2,⦃A~C,B~C⦄)×14 % 25+(2,⦃B~C⦄)×7 % 50⦆
 2:
   ⦃⦄: ⦅(3,⦃⦄)⦆
   ⦃A~C⦄: ⦅(3,⦃A~C⦄)⦆
@@ -373,7 +393,7 @@ Specific execution traces from the paper can be generated with an appropriate ch
 The general way to produce an automaton for protocol `PROTO` is to execute:
 
 ```bash
-docker run --rm -i pbkat:latest probPROTO automaton
+cabal run probPROTO automaton
 ```
 
 **Example:** for `PROTO` set to `P4` (Example 4.2 in the paper) the output will be (slightly formatted for readability):
@@ -410,7 +430,7 @@ The output has the following structure:
 
 ## Development environments
 
-### Preparing development environment (recommended to skip)
+### Preparing development environment
 
 Please, check [Haskell language server documentation][hls] for editor support (optional).
 
@@ -420,13 +440,6 @@ Please, check [Haskell language server documentation][hls] for editor support (o
   * enable [Nix flakes][flakes]
   * **to enter environment run** `nix develop` from the artifact's root
   * run `hpack` (no arguments) to generate `.cabal` file
-
-For convenience, we provide `Dockerfile.nixdev` with the environment already set up:
-
-```bash
-docker build --tag bellkat:nixdev --file Dockerfile.nixdev . # build the image
-docker run --rm --interactive --tty bellkat:nixdev # to enter the environment
-```
 
 #### Stack
 
@@ -445,13 +458,6 @@ docker run --rm --interactive --tty bellkat:nixdev # to enter the environment
      apt-get install libz-dev libtinfo-dev libcairo-dev libpango1.0
      ```
 
-For convenience, we provide `Dockerfile.stackdev` with the environment already set up:
-
-```bash
-docker build --tag bellkat:stackdev --file Dockerfile.stackdev . # build the image
-docker run --rm --interactive --tty bellkat:stackdev # to enter the environment
-```
-
 ### Building the artifact (recommended to skip)
 
 #### Nix
@@ -465,67 +471,6 @@ cabal build
 ```bash
 stack build
 ```
-
-
-## Writing and testing your own protocols
-
-Most of the relevant documentation is present in `BellKAT.Prelude` module. To see it nicely
-formatted **(not for docker)**, you can build documentation using [Haddock][haddock]:
-
- * Stack: `stack haddock`
- * Nix: `cabal haddock`
-
-In both cases, the output should display the path to `index.html` root of the documentation
-
-### Setting up and running the examples
-
-If you want to work with your own protocols or modify existing ones you have multiple options:
-
-  * modify the existing examples
-
-  * create new examples within BellKAT repository
-
-    1. Creating a new file (say `MyExample.hs`) inside `examples/` (e.g., by copying `examples/P3.hs`)
-
-    2. Tell `stack` or `cabal` about the example by adding
-
-       ```yaml
-       my-example:
-         dependencies: 
-           - bellkat
-         main: examples/MyExample.hs
-       ```
-
-       to `package.yaml`
-
-    3. Run your example with stack, using `stack run my-example` or `cabal run my-example`
-
-    4. (optional) to enable editor support add
-       ```yaml
-       - path: "examples/MyExample.hs"
-         component: "exe:my-example"
-       ```
-       to `hie.yaml`
-
-    5. Continue editing `examples/MyExample.hs` as you wish.
-
-  * Use `BellKAT` as a library:
-
-     * **Stack:** see the template in `reuse-templates/stack`, then use
-
-       ```bash
-       stack build
-       stack run
-       ```
-
-     * **Nix:** see the template in `reuse-templates/nix`, then use
-
-       ```bash
-       nix develop # to enter the shell
-       hpack # to generate .cabal file
-       cabal build
-       cabal run
-       ```
 
 [nix]: https://nixos.org/download
 [flakes]: https://nixos.wiki/wiki/Flakes#Other_Distros.2C_without_Home-Manager

@@ -189,7 +189,7 @@ The PBKAT tool can:
     machine-readable form for the next step via `--json` command)
   * analyze the produced convex set of distributions via `probability` command
 
-### Table 1
+### Performance measurements (Table 1)
 
 Each PBKAT row of the table shows the results for a specific protocol with name
 `PROTO` corresponding to a source file `probabilistic-examples/PROTO.hs`. 
@@ -299,6 +299,7 @@ docker run --rm -i pbkat:latest probPROTO execution-trace
 
 E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#correspondence-table)) the output will be:
 
+
 ```
 ^0:
   ^⦃⦄: ⦅(1,⦃⦄)×1 % 100+(1,⦃C~C⦄)×9 % 50+(1,⦃C~C,C~C⦄)×81 % 100⦆
@@ -318,14 +319,37 @@ E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#corresponden
   ⦃B~C⦄: ⦅⦆
 ```
 
-**TODO: Explain notation**
+#### Explanation of the output
 
-Specific execution traces from the paper can be generated with the following:
+The execution trace is _essentially a transition system_ with each state identified by a pair $(s,
+a)$, where $a$ a multiset of Bell pairs representing network state similar to presentation in the
+paper, and $s$ is an additional identifier similar to a program counter, e.g., $s$ is what
+distinguishes different occurrences of $\{\!\{B\sim C\}\!\}$ in Fig. 5.
+
+The output has the following meaning in relation to the figures in the paper:
+
+  * `n:`---signifies the start of a block for a given $s$ with `^` meaning _"initial"_.
+  * `  ⦃...⦄:`---marks the transitions from the state $(s, a)$ (`⦃...⦄` is $a$)
+  * `⦅...⦆` are transitions, essentially is a convex set of distributions over states
+
+     * each generator of the convex set corresponds to a separate $\Delta$ (non-determinism, solid line in figures)
+
+       **E.g.** state $(1, \{\!\{C\sim C\}\!\})$ has two outgoing edges: $\Delta_2$ and $\Delta_2'$
+
+     * the distribution within each generator is $\Delta$ itself (probabilistic choice, dashed
+       lines in figures)
+
+       **E.g.** $\Delta_2$ has two probabilistic transitions, namely, to $\{\!\{A\sim C\}\!\}$ with probability $0.8$ and to $\emptyset$ with probability $0.2$ (both with $s = 2$).
+
+#### Examples from the paper
+
+Specific execution traces from the paper can be generated with an appropriate choice of the protocol
+`PROTO`:
 
  * Figure 5
 
-     * protocol ($a_1)$: `PROTO` is `Pa1`
-     * protocol ($a$)$: `PROTO` is `Pa`
+     * protocol ($a_1$): `PROTO` is `Pa1`
+     * protocol ($a$): `PROTO` is `Pa`
 
 
  * Trace at the end of Section 4.2: `PROTO` is `P4`

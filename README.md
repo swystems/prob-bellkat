@@ -255,8 +255,12 @@ Below we give a table of correspondence between the protocol names in Table 1 an
 The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
 
 ```bash
-./collect_stats.py --tex --standalone >results.tex
+# the command takes long time up to complete (~ 10 mins)
+# one can pass --fast to skip the last protocol (~ 1 min)
+./collect_stats.py --tex --standalone >results.tex 
 ```
+
+
 
 Which can then be transformed into `results.pdf` using
 

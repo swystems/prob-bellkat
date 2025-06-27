@@ -26,8 +26,10 @@ TESTS = {
     'Protocol 5.3 (Pompili)': 'P5_3_pompili',
     'Protocol 5.3 (Coopmans, outer)': 'P5_3_coopmans_outer',
     'Protocol 5.3 (Coopmans, inner)': 'P5_3_coopmans_inner',
-#    'Protocol 5.3 (Coopmans, mixed)': 'P5_3_coopmans_mixed',
+    'Protocol 5.3 (Coopmans, mixed)': 'P5_3_coopmans_mixed',
     }
+
+SLOW_TESTS = {'P5_3_coopmans_mixed'}
 
 class BellKATRunResult(NamedTuple):
     output: str
@@ -194,9 +196,10 @@ def print_tex_footer():
 @click.command()
 @click.option('--tex', is_flag=True, help='Generate output in TeX format (text, otherwise)')
 @click.option('--standalone', is_flag=True, help='Generate standalone TeX output')
+@click.option('--fast', is_flag=True, help='Ignore protocols that take long time to analyze')
 @click.option('--mode', type=click.Choice(['direct', 'docker', 'cabal']), default='cabal',
               help='Which execution mode to use')
-def main(tex, standalone, mode): # pylint: disable=missing-function-docstring
+def main(tex, standalone, mode, fast): # pylint: disable=missing-function-docstring
     global MODE # pylint: disable=global-statement
 
     MODE = mode
@@ -207,6 +210,8 @@ def main(tex, standalone, mode): # pylint: disable=missing-function-docstring
     if standalone:
         print_tex_header()
     for test_name, test_target in TESTS.items():
+        if fast and test_target in SLOW_TESTS:
+            continue
         if tex:
             print_result_tex(test_name, run(test_target, machine_readable=True))
         else:

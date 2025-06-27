@@ -9,7 +9,6 @@ module BellKAT.ProbabilisticPrelude (
     ProbabilisticActionConfiguration(..),
     NetworkCapacity,
     applyProbStarPolicy,
-    applyProbStarPolicyD,
     pbkatMain,
     pbkatMainD,
     -- * Auxiliary expression generation exports
@@ -22,7 +21,6 @@ module BellKAT.ProbabilisticPrelude (
     -- * Re-exports from 'BellKAT.ActionEmbeddings
 ) where
 
-import Data.Default
 import Data.Typeable
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
@@ -42,14 +40,6 @@ type ProbBellKATTest = BoundedTest BellKATTag
 type ProbBellKATAction = TaggedAction BellKATTag
 
 type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
-
-applyProbStarPolicyD 
-    :: (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity tag)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> CD Double (TaggedBellPairs tag)
-applyProbStarPolicyD = applyProbStarPolicy'
 
 data PbkatMode = PMRun | PMTrace | PMProbability
 

@@ -15,7 +15,8 @@
         python = pkgs.python3.withPackages
           (ps: [ ps.click ps.python-lsp-server ps.pylint ]);
         latex = pkgs.texlive.combine { inherit (pkgs.texlive) 
-           scheme-basic collection-latexrecommended stmaryrd booktabs; };
+           scheme-basic collection-latexrecommended stmaryrd booktabs collection-luatex
+           newunicodechar; };
       in {
         packages.default = pkgs.haskellPackages.bellkat;
         packages.bellkatGHC =

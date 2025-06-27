@@ -18,10 +18,20 @@ header-includes: |
     \newunicodechar{∨}{\textfallback{∨}}
 ---
 
+The PBKAT tool is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
 
-The artifact is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
+The PBKAT tool can:
+
+  * produce automata capturing guarded strings of sets via `automaton` command
+  * produce the execution traces via `execution-trace` command (e.g., Fig. 5, Fig. 11, and Fig. 12
+    in App E)
+  * produce the convex set of probability distributions via `run` command (Table 1 and App. D)
+    machine-readable form for the next step via `--json` command)
+  * analyze the produced convex set of distributions via `probability` command (Table 1 and App. D)
+
+
 We provide two build options: [Nix][nix]-based and [Stack][stack]-based (details are in [Reusability guide](#reusability-guide)). 
-For ease of reproducibility we also provide a `Dockerfile` with a ready-to-use [Nix][nix]-based environment.
+For reproducibility we will explain how to use a `Dockerfile` with a ready-to-use [Nix][nix]-based environment.
 
 **Docker note:** please, be aware that `docker run` commands may have to be prefixed with `sudo`,
 depending on the docker setup (see details [here][docker-run]).
@@ -30,7 +40,7 @@ depending on the docker setup (see details [here][docker-run]).
 
  * RAM: up to 10 GB
 
-# Getting Started
+# Getting Started Guide
 
 "Getting Started" guide presents only the simplest way to get started with the artifact, namely, using [Docker][docker].
 Instructions to create proper development environments, namely using either standard Haskell's [stack][stack] tool or [nix][nix] package manager are given in [Development Environment](#development-environments) section.
@@ -39,7 +49,9 @@ Instructions to create proper development environments, namely using either stan
 
   * [Docker][docker]
 
-## Docker container creation
+## Docker container setup
+
+To create a docker container: 
 
   * Change to artifact's root
   * Create a [Docker][docker] container by running
@@ -48,10 +60,7 @@ Instructions to create proper development environments, namely using either stan
     docker build --tag pbkat:latest .
     ```
 
-## Entering the container
-
-The following command allows one to enter the container environment making the current directory
-available exposed from within the container.
+To enter the container environment while making the current directory exposed from within the container:
 
 ```bash
 docker run --rm -it --mount type=bind,source=$(pwd),target=/optbkat pbkat:latest
@@ -207,15 +216,12 @@ Tests:
 
 ## Reproducing results from the paper
 
-The PBKAT tool can:
+In what follows we explain how to use the tool to produce three kinds of results: convex sets of
+distributions capturing the meaning of entanglement distribution protocols, automata capturing the
+guarded sets of strings representing abstract semantics, and how to produce execution traces in the
+form of transition systems.
 
-  * produce automata capturing guarded strings of sets **TODO**
-  * produce the execution traces via `execution-trace` command
-  * produce the convex set of probability distributions via `run` command (including
-    machine-readable form for the next step via `--json` command)
-  * analyze the produced convex set of distributions via `probability` command
-
-### Performance measurements (Table 1)
+### Computing convex sets and measuring performance (Table 1)
 
 Each PBKAT row of the table shows the results for a specific protocol with name
 `PROTO` corresponding to a source file `probabilistic-examples/PROTO.hs`. 

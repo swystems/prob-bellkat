@@ -18,7 +18,7 @@ header-includes: |
     \newunicodechar{∨}{\textfallback{∨}}
 ---
 
-The PBKAT tool is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
+The PBKAT tool allows to analyze behaviors of quantum network protocols capturing both probabilistic behavior stemming from quantum mechanics and non-determinstic behavior arising from resource contention. The tool is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
 
 The PBKAT tool can:
 
@@ -63,26 +63,33 @@ To create a docker container:
 To enter the container environment while making the current directory exposed from within the container:
 
 ```bash
-docker run --rm -it --mount type=bind,source=$(pwd),target=/optbkat pbkat:latest
+docker run --rm -it --mount type=bind,source=$(pwd),target=/opt/pbkat pbkat:latest
 ```
 
 **!!!** Henceforth and until [Reusability Guide](#reusability-guide) it is assumed that all actions are performed from within the container.
 
-## Testing basic functionality of the tool
 
-### Building the tool
+## Preparing the environment
 
-```bash
+ 1. Generate build info:
+
+    ```bash
+    hpack
+    ```
+
+ 2. Build the tool:
+
+    ```bash
     cabal build
-```
+    ```
 
-### Testing the tool
+ 3. Test the tool:
 
-```bash
+    ```bash
     cabal test --test-options="--skip=VERYLONG"
-```
+    ```
 
-### Running a simple protocol
+## Running a simple protocol
 
 To check that everything works as expected we produce a somewhat trivial output for the protocol \S 3(a) using both PBKAT and BellKAT.
 
@@ -112,7 +119,7 @@ PBKAT output notation:
 **BellKAT** generating a set of possible outputs for the same example:
 
 ```bash
-cabal run 5_1_I_parallel run
+cabal run P5_1_I_parallel run
 # [[],[["A","C"]],[["A","C"],["B","C"]],[["B","C"]]]
 ```
 
@@ -126,7 +133,7 @@ BellKAT output notation:
 # Step-by-step Guide
 
 Before diving into the exact steps required to reproduce the results, we explain the inputs to the
-tool. 
+tool and in a bit more detail the embedded DSL for protocol specification. 
 
 ## Inputs to the tool
 
@@ -252,7 +259,7 @@ Below we give a table of correspondence between the protocol names in Table 1 an
 
 #### Generating the results as a pdf
 
-The information for the table can be automatically compiled into a `.tex` file using the `collect_stats.py` script.
+The information for Table 1 can all be automatically generated and formatted into a `.tex` file using the `collect_stats.py` script.
 
 ```bash
 # the command takes long time up to complete (~ 10 mins)
@@ -262,7 +269,7 @@ The information for the table can be automatically compiled into a `.tex` file u
 
 
 
-Which can then be transformed into `results.pdf` using
+Which can then be transformed into `results.pdf` with (also within the container):
 
 ```bash
 pdflatex results.tex
@@ -317,6 +324,8 @@ All the experimental results can be generated automatically as follows
 
 
 ```bash
+# the command takes long time up to complete (~ 10 mins)
+# one can pass FAST to skip the last protocol (~ 1 min)
 make all-prob
 ```
 
@@ -330,7 +339,13 @@ The general way to produce execution traces for protocol `PROTO` is to execute:
 cabal run probPROTO execution-trace
 ```
 
-E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#correspondence-table)) the output will be (formatted for readability):
+**Example.** To analyze protocol \S 3($a$) in the paper, we can set `PROTO` to `Pa` (see [table](#correspondence-table)), hence running
+
+```bash
+cabal run probPa execution-trace
+```
+
+The corresponding output will be (if formatted for readability):
 
 
 ```
@@ -406,7 +421,14 @@ The general way to produce an automaton for protocol `PROTO` is to execute:
 cabal run probPROTO automaton
 ```
 
-**Example:** for `PROTO` set to `P4` (Example 4.2 in the paper) the output will be (slightly formatted for readability):
+**Example.** To analyze Example 4.2 in the paper, we set `PROTO` to `P4` hence running
+
+```bash
+cabal run probP4 automaton
+```
+
+The corresponding output will be (slightly formatted for readability):
+
 ```
 ^0:
 [¬C~C]-( {[⊤]⦃⦄▶⦃⦄×1 % 9+⦃C~C⦄×4 % 9+⦃C~C,C~C⦄×4 % 9} )-> 1

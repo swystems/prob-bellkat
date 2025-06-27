@@ -10,6 +10,8 @@ WORKDIR /opt/pbkat
 
 RUN nix develop
 
+RUN nix develop --command cabal user-config init
+
 ENV LANG=C.UTF-8
 
 RUN echo "[safe] \

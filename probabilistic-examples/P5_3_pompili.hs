@@ -23,7 +23,6 @@ actionConfig = PAC
 
 main :: IO ()
 main = 
-    let result = applyProbStarPolicyD actionConfig (Just networkCapacity) (p 1) []
-        ev = "A" ~~? "B"
-     in pbkatMain result ev
+    let ev = "A" ~~? "B"
+     in pbkatMainD actionConfig (Just networkCapacity) ev (p 1)
 

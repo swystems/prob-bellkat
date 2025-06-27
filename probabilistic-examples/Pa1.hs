@@ -22,6 +22,5 @@ actionConfig = PAC
 
 main :: IO ()
 main = 
-    let cdbps = applyProbStarPolicy actionConfig Nothing p []
-        ev = "A" ~~? "B"
-     in pbkatMain cdbps ev
+    let ev = "A" ~~? "B"
+     in pbkatMain actionConfig Nothing ev p

@@ -27,6 +27,6 @@ p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 main :: IO ()
 main = do
-        let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 4) []
+        let result = applyProbStarPolicy' @Double p51pac (Just p51nc) (p51iv 4) []
         print result
         putStrLn $ "result size is " <> show (length $ C.getGenerators result)

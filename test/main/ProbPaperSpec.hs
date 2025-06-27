@@ -355,13 +355,13 @@ spec = do
         it "prints system of example 5.1.IV (two iterations)" $ do
             print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
         it "prints the probabilities of example 5.1.IV (3 iterations) [LONG]" $ do
-            let result = applyProbStarPolicy' @_ @_ @Double p51pac (Just p51nc) (p51iv 3) []
+            let result = applyProbStarPolicy' @Double p51pac (Just p51nc) (p51iv 3) []
             print result
             putStrLn $ "result size is " <> show (length $ C.getGenerators result)
         it "prints probabilities example 5.3 (Pompli, one attempt) [LONG]" $ do
-            print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) p53OneAttempt []
+            print $ applyProbStarPolicy' @Double p53pac (Just p53nc) p53OneAttempt []
         it "prints probabilities example 5.3 (Pompli) [VERYLONG]" $ do
-            print $ applyProbStarPolicy' @_ @_ @Double p53pac (Just p53nc) (p53 10) []
+            print $ applyProbStarPolicy' @Double p53pac (Just p53nc) (p53 10) []
         it "prints system 5.3 (Coopmans)" $ do
             print $ applyProbStarPolicySystem p53'pac (Just p53'nc) (p53' 2 1) []
         it "prints probabilities example 5.3 (Coopmans) [VERYLONG]" $ do

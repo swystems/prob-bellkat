@@ -22,6 +22,5 @@ actionConfig = PAC
 
 main :: IO ()
 main = 
-    let cdbps = applyProbStarPolicy actionConfig (Just networkCapacity) p []
-        ev = hasSubset ["A" ~ "C", "B" ~ "C"]
-     in pbkatMain cdbps ev
+    let ev = hasSubset ["A" ~ "C", "B" ~ "C"]
+     in pbkatMain actionConfig (Just networkCapacity) ev p

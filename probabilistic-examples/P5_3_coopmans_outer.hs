@@ -38,7 +38,5 @@ actionConfig = PAC
 
 main :: IO ()
 main = 
-    let cdbps = applyProbStarPolicyD actionConfig (Just networkCapacity) (p 225 1) []
-        ev = "A" ~~? "B"
-     in do
-        pbkatMain cdbps ev
+    let ev = "A" ~~? "B"
+     in pbkatMainD actionConfig (Just networkCapacity) ev (p 225 1)

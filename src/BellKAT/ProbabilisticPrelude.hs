@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 module BellKAT.ProbabilisticPrelude (
     BellKATTagChar(..),
     BellKATTag,
@@ -10,6 +11,7 @@ module BellKAT.ProbabilisticPrelude (
     applyProbStarPolicy,
     applyProbStarPolicyD,
     pbkatMain,
+    pbkatMainD,
     -- * Auxiliary expression generation exports
     stimes,
     -- * Re-exports from 'BellKAT.DSL'
@@ -49,7 +51,7 @@ applyProbStarPolicyD
     -> TaggedBellPairs tag -> CD Double (TaggedBellPairs tag)
 applyProbStarPolicyD = applyProbStarPolicy'
 
-data PbkatMode = PMRun | PMProbability
+data PbkatMode = PMRun | PMTrace | PMProbability
 
 data PbkatCLIOpts = PCO 
     { pcoJSON :: Bool
@@ -63,21 +65,33 @@ pcoParser = PCO
             OA.command "run" 
                 (OA.info (pure PMRun) (OA.progDesc "Run the procotol")) 
                 <>
+            OA.command "execution-trace"
+                (OA.info (pure PMTrace) (OA.progDesc "Run the procotol")) 
+                <>
             OA.command "probability" 
                 (OA.info (pure PMProbability) (OA.progDesc "Compute event probability"))
         )
 
 
-pbkatMain 
-    :: (Typeable tag, Default tag, Show tag, Ord tag, RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
-    => CD p (TaggedBellPairs tag) -> BellPairsPredicate tag -> IO ()
-pbkatMain (r :: CD p (TaggedBellPairs tag)) ev = do
+pbkatMain' 
+    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
+    => Proxy p
+    -> ProbabilisticActionConfiguration 
+    -> Maybe (NetworkCapacity BellKATTag)
+    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATPolicy
+    -> IO ()
+pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
+    let r = applyProbStarPolicy' @p pac mbNC protocol mempty in
+    let s = applyProbStarPolicySystem' @p pac mbNC protocol mempty in do
     opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
     case pcoMode opts of
       PMRun ->
         if pcoJSON opts
            then BS.putStr $ A.encode r
            else print r
+      PMTrace -> 
+        print s
       PMProbability -> do
           mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
           case mbRStored of 
@@ -87,3 +101,19 @@ pbkatMain (r :: CD p (TaggedBellPairs tag)) ev = do
                  in if pcoJSON opts
                        then BS.putStr $ A.encode probRange
                        else print probRange
+
+pbkatMain 
+    :: ProbabilisticActionConfiguration 
+    -> Maybe (NetworkCapacity BellKATTag)
+    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATPolicy
+    -> IO ()
+pbkatMain = pbkatMain' (Proxy :: Proxy Probability)
+
+pbkatMainD
+    :: ProbabilisticActionConfiguration 
+    -> Maybe (NetworkCapacity BellKATTag)
+    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATPolicy
+    -> IO ()
+pbkatMainD = pbkatMain' (Proxy :: Proxy Double)

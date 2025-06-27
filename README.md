@@ -289,6 +289,57 @@ make MODE=docker all-prob
 
 **NB** they will be stored in `output/probabilistic/examples` directory.
 
+### Reproducing the execution traces
+
+The general way to produce execution traces for protocol `PROTO` is to execute:
+
+```bash
+docker run --rm -i pbkat:latest probPROTO execution-trace
+```
+
+E.g., for `PROTO` set to `Pa` (\S 3($a$) in the paper, see [table](#correspondence-table)) the output will be:
+
+```
+^0:
+  ^⦃⦄: ⦅(1,⦃⦄)×1 % 100+(1,⦃C~C⦄)×9 % 50+(1,⦃C~C,C~C⦄)×81 % 100⦆
+1:
+  ⦃⦄: ⦅(2,⦃⦄)⦆
+  ⦃C~C⦄: ⦅(2,⦃⦄)×1 % 5+(2,⦃A~C⦄)×4 % 5,(2,⦃⦄)×3 % 10+(2,⦃B~C⦄)×7 % 10⦆
+  ⦃C~C,C~C⦄: ⦅(2,⦃⦄)×3 % 50+(2,⦃A~C⦄)×6 % 25+(2,⦃A~C,B~C⦄)×14 % 25+(2,⦃B~C⦄)×7 % 50⦆
+2:
+  ⦃⦄: ⦅(3,⦃⦄)⦆
+  ⦃A~C⦄: ⦅(3,⦃A~C⦄)⦆
+  ⦃A~C,B~C⦄: ⦅(3,⦃⦄)×2 % 5+(3,⦃A~B⦄)×3 % 5⦆
+  ⦃B~C⦄: ⦅(3,⦃B~C⦄)⦆
+3:
+  ⦃⦄: ⦅⦆
+  ⦃A~B⦄: ⦅⦆
+  ⦃A~C⦄: ⦅⦆
+  ⦃B~C⦄: ⦅⦆
+```
+
+**TODO: Explain notation**
+
+Specific execution traces from the paper can be generated with the following:
+
+ * Figure 5
+
+     * protocol ($a_1)$: `PROTO` is `Pa1`
+     * protocol ($a$)$: `PROTO` is `Pa`
+
+
+ * Trace at the end of Section 4.2: `PROTO` is `P4`
+
+ * Figure 11: `PROTO` is `probP5_1_IV`
+
+    * presented steps correspond to states `2` through `9`
+    * some simplifications are performed over the traces to fit it into (essentially by identifying equivalent states)
+
+ * Figure 12 in Appendix
+
+    * protocol ($e || f$): `PROTO` is `P5_1_I_parallel`
+    * protocol ($e \circ f$): `PROTO` is `P5_1_I_ordered`
+
 # Reusability Guide
 
 ## Development environments

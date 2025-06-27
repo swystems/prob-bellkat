@@ -1,32 +1,30 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
-import BellKAT.Utils.Convex as C
 
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.ProbabilisticPrelude
-import BellKAT.Definitions
 
-e51' :: ProbBellKATPolicy
-e51' = create "C" <> ite ("A" /~? "C") (trans "C" ("A", "C")) (trans "C" ("B", "C"))
+e :: ProbBellKATPolicy
+e = ite ("C" /~? "C") (create "C") (trans "C" ("A", "C")) <> trans "C" ("A", "C")
 
-f51' :: ProbBellKATPolicy
-f51' = create "C" <> ite ("A" /~? "C") (trans "C" ("B", "C")) (trans "C" ("A", "C"))
+f :: ProbBellKATPolicy
+f = ite ("C" /~? "C") (create "C") (trans "C" ("A", "C")) <> trans "C" ("B", "C")
 
-p51iii :: ProbBellKATPolicy
-p51iii = e51' <||> f51'
+p :: ProbBellKATPolicy
+p = e <||> f
 
-p51pac :: ProbabilisticActionConfiguration
-p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)] [] []
+actionConfig :: ProbabilisticActionConfiguration
+actionConfig = PAC 
+    { pacTransmitProbability = [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] 
+    , pacCreateProbability = [("C", 2 / 3)]
+    , pacUCreateProbability = []
+    , pacSwapProbability = [] 
+    }
 
-p51iv :: Int -> ProbBellKATPolicy
-p51iv n = whileN n ("A" /~? "C" ||* "B" /~? "C") p51iii
-
-p51nc :: NetworkCapacity BellKATTag
-p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
+networkCapacity :: NetworkCapacity BellKATTag
+networkCapacity = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 main :: IO ()
 main = do
-        let result = applyProbStarPolicy' @Double p51pac (Just p51nc) (p51iv 4) []
-        print result
-        putStrLn $ "result size is " <> show (length $ C.getGenerators result)
+    let ev = hasSubset ["A" ~ "C", "B" ~ "C"]
+     in pbkatMain actionConfig (Just networkCapacity) ev p

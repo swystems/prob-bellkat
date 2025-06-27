@@ -80,11 +80,11 @@ restrictedTestNormalize (x : xs) =
         else x : restrictedTestNormalize xs
 
 instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
-    showsPrec _ (RestrictedTest []) = showString "TRUE"
+    showsPrec _ (RestrictedTest []) = showString "⊤"
     showsPrec _ (RestrictedTest (x : xs)) = shows x . showsRest xs
       where
         showsRest [] = id
-        showsRest (y : ys) = showString " ∧ " . shows y . showsRest ys
+        showsRest (y : ys) = showString "∧" . shows y . showsRest ys
 
 -- | Performs multiset union of each set in a `RestrictedTest` with the given `TaggedBellPairs`
 (.+.) :: (Ord tag) => RestrictedTest tag -> TaggedBellPairs tag -> RestrictedTest tag
@@ -111,8 +111,8 @@ newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
 
 instance (Show tag, Ord tag, Default tag, Eq tag) => Show (BoundedTest tag) where
     show (BoundedTest xs)
-      | BoundedTest xs == true = "TRUE"
-      | BoundedTest xs == false = "FALSE"
+      | BoundedTest xs == true = "⊤"
+      | BoundedTest xs == false = "⊥"
       | otherwise = intercalate "∨" $ map showBounds xs
 
 showBounds ::(Show tag, Default tag, Eq tag) => Bounds tag -> String

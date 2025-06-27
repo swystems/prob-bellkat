@@ -12,6 +12,10 @@ header-includes: |
     \newunicodechar{⦆}{\textfallback{⦆}}
     \newunicodechar{⦄}{\textfallback{⦄}}
     \newunicodechar{⦃}{\textfallback{⦃}}
+    \newunicodechar{▶}{\textfallback{▶}}
+    \newunicodechar{⊤}{\textfallback{⊤}}
+    \newunicodechar{∧}{\textfallback{∧}}
+    \newunicodechar{∨}{\textfallback{∨}}
 ---
 
 
@@ -184,7 +188,7 @@ Tests:
 The PBKAT tool can:
 
   * produce automata capturing guarded strings of sets **TODO**
-  * produce the execution traces **TODO**
+  * produce the execution traces via `execution-trace` command
   * produce the convex set of probability distributions via `run` command (including
     machine-readable form for the next step via `--json` command)
   * analyze the produced convex set of distributions via `probability` command
@@ -363,6 +367,44 @@ Specific execution traces from the paper can be generated with an appropriate ch
 
     * protocol ($e || f$): `PROTO` is `P5_1_I_parallel`
     * protocol ($e \circ f$): `PROTO` is `P5_1_I_ordered`
+
+### Generating automata capturing guarded strings of sets
+
+The general way to produce an automaton for protocol `PROTO` is to execute:
+
+```bash
+docker run --rm -i pbkat:latest probPROTO automaton
+```
+
+**Example:** for `PROTO` set to `P4` (Example 4.2 in the paper) the output will be (slightly formatted for readability):
+```
+^0:
+[¬C~C]-( {[⊤]⦃⦄▶⦃⦄×1 % 9+⦃C~C⦄×4 % 9+⦃C~C,C~C⦄×4 % 9} )-> 1
+[C~C]-( {[⊤]⦃C~C,C~C⦄▶⦃⦄×1 % 25+⦃A~C⦄×8 % 25+⦃A~C,A~C⦄×16 % 25,
+         [⦃C~C⦄]⦃⦄▶⦃⦄,[⦃C~C,C~C⦄]⦃C~C⦄▶⦃⦄×1 % 5+⦃A~C⦄×4 % 5} )-> 2
+1: [⊤]-( {[⊤]⦃C~C,C~C⦄▶⦃⦄×1 % 10+⦃A~C⦄×2 % 5+⦃A~C,B~C⦄×2 % 5+⦃B~C⦄×1 % 10,
+          [⦃C~C⦄]⦃⦄▶⦃⦄,
+          [⦃C~C,C~C⦄]⦃C~C⦄▶⦃⦄×1 % 5+⦃A~C⦄×4 % 5,
+          [⦃C~C,C~C⦄]⦃C~C⦄▶⦃⦄×1 % 2+⦃B~C⦄×1 % 2} )-> 3
+2: [⊤]-( {[⊤]⦃C~C,C~C⦄▶⦃⦄×1 % 10+⦃A~C⦄×2 % 5+⦃A~C,B~C⦄×2 % 5+⦃B~C⦄×1 % 10,
+          [⦃C~C⦄]⦃⦄▶⦃⦄,
+          [⦃C~C,C~C⦄]⦃C~C⦄▶⦃⦄×1 % 5+⦃A~C⦄×4 % 5,
+          [⦃C~C,C~C⦄]⦃C~C⦄▶⦃⦄×1 % 2+⦃B~C⦄×1 % 2} )-> 3
+3: [⊤]-> $
+```
+
+#### Explanation of the output
+
+The automaton for guarded strings naturally has states and transitions, where the transitions are
+_guarded_ (i.e., have a test in front) and labelled by _sets of atomic actions_.
+
+The output has the following structure:
+
+ * `n:`---start of the block corresponding to the state of the automaton
+ * `[t]-( a )-> k`---transition guarded by test `t` and labelled by a set of atomic actions `a`
+   leading to a new state `k`
+ * `[t]i▶p`---atomic action with a test `t`, multiset of input bell pairs `i` and distribution over multisets of output Bell pairs `p`
+
 
 # Reusability Guide
 

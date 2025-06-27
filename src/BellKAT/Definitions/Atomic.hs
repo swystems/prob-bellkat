@@ -26,7 +26,6 @@ module BellKAT.Definitions.Atomic (
 ) where
 
 import Data.Default
-import Data.Foldable (toList)
 import Control.Subcategory.Functor
 import Control.Subcategory.Pointed
 import Control.Subcategory.Applicative
@@ -47,10 +46,10 @@ instance (Show tag, Default tag, Eq tag) => Show (AtomicAction tag) where
     showsPrec _ (AtomicAction t inBPs outBPs) =
         showString "["
             . shows t
-            . showString "] ("
-            . shows (toList inBPs)
-            . showString "|>"
-            . shows (toList outBPs)
+            . showString "]("
+            . shows inBPs
+            . showString "▶"
+            . shows outBPs
             . showString ")"
 
 instance Ord tag => OrderedSemigroup (AtomicAction tag) where
@@ -107,9 +106,11 @@ instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
-            shows t
-            . showString " "
+            showString "["
+            . shows t
+            . showString "]"
+            . showString ""
             . shows inBPs
-            . showString "|>"
+            . showString "▶"
             . shows outBPs
             . showString ""

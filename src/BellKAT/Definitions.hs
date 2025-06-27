@@ -23,6 +23,7 @@ module BellKAT.Definitions
     , applyProbStarPolicySystem
     , applyProbStarPolicySystem'
     , applyProbStarPolicyStates
+    , applyProbStarPolicyAutomaton
     ) where
 
 import           Data.Set                                (Set)
@@ -165,6 +166,11 @@ applyProbStarPolicy
     -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 applyProbStarPolicy = applyProbStarPolicy'
 
+probabilisticDesugar 
+    :: (Functor f, CanDesugarActions a, HasDupKinds (f a)) 
+    => ProbabilisticActionConfiguration -> f a -> f (Desugared a)
+probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+
 applyProbStarPolicy' 
     :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
     => ProbabilisticActionConfiguration 
@@ -174,8 +180,14 @@ applyProbStarPolicy'
 applyProbStarPolicy' pac mbNC = 
     let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
      in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
-        . meaning 
-        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+        . applyProbStarPolicyAutomaton pac
+
+applyProbStarPolicyAutomaton
+    :: (Default tag, Ord tag, Show tag, Show (test tag), DecidableBoolean (test tag))
+    => ProbabilisticActionConfiguration 
+    -> Simple (OrderedGuardedPolicy (test tag)) tag
+    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy tag)
+applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
 
 applyProbStarPolicyStates
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
@@ -186,8 +198,7 @@ applyProbStarPolicyStates
 applyProbStarPolicyStates pac mbNC = 
     let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
      in GASQ.executeState (getBPsPredicate . toBPsPredicate) executeRound
-        . meaning 
-        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+        . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem'
     :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
@@ -198,8 +209,7 @@ applyProbStarPolicySystem'
 applyProbStarPolicySystem' pac mbNC = 
     let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
      in GASQ.executeSystem (getBPsPredicate . toBPsPredicate) executeRound
-        . meaning 
-        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+        . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 

@@ -9,6 +9,7 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
 
 import qualified GHC.Exts (IsList, Item) 
 import GHC.Exts (fromList, toList)
+import Data.List (intercalate)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
@@ -30,7 +31,7 @@ newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy (Set (Probabilisti
     deriving newtype (Eq)
 
 instance (Show tag, Ord tag, Default tag) => Show (ProbAtomicOneStepPolicy tag) where
-    show (ProbAtomicOneStepPolicy xs) = show $ Set.toList xs
+    show (ProbAtomicOneStepPolicy xs) = "{" <> intercalate "," (show <$> Set.toList xs) <> "}"
 
 instance Ord tag => GHC.Exts.IsList (ProbAtomicOneStepPolicy tag) where
     type Item (ProbAtomicOneStepPolicy tag) = ProbabilisticAtomicAction tag

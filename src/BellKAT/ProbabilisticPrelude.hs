@@ -41,7 +41,7 @@ type ProbBellKATAction = TaggedAction BellKATTag
 
 type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
 
-data PbkatMode = PMRun | PMTrace | PMProbability
+data PbkatMode = PMRun | PMTrace | PMProbability | PMAutomaton
 
 data PbkatCLIOpts = PCO 
     { pcoJSON :: Bool
@@ -58,6 +58,9 @@ pcoParser = PCO
             OA.command "execution-trace"
                 (OA.info (pure PMTrace) (OA.progDesc "Run the procotol")) 
                 <>
+            OA.command "automaton"
+                (OA.info (pure PMAutomaton) (OA.progDesc "Run the procotol")) 
+                <>
             OA.command "probability" 
                 (OA.info (pure PMProbability) (OA.progDesc "Compute event probability"))
         )
@@ -72,8 +75,9 @@ pbkatMain'
     -> ProbBellKATPolicy
     -> IO ()
 pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
-    let r = applyProbStarPolicy' @p pac mbNC protocol mempty in
-    let s = applyProbStarPolicySystem' @p pac mbNC protocol mempty in do
+    let r = applyProbStarPolicy' @p pac mbNC protocol mempty
+        s = applyProbStarPolicySystem' @p pac mbNC protocol mempty
+        a = applyProbStarPolicyAutomaton pac protocol in do
     opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
     case pcoMode opts of
       PMRun ->
@@ -82,6 +86,8 @@ pbkatMain' (_ :: Proxy p) pac mbNC ev protocol =
            else print r
       PMTrace -> 
         print s
+      PMAutomaton ->
+        print a
       PMProbability -> do
           mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
           case mbRStored of 

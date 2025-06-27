@@ -23,11 +23,10 @@ The PBKAT tool allows to analyze behaviors of quantum network protocols capturin
 The PBKAT tool can:
 
   * produce automata capturing guarded strings of sets via `automaton` command
-  * produce the execution traces via `execution-trace` command (e.g., Fig. 5, Fig. 11, and Fig. 12
-    in App E)
-  * produce the convex set of probability distributions via `run` command (Table 1 and App. D)
+  * produce the execution traces via `execution-trace` command (e.g., Fig. 5 and Fig. 11)
+  * produce the convex set of probability distributions via `run` command (Table 1)
     machine-readable form for the next step via `--json` command)
-  * analyze the produced convex set of distributions via `probability` command (Table 1 and App. D)
+  * analyze the produced convex set of distributions via `probability` command (Table 1)
 
 
 We provide two build options: [Nix][nix]-based and [Stack][stack]-based (details are in [Reusability guide](#reusability-guide)). 
@@ -267,8 +266,6 @@ The information for Table 1 can all be automatically generated and formatted int
 ./collect_stats.py --tex --standalone >results.tex 
 ```
 
-
-
 Which can then be transformed into `results.pdf` with (also within the container):
 
 ```bash
@@ -407,11 +404,6 @@ Specific execution traces from the paper can be generated with an appropriate ch
 
     * presented steps correspond to states `2` through `9`
     * some simplifications are performed over the traces to fit it into (essentially by identifying equivalent states)
-
- * Figure 12 in Appendix
-
-    * protocol ($e || f$): `PROTO` is `P5_1_I_parallel`
-    * protocol ($e \circ f$): `PROTO` is `P5_1_I_ordered`
 
 ### Generating automata capturing guarded strings of sets
 

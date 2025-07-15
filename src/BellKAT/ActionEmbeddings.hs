@@ -1,7 +1,12 @@
 module BellKAT.ActionEmbeddings 
-    ( simpleActionMeaning
+    ( -- * Interpreting individual actions
+
+      -- | Different means of giving meaning to individual actions, i.e., ultimately defining
+      -- functions from `TaggedAction` to `CreateBellPairArgs`
+      simpleActionMeaning
     , ProbabilisticActionConfiguration(..)
     , probabilisticActionMeaning
+      -- * Interpreting actions within policies
     , CanDesugarActions(..)
     , mapDesugarActions
     ) where
@@ -14,6 +19,7 @@ import qualified Data.Map.Strict as Map
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core
 
+-- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
 class CanDesugarActions a where
     type Tag a :: Type
     type Desugared a :: Type
@@ -24,6 +30,8 @@ mapDesugarActions
     => (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> f a -> f (Desugared a)
 mapDesugarActions = fmap . desugarActions
 
+-- | gives meaning to actions in a simplistic (*BellKAT*) manner, i.e., only `Distill` and
+-- `UnstableCreate` may fail, and exactly with probability 0.5
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
@@ -42,13 +50,21 @@ simpleActionMeaning ta = case taAction ta of
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
 
+-- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
+    -- | holds probabilities of successful transmission
     { pacTransmitProbability :: Map (Location, Location) Probability
+    -- | holds probabilities of successful creation at individual locations
     , pacCreateProbability :: Map Location Probability
+    -- | holds probabilities of successful creation of an already distributed
     , pacUCreateProbability :: Map (Location, Location) Probability
+    -- | holds probabilities of successful creation of an already distributed
+    --   Bell pair (used extensively in case studies)
     , pacSwapProbability :: Map Location Probability
     }
 
+-- | gives meaning to actions while taking into account success probabilities
+-- represented as a ProbabilisticActionConfiguration`
 probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs

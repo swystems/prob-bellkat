@@ -26,9 +26,11 @@ import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
 import BellKAT.Utils.Choice
 
--- TODO: what's the difference between this design and the one in AtomicOneStepPolicy?
+-- | Essentially a symbol for `BellKAT.Utils.Automata.Guarded.GuardedFA` representing a set of
+-- `ProbabilisticAtomicAction`s. In particular, it can be built from "basic actions" (`CreateBellPairArgs`). 
 newtype ProbAtomicOneStepPolicy tag = ProbAtomicOneStepPolicy (Set (ProbabilisticAtomicAction tag)) 
     deriving newtype (Eq)
+-- TODO: what's the difference between teh above design and the one in AtomicOneStepPolicy?
 
 instance (Show tag, Ord tag, Default tag) => Show (ProbAtomicOneStepPolicy tag) where
     show (ProbAtomicOneStepPolicy xs) = "{" <> intercalate "," (show <$> Set.toList xs) <> "}"
@@ -62,6 +64,8 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
                         (cpure mempty)]
                 else mempty
 
+-- | Network capacity, i.e., the maximum number of each possible `BellPair`, essentially
+-- a `TaggedBellPairs`
 newtype NetworkCapacity tag = NC 
     { unNC :: TaggedBellPairs tag 
     } deriving newtype (Monoid, Semigroup)
@@ -72,6 +76,8 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     fromList = NC . fromList
     toList = toList . unNC
 
+-- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
+-- `TaggedBellPairs`
 execute :: (Typeable tag, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
@@ -88,6 +94,7 @@ executeWithCapacity' nc p bps = mapProbability fromRational $ executeWithCapacit
 
 executePAA :: (Show tag, Ord tag, Default tag, Typeable tag)
            => (TaggedBellPairs tag -> TaggedBellPairs tag) 
+           -- ^ "fixing" function to apply at the end
            -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executePAA fix act bps = 
     if (getBPsPredicate . toBPsPredicate . paaTest) act bps 

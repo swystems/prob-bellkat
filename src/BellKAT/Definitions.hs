@@ -182,6 +182,7 @@ applyProbStarPolicy' pac mbNC =
      in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyAutomaton pac
 
+-- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 applyProbStarPolicyAutomaton
     :: (Default tag, Ord tag, Show tag, Show (test tag), DecidableBoolean (test tag))
     => ProbabilisticActionConfiguration 
@@ -205,7 +206,8 @@ applyProbStarPolicySystem'
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> GASQ.StateSystem (CD p) (TaggedBellPairs tag)
+    -> TaggedBellPairs tag 
+    -> GASQ.StateSystem (CD p) (TaggedBellPairs tag)
 applyProbStarPolicySystem' pac mbNC = 
     let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
      in GASQ.executeSystem (getBPsPredicate . toBPsPredicate) executeRound

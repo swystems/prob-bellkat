@@ -11,6 +11,8 @@ import           BellKAT.Definitions.Structures
 
 -- * Main policy definitions
 
+-- ** Actions
+
 -- | Define primitive actions
 data Action
     = Swap Location (Location, Location)
@@ -84,6 +86,11 @@ data OrderedStarPolicy a
     | OSPChoice (OrderedStarPolicy a) (OrderedStarPolicy a)
     deriving stock (Show, Functor)
 
+-- | Guarded policy parameterized by tag type `t` and atomic action `a`.
+-- The type is an instance of a number of classes from `BellKAT.Definitions.Structures.Basic`
+-- enabling unified syntax for composing such policies (e.g., using `(<>)` from `Semigroup` for
+-- sequential composition)
+-- 
 data OrderedGuardedPolicy t a
     = OGPAtomic a
     | OGPSequence (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)

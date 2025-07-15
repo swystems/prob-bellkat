@@ -1,14 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 module BellKAT.ProbabilisticPrelude (
+    -- * PBKAT Policy syntax
     BellKATTagChar(..),
     BellKATTag,
     ProbBellKATTest,
     ProbBellKATAction,
     ProbBellKATPolicy,
+    -- * Re-exports network configuration
     ProbabilisticActionConfiguration(..),
     NetworkCapacity,
-    applyProbStarPolicy,
+    -- * Entry points
     pbkatMain,
     pbkatMainD,
     -- * Auxiliary expression generation exports
@@ -71,7 +73,7 @@ pbkatMain'
     => Proxy p
     -> ProbabilisticActionConfiguration 
     -> Maybe (NetworkCapacity BellKATTag)
-    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATTest
     -> ProbBellKATPolicy
     -> IO ()
 pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
@@ -93,23 +95,25 @@ pbkatMain' (_ :: Proxy p) pac mbNC ev protocol =
           case mbRStored of 
             Nothing -> error "Couldn't parse input"
             Just rStored -> 
-                let probRange = computeEventProbabilityRange (getBPsPredicate ev) rStored
+                let probRange = computeEventProbabilityRange (getBPsPredicate . toBPsPredicate  $ ev) rStored
                  in if pcoJSON opts
                        then BS.putStr $ A.encode probRange
                        else print probRange
 
+-- | speicialization of `pbkatMain'` to rational probability `Probability`
 pbkatMain 
     :: ProbabilisticActionConfiguration 
     -> Maybe (NetworkCapacity BellKATTag)
-    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATTest
     -> ProbBellKATPolicy
     -> IO ()
 pbkatMain = pbkatMain' (Proxy :: Proxy Probability)
 
+-- | speicialization of `pbkatMain'` to floating point probability `Double`
 pbkatMainD
     :: ProbabilisticActionConfiguration 
     -> Maybe (NetworkCapacity BellKATTag)
-    -> BellPairsPredicate BellKATTag
+    -> ProbBellKATTest
     -> ProbBellKATPolicy
     -> IO ()
 pbkatMainD = pbkatMain' (Proxy :: Proxy Double)

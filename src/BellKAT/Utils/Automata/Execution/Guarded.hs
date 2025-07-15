@@ -28,6 +28,11 @@ import BellKAT.Utils.Automata.Guarded
 
 import BellKAT.Utils.Automata.Execution.Guarded.Internal
 
+-- constraint on the execution parameters of the guarded automaton:
+--
+--  * `t` -- guards (tests) of the automaton
+--  * `k` -- execution monad (over state)
+--  * `s` -- state
 type CanExecuteGuarded t k s = (Boolean t, Ord s, Dom k s, CMonad k, Monoid (k s), Foldable k)
 
 execute

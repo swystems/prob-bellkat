@@ -6,12 +6,6 @@
    "BellKAT.Implementations.AtomicOneStepHistoryQuantum").
 -}
 module BellKAT.Definitions.Atomic (
-    -- * Restricted tests
-    RestrictedTest,
-    createRestrictedTest,
-    (.+.),
-    (.&&.),
-
     -- * Atomic actions
     AtomicAction,
     aaTest,
@@ -23,6 +17,11 @@ module BellKAT.Definitions.Atomic (
     paaTest,
     paaInputBPs,
     paaOutputBPD,
+    -- * Re-export `RestrictedTest`s
+    RestrictedTest,
+    createRestrictedTest,
+    (.+.),
+    (.&&.),
 ) where
 
 import Data.Default

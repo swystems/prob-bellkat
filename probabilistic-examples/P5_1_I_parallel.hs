@@ -20,8 +20,9 @@ actionConfig = PAC
     , pacSwapProbability = []
     }
 
+ev :: ProbBellKATTest
+ev = hasSubset ["A" ~ "C", "B" ~ "C"]
+
 main :: IO ()
-main = 
-    let ev = hasSubset ["A" ~ "C", "B" ~ "C"]
-     in pbkatMain actionConfig (Just networkCapacity) ev p
+main = pbkatMain actionConfig (Just networkCapacity) ev p
 

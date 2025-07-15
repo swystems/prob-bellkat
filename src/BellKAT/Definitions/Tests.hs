@@ -1,9 +1,16 @@
 {-# LANGUAGE StrictData #-}
+-- |
+-- Module: BellKAT.Definitions.Tests
+-- Description: A module defining different flavours of predicates over BellPairs.
+--
+-- A module defining different flavours of `Test`s, i.e., predicates over `TaggedBellPairs`.
 module BellKAT.Definitions.Tests
     (
-    FreeTest(..),
+    -- * Basic definitions related to predicates over multisets of Bell pairs
     BellPairsPredicate(..),
     Test(..),
+    -- * Concrete instances of tests
+    FreeTest(..),
     RestrictedTest,
     createRestrictedTest,
     (.&&.),
@@ -30,6 +37,9 @@ import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Structures.Basic
 import BellKAT.Definitions.Core
 
+-- | Very simplistic test only allowing checking for either presence or the absence of a given
+-- multi-set of `TaggedBellPair`s. Instances are usually constructed via helpers inside @BellKAT.DSL@ module using
+-- `BellKAT.DSL.DSLTest` and `BellKAT.DSL.DSLTestNeq` instances
 data FreeTest t
     = FTSubset (TaggedBellPairs t)
     | FTNot (FreeTest t)
@@ -43,9 +53,11 @@ instance (Default t, Show t, Eq t) => Show (FreeTest t) where
     showsPrec d (FTNot x) = showParen (app_prec < d) $ showString "not " . shows x
       where app_prec = 10
 
+-- | Predicate over `TaggedBellPairs` parameterized by the respective, essentially a wrapper over
+-- @TaggedBellPairs t -> Bool@
 newtype BellPairsPredicate t = BPsPredicate { getBPsPredicate :: TaggedBellPairs t -> Bool }
 
--- | Class of things that can serve as `BellPairsPredicate`
+-- | Class of that can serve as `BellPairsPredicate`
 class Test test where
     toBPsPredicate :: Ord tag => test tag -> BellPairsPredicate tag
 
@@ -60,6 +72,9 @@ instance Show (BellPairsPredicate t) where
   showsPrec _ _ = shows "test"
 
 
+-- | Test representing a conjunction of tests for absences of `TaggedBellPair`s. Most notably used
+-- when defining atomic actions (see `BellKAT.Definitions.Atomic.AtomicAction` and
+-- `BellKAT.Definitions.Atomic.ProbabilisticAtomicAction`)
 newtype RestrictedTest tag = RestrictedTest [TaggedBellPairs tag]
     deriving newtype (Eq, Ord)
 
@@ -98,6 +113,8 @@ instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
 instance Test RestrictedTest where
     toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
 
+-- | Bound for the number of things from below and above, the upper bound may be absent
+-- essentially meaning "infinity"
 type Range = (Int, Maybe Int)
 type Bounds tag = Map (TaggedBellPair tag) Range
 
@@ -107,6 +124,8 @@ rangeGreater k = (k + 1, Nothing)
 rangeNotGreater :: Int -> Range
 rangeNotGreater k = (0, Just (k + 1))
 
+-- | A test representing a disjunction of conjunctions (DNF), where atomic proposition bound the
+-- number of specific `TaggedBellPair`s using `Range`
 newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
 
 instance (Show tag, Ord tag, Default tag, Eq tag) => Show (BoundedTest tag) where

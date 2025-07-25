@@ -25,7 +25,9 @@ The PBKAT tool can:
   * produce automata capturing guarded strings of sets via `automaton` command
   * produce the execution traces via `execution-trace` command (e.g., Fig. 5 and Fig. 11)
   * produce the convex set of probability distributions via `run` command (Table 1)
-    machine-readable form for the next step via `--json` command)
+     * these outputs can be compared for equality to check if different protocols have the same
+       semantics
+     * machine-readable form for the next step is supported via `--json` option 
   * analyze the produced convex set of distributions via `probability` command (Table 1)
 
 
@@ -293,6 +295,20 @@ Structure of the generate PDF is the following:
       * **BellKAT Output** showing a set of possible multisets of BellPairs
       * **BellKAT Stats** with the BellKAT statistics that goes into columns of Table 1 similar to that of
         PBKAT
+
+#### Checking protocol equivalence
+
+To check if the two protocols have the same semantics, it is enough to compare the generated convex
+sets. As an example we look at PBKAT protocol `P5_1_II_parallel_three` and try comparing it with
+a different but equivalent version `P5_1_II_parallel_three_alt`:
+
+```bash
+cabal run probP5_1_II_parallel_three -- \
+    run >probP5_1_II_parallel_three.txt
+cabal run probP5_1_II_parallel_three_alt -- \
+    run >probP5_1_II_parallel_three_alt.txt
+diff probP5_1_II_parallel_three.txt probP5_1_II_parallel_three_alt.txt
+```
 
 #### Manual workflow (optional)
 

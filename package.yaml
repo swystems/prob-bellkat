@@ -228,6 +228,15 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  probP5_1_II_parallel_three_alt:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_1_II_parallel_three_alt.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   probP5_1_II_ordered_three:
     dependencies: 
       - bellkat

@@ -25,8 +25,8 @@ The PBKAT tool can:
   * produce automata capturing guarded strings of sets via `automaton` command
   * produce the execution traces via `execution-trace` command (e.g., Fig. 5 and Fig. 11)
   * produce the convex set of probability distributions via `run` command (Table 1)
-     * these outputs can be compared for equality to check if different protocols have the same
-       semantics
+     * these outputs can be compared for equality to check if different protocols are equivalent
+       with respect to $[\![-]\!]$ semantics
      * machine-readable form for the next step is supported via `--json` option 
   * analyze the produced convex set of distributions via `probability` command (Table 1)
 
@@ -300,7 +300,7 @@ Structure of the generate PDF is the following:
 
 To check if the two protocols have the same semantics, it is enough to compare the generated convex
 sets. As an example we look at PBKAT protocol `P5_1_II_parallel_three` and try comparing it with
-a different but equivalent version `P5_1_II_parallel_three_alt`:
+a different, but equivalent version `P5_1_II_parallel_three_alt`:
 
 ```bash
 cabal run probP5_1_II_parallel_three -- \

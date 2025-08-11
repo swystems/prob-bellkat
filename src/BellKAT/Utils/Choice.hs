@@ -58,15 +58,19 @@ choose _ [] = []
 choose n (x:xs) = [chooseAll [x] <> p | p <- choose (n - 1) xs] ++ [chooseNoneOf [x] <> p | p <- choose n xs]
 
 -- TODO: should morally be returning Maybe
-findElemsND :: (Ord a) => [a] -> Multiset a -> [Partial (Multiset a)]
-findElemsND [] ts = [chooseNoneOf ts]
-findElemsND bps@(bp:_) ts =
+-- | Find elements in a multiset ignoring the tag in matching
+-- | searching TaggedBellPair matching against BellPair
+-- findElemsND :: (Ord a) => [BP] -> Multiset taggedBPs -> [Partial (Multiset taggedBPs)]
+findElemsND :: (Ord a, Ord b) => (b -> a) -> [a] -> Multiset b -> [Partial (Multiset b)]
+findElemsND _ [] ts = [chooseNoneOf ts]
+findElemsND f bps@(bp:_) ts =
     let (curBps, restBps) = partition (== bp) bps
-        curTrees = Mset.filter (== bp) ts
-        restTrees = Mset.filter (/= bp) ts
+        curTrees = Mset.filter (\el -> f el == bp) ts
+        restTrees = Mset.filter (\el -> f el /= bp) ts
+                                    {-  ^ matching the untagged elem -}
      in [fmap Mset.fromList ts' <> ts''
             | ts' <- choose (length curBps) (toList curTrees)
-            , ts'' <- findElemsND restBps restTrees]
+            , ts'' <- findElemsND f restBps restTrees]
 
 findTreeRootsP :: (Ord a) => Predicate a -> UForest a -> Partial (UForest a)
 findTreeRootsP p ts = 

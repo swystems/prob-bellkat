@@ -35,20 +35,25 @@ mapDesugarActions = fmap . desugarActions
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta)
         1.0 (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        [l ~ l] (l1 ~ l2 @ taTagOut ta)
         1.0 (taDup ta)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 1.0 (taDup ta)
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0.0 (taDup ta)
+        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) 0.0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta )
-        0.5 (taDup ta)
+        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta )
+        (-1) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
+
+-- I am setting prob. of dist with -1 to mark/identify that the action is distillation 
+-- (the actual prob. is computed at run time)
+-- TODO: a more elegant alternative would be introducing something like `cbpKind`
+-- that would avoid doing pattern matching in `ProbAtomicOneStepQuantum.hs`
 
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
@@ -68,18 +73,18 @@ data ProbabilisticActionConfiguration = PAC
 probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta)
         (swapProbability pac l) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        [l ~ l] (l1 ~ l2 @ taTagOut ta)
         (transmitProbability pac l (l1, l2)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) (createProbability pac l) (taDup ta)
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0 (taDup ta)
+        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) 0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)  
-        0.5 (taDup ta)
+        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta)  
+        (-1) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2)) (taDup ta)
 

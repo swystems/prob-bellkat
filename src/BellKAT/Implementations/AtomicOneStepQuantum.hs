@@ -21,6 +21,9 @@ import BellKAT.Utils.Choice
 newtype AtomicOneStepPolicy tag = AtomicOneStepPolicy (AtomicAction tag)
     deriving newtype (Eq, Ord, Show, OrderedSemigroup, ParallelSemigroup)
 
+-- TODO: I did not fully get this module, is it non-probabilistic?
+-- I just did what necessary for compilation, but I am not sure about these changes
+
 execute
     :: (Ord tag)
     => AtomicOneStepPolicy tag
@@ -30,7 +33,8 @@ execute (AtomicOneStepPolicy act) bps =
     if getBPsPredicate (toBPsPredicate . aaTest $ act) bps
        then Set.fromList 
         [ aaOutputBPs act <> rest partial
-        | partial <- findElemsND (toList . aaInputBPs $ act) bps]
+        | partial <- findElemsND id (toList . aaInputBPs $ act) bps]
+                               {- ^ should this be untagBellPair ?-}
        else mempty
 
 instance (Ord tag, Default tag) 
@@ -38,10 +42,10 @@ instance (Ord tag, Default tag)
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
         case prob of
           1.0 -> 
-            createBasicAction (Mset.fromList bps) [bp]
+            createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]
           _ ->
-              createBasicAction (Mset.fromList bps) [bp]
-              <> createBasicAction (Mset.fromList bps) []
+              createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]
+              <> createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) []
 
 instance Ord tag => Tests (AtomicOneStepPolicy tag) FreeTest tag where
     test t = 

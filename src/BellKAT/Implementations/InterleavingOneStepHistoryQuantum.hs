@@ -10,6 +10,7 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum
     , executeFree
     ) where
 
+import           Data.Default                 (Default)
 import           Data.Functor.Compose         (Compose (..))
 import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Set                     (Set)
@@ -133,7 +134,7 @@ executePartial
 executePartial (Compose osp) = applyPartialNDEndo (executeFunctionStep (executeOneStepPolicy osp))
 
 executeFree 
-    :: forall test tag. (Test test, Ord tag) 
+    :: forall test tag. (Test test, Ord tag, Default tag) 
     => Compose InterleavingOneStepPolicy (FreeStep test) tag -> History tag -> Set (History tag)
 executeFree = 
      execute 

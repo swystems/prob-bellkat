@@ -1,0 +1,125 @@
+{- |
+   Module : BellKAT.Definitions.QuantumOps
+   Description : Syntactic definitions related to quantum operations
+-}
+module BellKAT.Implementations.QuantumOps (
+    -- * Quantum tags
+    QuantumTag(..),
+    TimeUnit,
+    Werner,
+    -- * Utils
+    getDefaultQuantumBellPair,
+    -- * Bell pair operations
+    swapBPs,
+    distBPs,
+) where
+
+import GHC.Exts (fromList, toList)
+import qualified BellKAT.Utils.Multiset              as Mset
+import Data.Default
+import BellKAT.Definitions.Core
+import BellKAT.Utils.Distribution
+
+type TimeUnit = Int      -- discrete and fixed (L/c) time unit
+type Werner = Rational   -- representing fidelity, in the range [0,1]
+
+-- | A quantum tag for Bell pairs
+data QuantumTag = QuantumTag
+    { qtTimestamp  :: TimeUnit -- timestamp of production of the BP
+    , qtFidelity :: Werner     -- quality at the time of production of the BP
+    }
+    deriving stock (Eq, Ord)
+
+instance Show QuantumTag where
+    show (QuantumTag t w) = "{w=" ++ show w ++ ", t=" ++ show t ++ "}"
+
+instance Default QuantumTag where
+    def = QuantumTag 0 0.8
+                                            {- ^ example to see fidelity evolving with swap -}
+-- | TODO: maybe default could be 1, but in general it would be nice for it to be in PAC
+
+-- | Converts a dummy taggedBP to one with default tags (initial qualities and time of production)
+getDefaultQuantumBellPair :: TaggedBellPair tag -> TaggedBellPair QuantumTag
+getDefaultQuantumBellPair (TaggedBellPair bp _) = TaggedBellPair bp def
+
+-- | Swap two Bell pairs and returns a distribution D' 
+-- | with probability p (the success probability) the output is a new tagged Bell pair connecting the two end nodes, 
+-- | and with probability 1-p the swap fails
+-- | On failure, no entangled pair remains (both inputs are destroyed in the process). 
+-- | Note: it fails if not exactly two bell pairs are given in input
+swapBPs :: Rational
+            -> TaggedBellPairs QuantumTag
+            -> D' (TaggedBellPairs QuantumTag)
+swapBPs p bps = 
+    case toList bps of
+        [TaggedBellPair bp1 (QuantumTag t1 w1), TaggedBellPair bp2 (QuantumTag t2 w2)] ->
+            let
+                (locA, _) = locations bp1
+                (locB, _) = locations bp2
+                -- ^ TODO: As mentioned in Atomic.hs, probably is useless to compute locations here, since we can use the TBP coming from abstract semantics
+                newTag = QuantumTag
+                    { qtTimestamp = max t1 t2
+                    , qtFidelity  = w1 * w2
+                    }
+                successOutput = Mset.singleton (TaggedBellPair (locA ~ locB) newTag)
+                failureOutput = mempty
+            in fromList [ (successOutput, p), (failureOutput, 1 - p) ]
+        _ -> fromList [(mempty, 1)] 
+
+
+-- | Perform entanglement distillation on two tagged Bell pairs.
+-- | returns a distribution capturing the probabilistic nature of entanglement distillation. 
+-- | succeeds with probability `pDist = (1 + wA * wB) / 2`
+-- | to yield one new Bell pair with improved fidelity `wDist = (wA + wB + 4 * wA * wB) / (6 * pDist)`
+-- | and fails with the remaining probability (yielding no output pair, as the two input pairs are consumed)
+-- | Note: it fails if not exactly two bell pairs are given in input
+distBPs :: TaggedBellPairs QuantumTag
+        -> D' (TaggedBellPairs QuantumTag)
+distBPs taggedInputs =
+    case toList taggedInputs of
+        [TaggedBellPair bp1 (QuantumTag t1 w1), TaggedBellPair bp2 (QuantumTag t2 w2)] ->
+            let
+                (locA, _) = locations bp1
+                (_, locB) = locations bp2
+                -- ^ end-nodes remain the same (on assumption that bp1 and bp2 have identical end locations)
+                -- ^ TODO: As mentioned in Atomic.hs, probably is useless to compute locations here, since we can use the TBP coming from abstract semantics
+                pDist :: Rational
+                pDist = (1 + w1 * w2) / 2
+                newTag = QuantumTag
+                    { qtTimestamp = max t1 t2
+                    , qtFidelity  = (w1 + w2 + 4 * w1 * w2) / (6 * pDist)
+                    }
+                successOutput = Mset.singleton (TaggedBellPair (locA ~ locB) newTag)
+                failureOutput = mempty
+            in fromList [ (successOutput, pDist), (failureOutput, 1 - pDist) ]
+        _ -> fromList [(mempty, 1)]
+
+
+-- | EXTENSION: Memory decoherence, in function of time, is not yet there
+-- | TODO: Since the decaying function is an exponential factor, probably Double would be of enough precision. 
+-- | Rational would, in this case, be much more computationally expensive, right?
+
+-- | EXTENSION: Create: Output = Create p BellPair(loc) 
+-- representing creation of a new Bell pair at node loc (both ends same), 
+-- asFunction will ignore the (empty) input and produce a fresh entangled pair. 
+-- With probability p it yields one new TaggedBellPair QuantumTag (the output Bell pair with a new tag), 
+-- and with probability 1-p it yields no output (representing failure to create). 
+-- The new tag's timestamp is set to a base value (we use 0) since this is a freshly created pair. 
+-- Its fidelity is initialized to a default baseline e.g. 1.0
+
+-- | EXTENSION: Transmit: For Output = Transmit p BellPair(locA~locB)
+-- representing the transmission of one end of a local pair from src to a remote node dest, 
+-- asFunction will consume one input tagged pair (which should be a local loop at src). 
+-- On success (probability p), it produces a new entangled pair between dest and src. 
+-- The output tag's time is set to (input.qtTimestamp + 1) to model the delay of transmission. 
+-- The fidelity of the output pair is kept the same (for now).
+
+-- | EXTENSION: UnstableCreate: Output = UnstableCreate p BellPair(locA~locB) 
+-- representing generation (creation and transmission combined) of a new Bell pair. 
+-- asFunction will ignore the (empty) input and produce a fresh distributed entangled pair. 
+-- With probability p it yields one new TaggedBellPair QuantumTag (the output Bell pair with a new tag), 
+-- and with probability 1-p it yields no output (representing failure to generate). 
+-- The new tag's timestamp is set to a base value (we use 1) since this is a freshly generated pair. 
+-- Its fidelity is initialized to a default baseline e.g. 1.0
+
+-- | EXTENSION: if needed, add Destroy

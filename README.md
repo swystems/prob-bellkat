@@ -486,19 +486,18 @@ Please, check [Haskell language server documentation][hls] for editor support (o
   * install [Stack][stack]
   * install the following extra dependencies: 
 
-     * [Pango][pango] 1.50.6
+     * [GLPK][glpk] 5.0
+     * [Pango][pango] 1.52.1
      * [Cairo][cairo] 1.21.0
-     * [Zlib][zlib] 1.3
-     * [Glib][glib] 2.72
-     * [Ncurses][ncurses] 6.3
+     * [Glib][glib] 2.80
 
-     Those can be installed on ubuntu as follows:
+     The compatible versions can be installed on [Ubuntu][ubuntu] 24.04 as follows:
 
      ```bash
-     apt-get install libz-dev libtinfo-dev libcairo-dev libpango1.0
+     apt-get install libglpk-dev libz-dev libtinfo-dev libcairo-dev libpango1.0
      ```
 
-### Building the artifact (recommended to skip)
+### Building the artifact
 
 #### Nix
 
@@ -527,3 +526,5 @@ stack build
 [HSpec]: https://hspec.github.io/
 [haddock]: https://haskell-haddock.readthedocs.io/en/latest/
 [make]: https://www.gnu.org/software/make/
+[glpk]: https://www.gnu.org/software/glpk/
+[ubuntu]: https://ubuntu.com/download

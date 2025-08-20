@@ -62,5 +62,5 @@ output/probabilistic-examples/%.txt: probabilistic-examples/%.hs
 .PHONY: test
 test:
 
-README.pdf: README.md
-	pandoc --pdf-engine=lualatex --output $@ $<
+README.pdf: README.md metadata.yaml
+	pandoc --pdf-engine=lualatex --metadata-file metadata.yaml --output $@ $<

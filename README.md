@@ -1,23 +1,3 @@
----
-title: Artifact for "A Language for Quantifying Quantum Network Behavior"
-toc: true
-colorlinks: true
-urlcolor: blue!50!black
-toccolor: green!30!black
-header-includes: |
-    \usepackage{newunicodechar}
-    \newfontfamily{\fallbackfont}{Symbola}
-    \DeclareTextFontCommand{\textfallback}{\fallbackfont}
-    \newunicodechar{⦅}{\textfallback{⦅}}
-    \newunicodechar{⦆}{\textfallback{⦆}}
-    \newunicodechar{⦄}{\textfallback{⦄}}
-    \newunicodechar{⦃}{\textfallback{⦃}}
-    \newunicodechar{▶}{\textfallback{▶}}
-    \newunicodechar{⊤}{\textfallback{⊤}}
-    \newunicodechar{∧}{\textfallback{∧}}
-    \newunicodechar{∨}{\textfallback{∨}}
----
-
 The PBKAT tool allows to analyze behaviors of quantum network protocols capturing both probabilistic behavior stemming from quantum mechanics and non-determinstic behavior arising from resource contention. The tool is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
 
 The PBKAT tool can:

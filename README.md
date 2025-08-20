@@ -494,7 +494,8 @@ Please, check [Haskell language server documentation][hls] for editor support (o
      The compatible versions can be installed on [Ubuntu][ubuntu] 24.04 as follows:
 
      ```bash
-     apt-get install libglpk-dev libz-dev libtinfo-dev libcairo-dev libpango1.0
+     apt-get install \
+        libglpk-dev libz-dev libtinfo-dev libcairo-dev libpango1.0
      ```
 
 ### Building the artifact

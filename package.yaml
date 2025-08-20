@@ -9,6 +9,7 @@ default-extensions:
   - FlexibleContexts
   - ScopedTypeVariables
   - NoPolyKinds
+  - TypeOperators
 
 ghc-options:
   - -O2

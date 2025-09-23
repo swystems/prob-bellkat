@@ -12,27 +12,28 @@ module BellKAT.Definitions.Atomic (
     aaInputBPs,
     aaOutputBPs,
     createAtomicAction,
-    ProbabilisticAtomicAction,
+    ProbabilisticAtomicAction(..),
     createProbabilitsticAtomicAction,
-    paaTest,
-    paaInputBPs,
-    paaOutputBPD,
+    Output(..),
+    asFunction,
     -- * Re-export `RestrictedTest`s
     RestrictedTest,
     createRestrictedTest,
     (.+.),
     (.&&.),
+    ValidTag
 ) where
 
 import Data.Default
 import Control.Subcategory.Functor
 import Control.Subcategory.Pointed
-import Control.Subcategory.Applicative
 
+import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
+import BellKAT.Implementations.QuantumOps
 
 data AtomicAction tag = AtomicAction
     { aaTest :: RestrictedTest tag
@@ -71,45 +72,91 @@ createAtomicAction t inBPs outBPs =
         then AtomicAction t mempty mempty
         else AtomicAction t inBPs outBPs
 
+data Output =
+    Skip
+    -- ^ yiels mempty
+    | Try D.Probability (TaggedBellPair QuantumTag)
+    -- ^ yields a (trivial) probabilistic choice: singleton over the given TBP or empty
+    | Swap D.Probability (TaggedBellPair QuantumTag)
+    -- ^ yields the swapped Bell pair given the two in input, with probability p
+    | Distill (TaggedBellPair QuantumTag)
+    -- ^ yields the distilled Bell pair given the two same-location ones in input
+    -- ^ computing the probability dynamically
+    deriving stock (Eq, Ord, Show)
+
+-- | Ensure that any tag type used with the Output abstraction
+-- | can be interpreted into a distribution D'
+class ValidTag tag where
+    asFunction :: Output -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
+
+-- | Define an interpretation yeilding quantitatively correct results
+-- | TODO: Should this be in QuantumOps.hs ?
+-- | Pavel: Yes, I think it should be possible to keep this particular module tag agnostic. You can define a class instance in the module where you define the quantum tag.
+instance ValidTag QuantumTag where
+    asFunction Skip _ =
+        cpure mempty
+
+    asFunction (Try p o) _
+            | p == 0 = cpure mempty
+            | p == 1 = cpure (Mset.singleton o)
+            | otherwise = D.choose p (Mset.singleton o) mempty
+
+    asFunction (Swap p o) chosenBPs =
+        swapBPs p chosenBPs o
+
+    asFunction (Distill o) chosenBPs =
+        distBPs chosenBPs o
+
+-- | Workaround for the Maybe QuantumTag type - the type we set in `Prelude.hs`
+instance (ValidTag t, Ord t, Default t) => ValidTag (Maybe t) where
+    asFunction out bps =
+        let bps' = Mset.map (\(TaggedBellPair bp mtag) -> TaggedBellPair bp (maybe def id mtag)) bps
+            resultQ = asFunction out bps'
+            result = cmap (Mset.map (\(TaggedBellPair bp tag) -> TaggedBellPair bp (Just tag))) resultQ
+        in result
+
+-- | Defer the probabilistic branching to the execution phase (via asFunction):
+-- | Match inputs by location only, disregarding the tag,
+-- | which is only relevant for the `Output` function (probabilistic interpretation)
 data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
-    { paaTest :: RestrictedTest tag
-    , paaInputBPs :: TaggedBellPairs tag
-    , paaOutputBPD :: D' (TaggedBellPairs tag)
+    { paaTest :: RestrictedTest ()
+    , paaIO :: [(TaggedBellPairs (), Output)]
     } deriving stock (Eq, Ord)
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
 createProbabilitsticAtomicAction ::
     Ord tag =>
-    RestrictedTest tag ->
-    TaggedBellPairs tag ->
-    D' (TaggedBellPairs tag) ->
+    RestrictedTest () ->
+    [(TaggedBellPairs (), Output)] ->
     ProbabilisticAtomicAction tag
-createProbabilitsticAtomicAction t inBPs outBPs =
+createProbabilitsticAtomicAction t io =
     if t == createRestrictedTest [mempty]
-        then ProbabilisticAtomicAction t mempty (cpure mempty)
-        else ProbabilisticAtomicAction t inBPs outBPs
+        then ProbabilisticAtomicAction t mempty 
+        else ProbabilisticAtomicAction t io
 
 instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t1 inBps1 outBpsD1) <.> (ProbabilisticAtomicAction t2 inBps2 outBpsD2) =
+    (ProbabilisticAtomicAction t1 io1) <.> (ProbabilisticAtomicAction t2 io2) =
         createProbabilitsticAtomicAction
             (t1 .&&. (t2 .+. inBps1))
-            (inBps1 <> inBps2)
-            (cmap (uncurry (<>)) $ pair outBpsD1 outBpsD2)
+            (io1 <> io2)
+        where
+            inBps1 = mconcat [inBPs | (inBPs, _) <- io1]
 
 instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =
+    (ProbabilisticAtomicAction t1 io1) <||> (ProbabilisticAtomicAction t2 io2) =
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
-            (inBps1 <> inBps2)
-            (cmap (uncurry (<>)) $ pair outBps1 outBps2)
+            (io1 <> io2)
+        where
+            inBps1 = mconcat [inBPs | (inBPs, _) <- io1]
+            inBps2 = mconcat [inBPs | (inBPs, _) <- io2]
 
 instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
-    showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
+    showsPrec _ (ProbabilisticAtomicAction t io) =
             showString "["
             . shows t
             . showString "]"
             . showString ""
-            . shows inBPs
             . showString "▶"
-            . shows outBPs
+            . shows io
             . showString ""

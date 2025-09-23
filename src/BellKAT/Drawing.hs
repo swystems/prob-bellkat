@@ -15,6 +15,7 @@ import Data.Set (Set)
 import Data.List (intercalate, intersperse)
 
 import BellKAT.Utils.UnorderedTree (toForest) 
+import BellKAT.Definitions.Atomic
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions
@@ -52,31 +53,31 @@ drawPolicySteps :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
 drawPolicySteps p = historiesToDiagram . Set.elems . applyPolicySteps p $ []
 
 drawOrderedPolicySteps 
-    :: (Ord t, Show t) => SeqWithTests Policy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t)) => SeqWithTests Policy BellPairsPredicate (Maybe t) -> Diagram B
 drawOrderedPolicySteps p = historiesToDiagram . Set.elems . applyOrderedPolicy p $ []
 
 drawFullOrderedPolicySteps 
-    :: (Ord t, Show t) 
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t)) 
     => SeqWithTests FullPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawFullOrderedPolicySteps p = historiesToDiagram . Set.elems . applyFullOrderedPolicy p $ []
 
 drawStarPolicySteps 
-    :: (Ord t, Show t) 
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t)) 
     => WithTests OrderedStarPolicy FreeTest (Maybe t) -> Diagram B
 drawStarPolicySteps p = historiesToDiagram . Set.elems . applyStarPolicyH p $ []
 
 drawStarPolicyStepsText
-    :: (Ord t, Show t) 
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t)) 
     => WithTests OrderedStarPolicy FreeTest (Maybe t) -> String
 drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
-    :: (Ord t, Show t) 
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t)) 
     => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
-    :: (Ord t, Show t) 
+    :: (Ord t, Show t, Default t, ValidTag (Maybe t))
     => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 

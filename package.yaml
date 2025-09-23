@@ -183,6 +183,24 @@ executables:
     ghc-options:
       - -fprof-auto
       - -rtsopts
+  probPd:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/Pd.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probPd_parallel:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/Pd_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   probPa1:
     dependencies: 
       - bellkat

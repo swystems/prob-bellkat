@@ -31,6 +31,7 @@ import           Data.Default
 import           Data.Typeable
 
 import           BellKAT.Definitions.Structures
+import           BellKAT.Definitions.Atomic
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
@@ -50,42 +51,42 @@ import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 
 -- | = Deterministic (no explicit choice operator) one round policies
 
-applyPolicy :: Ord tag => Simple Policy tag -> History tag -> Set (History tag)
+applyPolicy :: (Ord tag, Default tag) => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicy = HQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
-applyPolicyTimely :: Ord tag => Simple Policy tag -> History tag -> Set (History tag)
+applyPolicyTimely :: (Ord tag, Default tag) => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicyTimely = THQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
-applyPolicySteps :: (Ord tag) => Simple Policy tag -> History tag -> Set (History tag)
+applyPolicySteps :: (Ord tag, Default tag) => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicySteps  = SHQ.execute HQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
 -- * Nondeterministic one round policies
 
 applyOneStepPolicyPartial 
-    :: (Ord tag, Show tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag) 
     => Simple OneRoundPolicy tag -> History tag -> Set (Partial (History tag))
 applyOneStepPolicyPartial = IOSHQ.executePartial . meaning . mapDesugarActions simpleActionMeaning
 
 applyOneStepPolicy 
-    :: (Ord tag, Show tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag) 
     => Simple OneRoundPolicy tag -> History tag -> Set (History tag)
 applyOneStepPolicy = IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
 -- * Policies with fake ordered composition (one that just collects component in a sequence)
 
 applyOrderedPolicy 
-    :: (Ord tag, Show tag, Test test) 
+    :: (Ord tag, Show tag, Test test, Default tag, ValidTag tag) 
     => SeqWithTests Policy test tag -> History tag -> Set (History tag)
 applyOrderedPolicy = 
     SHQ.execute IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
 applyFullOrderedPolicy 
-    :: (Ord tag, Show tag, Test test) 
+    :: (Ord tag, Show tag, Test test, Default tag, ValidTag tag) 
     => SeqWithTests FullPolicy test tag -> History tag -> Set (History tag)
 applyFullOrderedPolicy = SHQ.execute IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
 applyFullOrderedPolicyAuto 
-    :: (Ord tag, Show tag, Default tag, Test test) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Test test) 
     => SeqWithTests FullPolicy test tag -> History tag -> Set (History tag)
 applyFullOrderedPolicyAuto = 
     ASQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
@@ -94,14 +95,14 @@ applyFullOrderedPolicyAuto =
 
 -- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy 
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy = 
     ASQ.execute AOSQ.execute . meaning 
         . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
 
 applyStarPolicy' 
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
     => ProbabilisticActionConfiguration 
     -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy' pac = 
@@ -109,7 +110,7 @@ applyStarPolicy' pac =
         . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyStarOrderedPolicy
-    :: (Ord tag, Show tag, Default tag, Test test) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Test test) 
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicy = 
     ASQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning 
@@ -122,7 +123,7 @@ applyStarOrderedPolicy =
 -- | executes `OrderedStarPolicy` with tests as function on histories 
 -- Warning: note, histories may grow arbitrary long with `OrderedStarPolicy`
 applyStarPolicyH
-    :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Tests (IOSHQ.FunctionStep test tag) test tag) 
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarPolicyH = 
     ASQ.executeE IOSHQ.execute . meaning 
@@ -130,7 +131,7 @@ applyStarPolicyH =
 
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
     => (TaggedBellPairs tag -> Bool)
     -> WithTests OrderedStarPolicy test tag 
     -> TaggedBellPairs tag 
@@ -142,7 +143,7 @@ applyStarPolicyWithValidity isValid =
 -- | Similar to `applyStarPolicy` but errors if too many network state are observed in a given state
 -- of policy execution
 applyStarOrderedPolicyBounded
-    :: (Ord tag, Show tag, Default tag, Test test) 
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Test test) 
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarOrderedPolicyBounded = 
     (handleExecutionError .) 
@@ -159,7 +160,7 @@ applyStarOrderedPolicyBounded =
 
 -- | Probabilistic semantic function
 applyProbStarPolicy 
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, ValidTag tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -172,7 +173,7 @@ probabilisticDesugar
 probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyProbStarPolicy' 
-    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, ValidTag tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -184,14 +185,14 @@ applyProbStarPolicy' pac mbNC =
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 applyProbStarPolicyAutomaton
-    :: (Default tag, Ord tag, Show tag, Show (test tag), DecidableBoolean (test tag))
+    :: (Ord tag, Show tag, Default tag, ValidTag tag, Show (test tag), DecidableBoolean (test tag))
     => ProbabilisticActionConfiguration 
     -> Simple (OrderedGuardedPolicy (test tag)) tag
     -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy tag)
 applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
 
 applyProbStarPolicyStates
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, ValidTag tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -202,7 +203,7 @@ applyProbStarPolicyStates pac mbNC =
         . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem'
-    :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, ValidTag tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -214,7 +215,7 @@ applyProbStarPolicySystem' pac mbNC =
         . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: (Ord tag, Show tag, Typeable tag, Default tag, ValidTag tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
     -> Maybe (PAOSQ.NetworkCapacity tag)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 

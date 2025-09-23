@@ -17,6 +17,7 @@ import Control.Subcategory.Pointed
 import Control.Subcategory.Functor
 import Data.Typeable
 
+import qualified Data.Map                            as Map
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Utils.Distribution as D
 import BellKAT.Utils.Convex
@@ -24,7 +25,9 @@ import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
+import BellKAT.Implementations.QuantumOps
 import BellKAT.Utils.Choice
+import Control.Subcategory.Applicative (pair)
 
 -- | Essentially a symbol for `BellKAT.Utils.Automata.Guarded.GuardedFA` representing a set of
 -- `ProbabilisticAtomicAction`s. In particular, it can be built from "basic actions" (`CreateBellPairArgs`). 
@@ -48,20 +51,33 @@ instance Ord tag => ParallelSemigroup (ProbAtomicOneStepPolicy tag) where
 
 instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
     tryCreateBellPairFrom (CreateBellPairArgs i o p _) = ProbAtomicOneStepPolicy $ Set.fromList $
-            [ createProbabilitsticAtomicAction 
-                (createRestrictedTest mempty) 
-                (Mset.fromList i) 
-                (if p == 1 
-                 then cpure (Mset.singleton o) 
-                 else if p == 0
-                 then cpure mempty
-                 else D.choose p (Mset.singleton o) mempty)
+            [ createProbabilitsticAtomicAction
+                (createRestrictedTest mempty)
+                [(Mset.fromList $ map (`TaggedBellPair` ()) i,
+
+                    if length i <= 1
+                    then
+                        Try p (getDefaultQuantumBellPair o)
+                    --  ^ create, transmit, generate
+                    -- without distinction, output a probability distributions over default TBP
+
+                    else if length i == 2
+                    then
+                        (if p == 0 then Skip
+                        else if p == (-1) then Distill (getDefaultQuantumBellPair o)
+                        -- a distill ^ does not have a specified probability (marked it using -1)
+                        else Swap p (getDefaultQuantumBellPair o))
+                        -- swap ^ has a specified probability
+
+                    else error "ProbAtomicOneStepPolicy: not a valid action"
+                    {- ^ no action should have >2 required Bell pairs in this model -}
+                )]
             ] <> 
                 if i /= mempty 
                 then [createProbabilitsticAtomicAction 
-                        (createRestrictedTest  [Mset.fromList i]) 
-                        mempty 
-                        (cpure mempty)]
+                        (createRestrictedTest  [Mset.fromList $ map (`TaggedBellPair` ()) i])
+                        []
+                ]
                 else mempty
 
 -- | Network capacity, i.e., the maximum number of each possible `BellPair`, essentially
@@ -78,28 +94,63 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
 
 -- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
 -- `TaggedBellPairs`
-execute :: (Typeable tag, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+execute :: (Typeable tag, Show tag, Default tag, Ord tag, ValidTag tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 execute (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA id paa bps) xs
 
-execute' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+execute' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag, ValidTag tag) => ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 execute' p bps = mapProbability fromRational $ execute p bps
 
-executeWithCapacity :: (Typeable tag, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+executeWithCapacity :: (Typeable tag, Show tag, Default tag, Ord tag, ValidTag tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps = 
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
-executeWithCapacity' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+executeWithCapacity' :: (Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag, ValidTag tag) => NetworkCapacity tag -> ProbAtomicOneStepPolicy tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 executeWithCapacity' nc p bps = mapProbability fromRational $ executeWithCapacity nc p bps
 
-executePAA :: (Show tag, Ord tag, Default tag, Typeable tag)
-           => (TaggedBellPairs tag -> TaggedBellPairs tag) 
-           -- ^ "fixing" function to apply at the end
-           -> ProbabilisticAtomicAction tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
-executePAA fix act bps = 
-    if (getBPsPredicate . toBPsPredicate . paaTest) act bps 
-       then fromList [ cmap (fix . (<> rest partial)) (paaOutputBPD act) | partial <- findElemsND (toList . paaInputBPs $ act) bps]
-       else mempty
+executePAA :: (Show tag, Ord tag, Default tag, Typeable tag, ValidTag tag)
+                     => (TaggedBellPairs tag -> TaggedBellPairs tag) 
+                     -> ProbabilisticAtomicAction tag
+                     -> TaggedBellPairs tag
+                     -> CD' (TaggedBellPairs tag)
+executePAA _ act@(ProbabilisticAtomicAction _ []) untouched =
+    let testHolds = (getBPsPredicate . toBPsPredicate . paaTest) act (untagBellPairs' untouched)
+    in if testHolds
+        then fromList [cpure untouched]
+        else mempty
+executePAA fix act@(ProbabilisticAtomicAction _ ((i,o):ios)) bps =
+     let testHolds = (getBPsPredicate . toBPsPredicate . paaTest) act (untagBellPairs' bps)
+     in if testHolds
+        then fromList
+                [ cmap fix $ cmap (uncurry (<>)) $ pair (asFunction o (chosen partial)) dTail
+                | let requiredBPs = map untagBellPair (toList i)
+                , partial <- findElemsND untagBellPair requiredBPs bps
+                , let tailDist = executePAA fix (ProbabilisticAtomicAction (paaTest act) ios) (rest partial)
+                , dTail <- toList tailDist
+                ]
+         else mempty
 
+-- | Remove tags from a TaggedBellPair, yielding the underlying BellPair
+untagBellPair :: (Ord tag) => TaggedBellPair tag -> BellPair
+untagBellPair (TaggedBellPair bp _) = bp
+
+-- | Remove tags from a multiset of tagged Bell pairs, yielding stripped TaggedBellPairs
+untagBellPairs' :: (Ord tag) => TaggedBellPairs tag -> TaggedBellPairs ()
+untagBellPairs' = Mset.map (\(TaggedBellPair bp _) -> TaggedBellPair bp ())
+
+-- | Count BellPairs in a TaggedBellPairs, disregarding tag
+countByBellPair :: Ord tag => [TaggedBellPair tag] -> Map.Map BellPair Int
+countByBellPair xs = Map.fromListWith (+) [ (untagBellPair tbp, 1) | tbp <- xs ]
+
+-- | For each BellPair, keep at most the number allowed
 fixNetworkCapacity :: Ord tag => NetworkCapacity tag -> TaggedBellPairs tag -> TaggedBellPairs tag
-fixNetworkCapacity (NC x) = Mset.min x
+fixNetworkCapacity (NC cap) xs =
+  let capCounts = countByBellPair (toList cap)
+      grouped = Map.fromListWith (++) [(untagBellPair tbp, [tbp]) | tbp <- toList xs]
+                                {- ^ duplicates with same key concatenate -}
+      clipped = concat
+        [ take (Map.findWithDefault maxBound bp capCounts) tbps
+        {- ^ keeps only first n tagged instances for that BellPair -}
+        | (bp, tbps) <- Map.toList grouped
+        ]
+  in fromList clipped

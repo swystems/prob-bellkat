@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeApplications #-}
 module BellKAT.ProbabilisticPrelude (
     -- * PBKAT Policy syntax
-    BellKATTagChar(..),
     BellKATTag,
     ProbBellKATTest,
     ProbBellKATAction,

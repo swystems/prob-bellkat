@@ -6,6 +6,7 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum.FunctionStep
     , PartialNDEndo (..)
     ) where
 
+import           Data.Default
 import           Data.Kind
 import           Data.Functor.Classes
 
@@ -28,10 +29,11 @@ instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
     (FunctionStep p) <+> (FunctionStep q) = FunctionStep . PartialNDEndo $
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
-instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
+instance (Ord tag, Default tag) => CreatesBellPairs (FunctionStep test tag) tag where
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob dk) =
-        FunctionStep . PartialNDEndo $ \h@(History ts) ->
-            case findTreeRootsND bps ts of
+        let taggedBps = map (`TaggedBellPair` def) bps
+        in FunctionStep . PartialNDEndo $ \h@(History ts) ->
+            case findTreeRootsND taggedBps ts of
             [] -> [chooseNoneOf h]
             partialNewTs ->
                 mconcat

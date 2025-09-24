@@ -12,7 +12,7 @@ import           BellKAT.Drawing
 import           BellKAT.Implementations.QuantumOps
 
 
-type Tag = Maybe QuantumTag
+type Tag = QuantumTag
 
 testEquality 
     :: (Show t, Eq t, Default t)

@@ -41,7 +41,7 @@ import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
 import BellKAT.Implementations.QuantumOps
 
-type BellKATTag = Maybe QuantumTag
+type BellKATTag = QuantumTag
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

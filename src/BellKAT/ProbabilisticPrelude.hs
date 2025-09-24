@@ -31,6 +31,7 @@ import Data.Semigroup (stimes)
 import BellKAT.Prelude
 import BellKAT.DSL
 import BellKAT.Definitions
+import BellKAT.Definitions.Atomic ()  
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity)

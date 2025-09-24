@@ -25,15 +25,10 @@ module BellKAT.Definitions.Atomic (
 ) where
 
 import Data.Default
-import Control.Subcategory.Functor
-import Control.Subcategory.Pointed
-
-import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
-import BellKAT.Implementations.QuantumOps
 
 data AtomicAction tag = AtomicAction
     { aaTest :: RestrictedTest tag
@@ -72,14 +67,14 @@ createAtomicAction t inBPs outBPs =
         then AtomicAction t mempty mempty
         else AtomicAction t inBPs outBPs
 
-data Output =
+data Output tag =
     Skip
     -- ^ yiels mempty
-    | Try D.Probability (TaggedBellPair QuantumTag)
+    | Try D.Probability (TaggedBellPair tag)
     -- ^ yields a (trivial) probabilistic choice: singleton over the given TBP or empty
-    | Swap D.Probability (TaggedBellPair QuantumTag)
+    | Swap D.Probability (TaggedBellPair tag)
     -- ^ yields the swapped Bell pair given the two in input, with probability p
-    | Distill (TaggedBellPair QuantumTag)
+    | Distill (TaggedBellPair tag)
     -- ^ yields the distilled Bell pair given the two same-location ones in input
     -- ^ computing the probability dynamically
     deriving stock (Eq, Ord, Show)
@@ -87,47 +82,21 @@ data Output =
 -- | Ensure that any tag type used with the Output abstraction
 -- | can be interpreted into a distribution D'
 class ValidTag tag where
-    asFunction :: Output -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
-
--- | Define an interpretation yeilding quantitatively correct results
--- | TODO: Should this be in QuantumOps.hs ?
--- | Pavel: Yes, I think it should be possible to keep this particular module tag agnostic. You can define a class instance in the module where you define the quantum tag.
-instance ValidTag QuantumTag where
-    asFunction Skip _ =
-        cpure mempty
-
-    asFunction (Try p o) _
-            | p == 0 = cpure mempty
-            | p == 1 = cpure (Mset.singleton o)
-            | otherwise = D.choose p (Mset.singleton o) mempty
-
-    asFunction (Swap p o) chosenBPs =
-        swapBPs p chosenBPs o
-
-    asFunction (Distill o) chosenBPs =
-        distBPs chosenBPs o
-
--- | Workaround for the Maybe QuantumTag type - the type we set in `Prelude.hs`
-instance (ValidTag t, Ord t, Default t) => ValidTag (Maybe t) where
-    asFunction out bps =
-        let bps' = Mset.map (\(TaggedBellPair bp mtag) -> TaggedBellPair bp (maybe def id mtag)) bps
-            resultQ = asFunction out bps'
-            result = cmap (Mset.map (\(TaggedBellPair bp tag) -> TaggedBellPair bp (Just tag))) resultQ
-        in result
+    asFunction :: Output tag -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
 
 -- | Defer the probabilistic branching to the execution phase (via asFunction):
 -- | Match inputs by location only, disregarding the tag,
 -- | which is only relevant for the `Output` function (probabilistic interpretation)
 data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
     { paaTest :: RestrictedTest ()
-    , paaIO :: [(TaggedBellPairs (), Output)]
+    , paaIO :: [(TaggedBellPairs (), Output tag)]
     } deriving stock (Eq, Ord)
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
 createProbabilitsticAtomicAction ::
     Ord tag =>
     RestrictedTest () ->
-    [(TaggedBellPairs (), Output)] ->
+    [(TaggedBellPairs (), Output tag)] ->
     ProbabilisticAtomicAction tag
 createProbabilitsticAtomicAction t io =
     if t == createRestrictedTest [mempty]

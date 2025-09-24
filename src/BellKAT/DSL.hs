@@ -65,37 +65,37 @@ class DSLFunctions p where
     defaultTagged :: Action -> p
     (.%) :: p -> DupKind -> p
 
-instance DSLFunctions (TaggedAction (Maybe tag)) where
+instance Default tag => DSLFunctions (TaggedAction tag) where
     defaultTagged a = TaggedAction def a def mempty
     (TaggedAction p a t _) .% dk = TaggedAction p a t dk
 
-instance DSLFunctions (Simple Policy (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple Policy tag) where
     defaultTagged = APAtomic . defaultTagged
 
     APAtomic ta .% dk = APAtomic $ ta .% dk
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests Policy test (Maybe tag)) where
+instance Default tag => DSLFunctions (SeqWithTests Policy test tag) where
     defaultTagged = APAtomic . pure . AAction . defaultTagged
 
     APAtomic (AAction ta :| []) .% dk = APAtomic [ AAction $ ta .% dk ]
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (Simple OrderedStarPolicy (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple OrderedStarPolicy tag) where
     defaultTagged = OSPAtomic . defaultTagged 
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (WithTests OrderedStarPolicy test (Maybe tag)) where
+instance Default tag => DSLFunctions (WithTests OrderedStarPolicy test tag) where
     defaultTagged = OSPAtomic . AAction . defaultTagged
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
+instance Default tag => DSLFunctions (SeqWithTests FullPolicy test tag) where
     defaultTagged = FPAtomic . pure .  AAction . defaultTagged
 
     FPAtomic (AAction ta :| []) .% dk = FPAtomic [ AAction $ ta .% dk ]
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (Simple (OrderedGuardedPolicy test) (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple (OrderedGuardedPolicy test) tag) where
     defaultTagged = OGPAtomic . defaultTagged
     _ .% _ = error "cannot attach dup to this thing"
 

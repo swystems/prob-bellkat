@@ -25,7 +25,6 @@ import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
-import BellKAT.Implementations.QuantumOps
 import BellKAT.Utils.Choice
 import Control.Subcategory.Applicative (pair)
 
@@ -57,16 +56,16 @@ instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
 
                     if length i <= 1
                     then
-                        Try p (getDefaultQuantumBellPair o)
+                        Try p o
                     --  ^ create, transmit, generate
                     -- without distinction, output a probability distributions over default TBP
 
                     else if length i == 2
                     then
                         (if p == 0 then Skip
-                        else if p == (-1) then Distill (getDefaultQuantumBellPair o)
+                        else if p == (-1) then Distill o
                         -- a distill ^ does not have a specified probability (marked it using -1)
-                        else Swap p (getDefaultQuantumBellPair o))
+                        else Swap p o)
                         -- swap ^ has a specified probability
 
                     else error "ProbAtomicOneStepPolicy: not a valid action"

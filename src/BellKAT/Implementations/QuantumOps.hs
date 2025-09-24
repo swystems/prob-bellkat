@@ -16,9 +16,11 @@ module BellKAT.Implementations.QuantumOps (
 
 import GHC.Exts (fromList, toList)
 import qualified BellKAT.Utils.Multiset              as Mset
+import Control.Subcategory.Pointed
 import Data.Default
+import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
-import BellKAT.Utils.Distribution
+import BellKAT.Definitions.Atomic
 
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Rational   -- representing fidelity, in the range [0,1]
@@ -36,6 +38,23 @@ instance Show QuantumTag where
 instance Default QuantumTag where
     def = QuantumTag 0 0.8
                      {- ^ example to see fidelity evolving with swap -}
+
+-- | Define an interpretation yeilding quantitatively correct results
+instance ValidTag QuantumTag where
+    asFunction Skip _ =
+        cpure mempty
+
+    asFunction (Try p o) _
+            | p == 0 = cpure mempty
+            | p == 1 = cpure (Mset.singleton o)
+            | otherwise = D.choose p (Mset.singleton o) mempty
+
+    asFunction (Swap p o) chosenBPs =
+        swapBPs p chosenBPs o
+
+    asFunction (Distill o) chosenBPs =
+        distBPs chosenBPs o
+
 
 -- | Converts a dummy taggedBP to one with default tags (initial qualities and time of production)
 getDefaultQuantumBellPair :: TaggedBellPair tag -> TaggedBellPair QuantumTag

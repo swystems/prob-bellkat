@@ -36,9 +36,9 @@ execute (AtomicOneStepPolicy act) bps =
 
 instance (Ord tag, Default tag) 
   => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
-        case prob of
-          1.0 -> 
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp o _) =
+        case o of
+          FSkip -> 
             createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]
           _ ->
               createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]

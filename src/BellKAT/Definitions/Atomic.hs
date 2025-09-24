@@ -14,18 +14,14 @@ module BellKAT.Definitions.Atomic (
     createAtomicAction,
     ProbabilisticAtomicAction(..),
     createProbabilitsticAtomicAction,
-    Output(..),
-    asFunction,
     -- * Re-export `RestrictedTest`s
     RestrictedTest,
     createRestrictedTest,
     (.+.),
     (.&&.),
-    ValidTag
 ) where
 
 import Data.Default
-import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
@@ -67,26 +63,6 @@ createAtomicAction t inBPs outBPs =
         then AtomicAction t mempty mempty
         else AtomicAction t inBPs outBPs
 
-data Output tag =
-    Skip
-    -- ^ yiels mempty
-    | Try D.Probability (TaggedBellPair tag)
-    -- ^ yields a (trivial) probabilistic choice: singleton over the given TBP or empty
-    | Swap D.Probability (TaggedBellPair tag)
-    -- ^ yields the swapped Bell pair given the two in input, with probability p
-    | Distill (TaggedBellPair tag)
-    -- ^ yields the distilled Bell pair given the two same-location ones in input
-    -- ^ computing the probability dynamically
-    deriving stock (Eq, Ord, Show)
-
--- | Ensure that any tag type used with the Output abstraction
--- | can be interpreted into a distribution D'
-class ValidTag tag where
-    asFunction :: Output tag -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
-
--- | Defer the probabilistic branching to the execution phase (via asFunction):
--- | Match inputs by location only, disregarding the tag,
--- | which is only relevant for the `Output` function (probabilistic interpretation)
 data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
     { paaTest :: RestrictedTest ()
     , paaIO :: [(TaggedBellPairs (), Output tag)]

@@ -30,21 +30,20 @@ instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
 instance (Ord tag, Default tag) => CreatesBellPairs (FunctionStep test tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob dk) =
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp o dk) =
         let taggedBps = map (`TaggedBellPair` def) bps
         in FunctionStep . PartialNDEndo $ \h@(History ts) ->
             case findTreeRootsND taggedBps ts of
             [] -> [chooseNoneOf h]
             partialNewTs ->
                 mconcat
-                [ case prob of
-                    1.0 -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial ]
+                [ case o of
+                    FSkip -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial ]
                     _  -> [ History <$> mapChosen (Mset.singleton . processDup dk bp) partial
                                 , History <$> partial { chosen = [] }
                                 ]
                 | partial <- partialNewTs
                 ]
-
 instance (Ord tag, Test test) => Tests (FunctionStep test tag) test tag where
   test t = FunctionStep . PartialNDEndo $ \h@(History ts) ->
     if getBPsPredicate (toBPsPredicate t) (Mset.map rootLabel ts) then [ chooseNoneOf h ] else []

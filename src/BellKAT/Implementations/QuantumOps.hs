@@ -20,7 +20,6 @@ import Control.Subcategory.Pointed
 import Data.Default
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
-import BellKAT.Definitions.Atomic
 
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Rational   -- representing fidelity, in the range [0,1]
@@ -41,18 +40,18 @@ instance Default QuantumTag where
 
 -- | Define an interpretation yeilding quantitatively correct results
 instance ValidTag QuantumTag where
-    asFunction Skip _ =
+    asFunction FSkip _ =
         cpure mempty
 
-    asFunction (Try p o) _
+    asFunction (FTry p o) _
             | p == 0 = cpure mempty
             | p == 1 = cpure (Mset.singleton o)
             | otherwise = D.choose p (Mset.singleton o) mempty
 
-    asFunction (Swap p o) chosenBPs =
+    asFunction (FSwap p o) chosenBPs =
         swapBPs p chosenBPs o
 
-    asFunction (Distill o) chosenBPs =
+    asFunction (FDistill o) chosenBPs =
         distBPs chosenBPs o
 
 

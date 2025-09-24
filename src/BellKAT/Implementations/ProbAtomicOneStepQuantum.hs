@@ -49,33 +49,15 @@ instance Ord tag => ParallelSemigroup (ProbAtomicOneStepPolicy tag) where
     x <||> y = fromList $ (<||>) <$> toList x <*> toList y
 
 instance Ord tag => CreatesBellPairs (ProbAtomicOneStepPolicy tag) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs i o p _) = ProbAtomicOneStepPolicy $ Set.fromList $
+    tryCreateBellPairFrom (CreateBellPairArgs i _ o _) = ProbAtomicOneStepPolicy $ Set.fromList $
             [ createProbabilitsticAtomicAction
                 (createRestrictedTest mempty)
-                [(Mset.fromList $ map (`TaggedBellPair` ()) i,
-
-                    if length i <= 1
-                    then
-                        Try p o
-                    --  ^ create, transmit, generate
-                    -- without distinction, output a probability distributions over default TBP
-
-                    else if length i == 2
-                    then
-                        (if p == 0 then Skip
-                        else if p == (-1) then Distill o
-                        -- a distill ^ does not have a specified probability (marked it using -1)
-                        else Swap p o)
-                        -- swap ^ has a specified probability
-
-                    else error "ProbAtomicOneStepPolicy: not a valid action"
-                    {- ^ no action should have >2 required Bell pairs in this model -}
-                )]
+                [(Mset.fromList $ map (`TaggedBellPair` ()) i, o)]
             ] <> 
                 if i /= mempty 
                 then [createProbabilitsticAtomicAction 
-                        (createRestrictedTest  [Mset.fromList $ map (`TaggedBellPair` ()) i])
-                        []
+                    (createRestrictedTest  [Mset.fromList $ map (`TaggedBellPair` ()) i])
+                    []
                 ]
                 else mempty
 

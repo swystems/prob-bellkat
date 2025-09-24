@@ -27,6 +27,9 @@ module BellKAT.Definitions.Core (
     Predicate(..),
     Partial(..),
     UTree(..),
+    Output(..),
+    asFunction,
+    ValidTag
     ) where
 
 import           Data.Bifunctor             (bimap)
@@ -46,6 +49,7 @@ import qualified Data.Vector.Fixed          as FV
 import           Test.QuickCheck            hiding (choose, (.&&.))
 
 import           BellKAT.Utils.Choice
+import           BellKAT.Utils.Distribution (D')
 import           BellKAT.Utils.Multiset     (Multiset)
 import qualified BellKAT.Utils.Multiset     as Mset
 import           BellKAT.Utils.UnorderedTree
@@ -117,10 +121,26 @@ instance Monoid DupKind where
 
 type Probability = Rational
 
+data Output tag =
+    FSkip
+    -- ^ yiels mempty
+    | FTry Probability (TaggedBellPair tag)
+    -- ^ yields a (trivial) probabilistic choice: singleton over the given TBP or empty
+    | FSwap Probability (TaggedBellPair tag)
+    -- ^ yields the swapped Bell pair given the two in input, with probability p
+    | FDistill (TaggedBellPair tag)
+    -- ^ yields the distilled Bell pair given the two same-location ones in input
+    -- ^ computing the probability dynamically
+    deriving stock (Eq, Ord, Show)
+
+class ValidTag tag where
+    asFunction :: Output tag -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
+ {- ^ Ensure that any tag type used with the Output abstraction can be interpreted into a distribution D' -}
+
 data CreateBellPairArgs tag = CreateBellPairArgs
-    { cbpInputBPs    :: [BellPair] -- ^ a multiset of required (input) `BellPair`s
-    , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
-    , cbpProbability :: Probability -- ^ probability of failure for operations that may fail
+    { cbpInputBPs    :: [BellPair] -- a multiset of required (input) `BellPair`s
+    , cbpOutputBP    :: TaggedBellPair tag -- a produced (output) `BellPair`
+    , cbpOutputF     :: Output tag -- an output function
     , cbpDup         :: DupKind
     }
 

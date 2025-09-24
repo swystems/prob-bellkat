@@ -44,7 +44,7 @@ instance Ord t => ParallelSemigroup (HistoryQuantum t) where
         }
 
 instance (Ord t, Default t) => CreatesBellPairs (HistoryQuantum t) t where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob dk) = 
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp o dk) = 
         let taggedBps = map (`TaggedBellPair` def) bps
         in HistoryQuantum
         { requiredRoots = [taggedBps]
@@ -53,8 +53,8 @@ instance (Ord t, Default t) => CreatesBellPairs (HistoryQuantum t) t where
                 [] -> [h]
                 partialTsNews ->
                     mconcat
-                    [ case prob of
-                        1.0 -> [History tsRest <> [processDup dk bp tsNew]]
+                    [ case o of
+                        FSkip -> [History tsRest <> [processDup dk bp tsNew]]
                         _ -> [History tsRest <> [processDup dk bp tsNew], History tsRest]
                     | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
                     ]

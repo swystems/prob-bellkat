@@ -36,19 +36,18 @@ simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta)
-        1.0 (taDup ta)
+        (FSwap 1.0 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l] (l1 ~ l2 @ taTagOut ta)
-        1.0 (taDup ta)
+        (FTry 1.0 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) 1.0 (taDup ta)
-    (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) 0.0 (taDup ta)
+        [] (l ~ l @ taTagOut ta ) (FTry 1.0 (l ~ l @ taTagOut ta )) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) FSkip (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta )
-        (-1) (taDup ta)
+        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) (FDistill (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta ) (FTry 0.5 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
 
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
@@ -68,20 +67,17 @@ data ProbabilisticActionConfiguration = PAC
 probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta)
-        (swapProbability pac l) (taDup ta)
+        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta) (FSwap (swapProbability pac l) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l] (l1 ~ l2 @ taTagOut ta)
-        (transmitProbability pac l (l1, l2)) (taDup ta)
+        [l ~ l] (l1 ~ l2 @ taTagOut ta ) (FTry (transmitProbability pac l (l1, l2)) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) (createProbability pac l) (taDup ta)
-    (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) 0 (taDup ta)
+        [] (l ~ l @ taTagOut ta ) (FTry (createProbability pac l) (l ~ l @ taTagOut ta )) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) FSkip (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta)  
-        (-1) (taDup ta)
+        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) (FDistill (l1 ~ l2 @ taTagOut ta)) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2)) (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta ) (FTry (uCreateProbability pac (l1, l2)) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 

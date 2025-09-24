@@ -15,7 +15,6 @@ import Data.Set (Set)
 import Data.List (intercalate, intersperse)
 
 import BellKAT.Utils.UnorderedTree (toForest) 
-import BellKAT.Definitions.Atomic
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions

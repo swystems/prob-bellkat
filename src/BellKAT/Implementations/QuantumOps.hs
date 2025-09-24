@@ -7,14 +7,10 @@ module BellKAT.Implementations.QuantumOps (
     QuantumTag(..),
     TimeUnit,
     Werner,
-    -- * Utils
-    getDefaultQuantumBellPair,
-    -- * Bell pair operations
-    swapBPs,
-    distBPs,
 ) where
 
 import GHC.Exts (fromList, toList)
+import qualified Data.Foldable as F
 import qualified BellKAT.Utils.Multiset              as Mset
 import Control.Subcategory.Pointed
 import Data.Default
@@ -22,7 +18,10 @@ import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
 
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
-type Werner = Rational   -- representing fidelity, in the range [0,1]
+type Werner = Double     -- representing fidelity, in the range [0,1]
+
+tCoherence :: TimeUnit
+tCoherence = 100
 
 -- | A quantum tag for Bell pairs
 data QuantumTag = QuantumTag
@@ -43,21 +42,24 @@ instance ValidTag QuantumTag where
     asFunction FSkip _ =
         cpure mempty
 
-    asFunction (FTry p o) _
-            | p == 0 = cpure mempty
-            | p == 1 = cpure (Mset.singleton o)
-            | otherwise = D.choose p (Mset.singleton o) mempty
+    asFunction (FCreate p outBp) inBps = 
+        createBP p inBps outBp
 
-    asFunction (FSwap p o) chosenBPs =
-        swapBPs p chosenBPs o
+    asFunction (FGenerate p outBp) inBps = 
+        generateBP p inBps outBp
 
-    asFunction (FDistill o) chosenBPs =
-        distBPs chosenBPs o
+    asFunction (FTransmit p outBp) inBps =
+        transmitBP p inBps outBp
 
+    asFunction (FDestroy _) _ =
+        cpure mempty
 
--- | Converts a dummy taggedBP to one with default tags (initial qualities and time of production)
-getDefaultQuantumBellPair :: TaggedBellPair tag -> TaggedBellPair QuantumTag
-getDefaultQuantumBellPair (TaggedBellPair bp _) = TaggedBellPair bp def
+    asFunction (FSwap p outBp) inBps =
+        swapBPs p inBps outBp
+
+    asFunction (FDistill outBp) inBps =
+        distBPs inBps outBp
+
 
 -- | Swap two Bell pairs and returns a distribution D' 
 -- | with probability p (the success probability) the output is a new tagged Bell pair connecting the two end nodes, 
@@ -73,8 +75,8 @@ swapBPs p inBps (TaggedBellPair outBp _) =
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
                 newTag = QuantumTag
-                    { qtTimestamp = max t1 t2
-                    , qtFidelity  = w1 * w2
+                    { qtTimestamp = max t1 t2 + 1
+                    , qtFidelity  = decayWerner (abs (t1 - t2)) (w1 * w2)
                     }
                 successOutput = Mset.singleton (TaggedBellPair outBp newTag)
                 failureOutput = mempty
@@ -95,43 +97,80 @@ distBPs inBps (TaggedBellPair outBp _) =
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
-                pDist :: Rational
-                pDist = (1 + w1 * w2) / 2
+                pDistD :: Double
+                pDistD = (1 + w1 * w2) / 2
+                wDistD :: Double
+                wDistD = (w1 + w2 + 4 * w1 * w2) / (6 * pDistD)
                 newTag = QuantumTag
-                    { qtTimestamp = max t1 t2
-                    , qtFidelity  = (w1 + w2 + 4 * w1 * w2) / (6 * pDist)
+                    { qtTimestamp = max t1 t2 + 1
+                    , qtFidelity  = decayWerner (abs (t1 - t2)) wDistD
                     }
                 successOutput = Mset.singleton (TaggedBellPair outBp newTag)
                 failureOutput = mempty
-            in fromList [ (successOutput, pDist), (failureOutput, 1 - pDist) ]
+            in fromList [ (successOutput, toRational pDistD), (failureOutput, 1 - toRational pDistD) ]
         _ -> error "distBPs: expected exactly two input tagged Bell pairs"
 
 
--- | EXTENSION: Memory decoherence, in function of time, is not yet there
--- | TODO: Since the decaying function is an exponential factor, probably Double would be of enough precision. 
--- | Rational would, in this case, be much more computationally expensive, right?
+-- | Auxiliary function
+-- | With probability p it yields one new TaggedBellPair QuantumTag (the output Bell pair with a new tag), 
+-- | and with probability 1-p it yields no output (representing failure). 
+produceBP :: Rational
+            -> TaggedBellPair QuantumTag
+            -> D' (TaggedBellPairs QuantumTag)
+produceBP p outBp
+        | p == 0 = cpure mempty
+        | p == 1 = cpure (Mset.singleton outBp)
+        | otherwise = D.choose p (Mset.singleton outBp) mempty
 
--- | EXTENSION: Create: Output = Create p BellPair(loc) 
--- representing creation of a new Bell pair at node loc (both ends same), 
--- asFunction will ignore the (empty) input and produce a fresh entangled pair. 
--- With probability p it yields one new TaggedBellPair QuantumTag (the output Bell pair with a new tag), 
--- and with probability 1-p it yields no output (representing failure to create). 
--- The new tag's timestamp is set to a base value (we use 0) since this is a freshly created pair. 
--- Its fidelity is initialized to a default baseline e.g. 1.0
+-- | Create: Output = Create p BellPair(loc) 
+-- | creation of a new Bell pair at node loc (both ends same), 
+-- | expecting no input Bell pairs.
+-- | New tag's timestamp is set to a base value (we use 0) since this is a freshly created pair. 
+-- | Fidelity is initialized to a default baseline or configured value.
+createBP :: Rational
+            -> TaggedBellPairs QuantumTag
+            -> TaggedBellPair QuantumTag
+            -> D' (TaggedBellPairs QuantumTag)
+createBP p inBps (TaggedBellPair outBp _) = 
+    if F.null inBps then 
+        let newTag = TaggedBellPair outBp def -- TODO: update by getting fidelity from config
+        in produceBP p newTag
+    else
+        error "createBP: expected empty input"
 
--- | EXTENSION: Transmit: For Output = Transmit p BellPair(locA~locB)
--- representing the transmission of one end of a local pair from src to a remote node dest, 
--- asFunction will consume one input tagged pair (which should be a local loop at src). 
--- On success (probability p), it produces a new entangled pair between dest and src. 
--- The output tag's time is set to (input.qtTimestamp + 1) to model the delay of transmission. 
--- The fidelity of the output pair is kept the same (for now).
+-- | Transmit: For Output = Transmit p BellPair(locA~locB)
+-- | transmission of one end of a local pair from src to a remote node dest, 
+-- | one input tagged pair (the local one) is expected.
+-- | The output tag's time is set to (input.qtTimestamp + 1) to model the delay of transmission. 
+-- | The fidelity of the output pair decays 1.
+transmitBP :: Rational
+           -> TaggedBellPairs QuantumTag
+           -> TaggedBellPair QuantumTag
+           -> D' (TaggedBellPairs QuantumTag)
+transmitBP p inBps (TaggedBellPair outBp _) =
+    case toList inBps of
+        [TaggedBellPair _ (QuantumTag t w)] ->
+            let newTag = TaggedBellPair outBp (QuantumTag (t + 1) (decayWerner 1 w))
+            in produceBP p newTag
+        _ -> error "transmitBP: expected exactly one input tagged Bell pair"
 
--- | EXTENSION: UnstableCreate: Output = UnstableCreate p BellPair(locA~locB) 
--- representing generation (creation and transmission combined) of a new Bell pair. 
--- asFunction will ignore the (empty) input and produce a fresh distributed entangled pair. 
--- With probability p it yields one new TaggedBellPair QuantumTag (the output Bell pair with a new tag), 
--- and with probability 1-p it yields no output (representing failure to generate). 
--- The new tag's timestamp is set to a base value (we use 1) since this is a freshly generated pair. 
--- Its fidelity is initialized to a default baseline e.g. 1.0
+-- | UnstableCreate: Output = UnstableCreate p BellPair(locA~locB) 
+-- | generation (creation and transmission combined) of a new Bell pair. 
+-- | one input tagged pair (the local one) is expected.
+-- | The new tag's timestamp is set to a base value (we use 1) since this is a freshly generated pair. 
+-- | Its fidelity is initialized to a default baseline or configured value.
+generateBP :: Rational
+           -> TaggedBellPairs QuantumTag
+           -> TaggedBellPair QuantumTag
+           -> D' (TaggedBellPairs QuantumTag)
+generateBP p inBps (TaggedBellPair outBp _) =
+    if F.null inBps then
+        let baseTag = def :: QuantumTag
+            newTag  = TaggedBellPair outBp baseTag { qtTimestamp = 1 } -- TODO: update by getting fidelity from config
+        in produceBP p newTag
+    else
+        error "generateBP: expected empty input"
 
--- | EXTENSION: if needed, add Destroy
+-- | Memory decoherence, in function of time
+decayWerner:: TimeUnit -> Werner -> Werner
+decayWerner deltaT w = w * exp (-fromIntegral deltaT / fromIntegral tCoherence)

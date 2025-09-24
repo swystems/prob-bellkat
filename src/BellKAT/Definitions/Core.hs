@@ -124,8 +124,12 @@ type Probability = Rational
 data Output tag =
     FSkip
     -- ^ yiels mempty
-    | FTry Probability (TaggedBellPair tag)
-    -- ^ yields a (trivial) probabilistic choice: singleton over the given TBP or empty
+    | FCreate Probability (TaggedBellPair tag)
+    | FGenerate Probability (TaggedBellPair tag)
+    | FTransmit Probability (TaggedBellPair tag)
+    -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
+    | FDestroy (TaggedBellPair tag)
+    -- ^ yields mempty (destroyed Bell pair)
     | FSwap Probability (TaggedBellPair tag)
     -- ^ yields the swapped Bell pair given the two in input, with probability p
     | FDistill (TaggedBellPair tag)

@@ -2,6 +2,7 @@ name: bellkat
 
 default-extensions:
   - DerivingStrategies
+  - NamedFieldPuns
   - TypeFamilies
   - GeneralizedNewtypeDeriving
   - FunctionalDependencies

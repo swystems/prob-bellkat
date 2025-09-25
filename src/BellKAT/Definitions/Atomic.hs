@@ -13,10 +13,11 @@ module BellKAT.Definitions.Atomic (
     aaOutputBPs,
     createAtomicAction,
     ProbabilisticAtomicAction,
+    ProbabilisticAtomicAction',
     createProbabilitsticAtomicAction,
     paaTest,
     paaInputBPs,
-    paaOutputBPD,
+    paaOutput,
     -- * Re-export `RestrictedTest`s
     RestrictedTest,
     createRestrictedTest,
@@ -25,9 +26,6 @@ module BellKAT.Definitions.Atomic (
 ) where
 
 import Data.Default
-import Control.Subcategory.Functor
-import Control.Subcategory.Pointed
-import Control.Subcategory.Applicative
 
 import BellKAT.Utils.Distribution as D
 import BellKAT.Definitions.Core
@@ -71,39 +69,41 @@ createAtomicAction t inBPs outBPs =
         then AtomicAction t mempty mempty
         else AtomicAction t inBPs outBPs
 
-data ProbabilisticAtomicAction tag = ProbabilisticAtomicAction
+data ProbabilisticAtomicAction output tag = ProbabilisticAtomicAction
     { paaTest :: RestrictedTest tag
     , paaInputBPs :: TaggedBellPairs tag
-    , paaOutputBPD :: D' (TaggedBellPairs tag)
+    , paaOutput :: output
     } deriving stock (Eq, Ord)
+
+type ProbabilisticAtomicAction' tag = ProbabilisticAtomicAction (D' (TaggedBellPairs tag)) tag
 
 -- | Creates `AtomicAction` normalizing `TaggedBellPairs` components of "zero" atomic actions
 createProbabilitsticAtomicAction ::
-    Ord tag =>
+    (Monoid output, Ord tag) =>
     RestrictedTest tag ->
     TaggedBellPairs tag ->
-    D' (TaggedBellPairs tag) ->
-    ProbabilisticAtomicAction tag
-createProbabilitsticAtomicAction t inBPs outBPs =
+    output ->
+    ProbabilisticAtomicAction output tag
+createProbabilitsticAtomicAction t inBPs o =
     if t == createRestrictedTest [mempty]
-        then ProbabilisticAtomicAction t mempty (cpure mempty)
-        else ProbabilisticAtomicAction t inBPs outBPs
+        then ProbabilisticAtomicAction t mempty mempty
+        else ProbabilisticAtomicAction t inBPs o
 
-instance Ord tag => OrderedSemigroup (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t1 inBps1 outBpsD1) <.> (ProbabilisticAtomicAction t2 inBps2 outBpsD2) =
+instance (Monoid output, Ord tag) => OrderedSemigroup (ProbabilisticAtomicAction output tag) where
+    (ProbabilisticAtomicAction t1 inBps1 out1) <.> (ProbabilisticAtomicAction t2 inBps2 out2) =
         createProbabilitsticAtomicAction
             (t1 .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (cmap (uncurry (<>)) $ pair outBpsD1 outBpsD2)
+            (out1 <> out2)
 
-instance Ord tag => ParallelSemigroup (ProbabilisticAtomicAction tag) where
-    (ProbabilisticAtomicAction t1 inBps1 outBps1) <||> (ProbabilisticAtomicAction t2 inBps2 outBps2) =
+instance (Monoid output, Ord tag) => ParallelSemigroup (ProbabilisticAtomicAction output tag) where
+    (ProbabilisticAtomicAction t1 inBps1 out1) <||> (ProbabilisticAtomicAction t2 inBps2 out2) =
         createProbabilitsticAtomicAction
             ((t1 .+. inBps2) .&&. (t2 .+. inBps1))
             (inBps1 <> inBps2)
-            (cmap (uncurry (<>)) $ pair outBps1 outBps2)
+            (out1 <> out2)
 
-instance (Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction tag) where
+instance (Show output, Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction output tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs outBPs) =
             showString "["
             . shows t

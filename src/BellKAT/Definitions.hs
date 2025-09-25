@@ -187,7 +187,7 @@ applyProbStarPolicyAutomaton
     :: (Default tag, Ord tag, Show tag, Show (test tag), DecidableBoolean (test tag))
     => ProbabilisticActionConfiguration 
     -> Simple (OrderedGuardedPolicy (test tag)) tag
-    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy tag)
+    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag)
 applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
 
 applyProbStarPolicyStates

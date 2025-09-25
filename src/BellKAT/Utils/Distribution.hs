@@ -84,6 +84,12 @@ instance (Eq p, Num p, Show p, Show a) => Show (D p a) where
             | p /= 1 = show x <> "×" <> show p
             | otherwise = show x
 
+instance (Ord a, Ord p, Fractional p, Semigroup a) => Semigroup (D p a) where
+    d <> d' = cmap (uncurry (<>)) (pair d d')
+
+instance (Fractional p, Ord p, Ord a, Monoid a) => Monoid (D p a) where
+    mempty = cpure mempty
+
 choose :: (Fractional p, Ord p, Ord a) => p -> a -> a -> D p a
 choose p x y = createD $ P.choose p x y
 

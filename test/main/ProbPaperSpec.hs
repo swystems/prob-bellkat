@@ -19,7 +19,7 @@ import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions
-type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
+type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy' BellKATTag)
 
 -- | = Example 4.2
 

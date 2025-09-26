@@ -15,10 +15,10 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
 import Control.Subcategory.Functor
-import Data.Typeable
+import Data.Foldable (foldl')
 
 import qualified BellKAT.Utils.Multiset              as Mset
-import BellKAT.Utils.Distribution (D', RationalOrDouble)
+import BellKAT.Utils.Distribution (D', RationalOrDouble, DDom)
 import qualified BellKAT.Utils.Distribution as D
 import BellKAT.Utils.Convex
 import BellKAT.Definitions.Core
@@ -81,40 +81,55 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
 -- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
 -- `TaggedBellPairs`
 execute
-    :: (Output output tag, Typeable tag, Show tag, Default tag, Ord tag)
-    => ProbAtomicOneStepPolicy output tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+    :: (Output output tag, Ord tag)
+    => (DDom (RTag output), Default (RTag output))
+    => ProbAtomicOneStepPolicy output tag 
+    -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
 execute (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA id paa bps) xs
 
 execute'
-    :: (Output output tag, Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag)
-    => ProbAtomicOneStepPolicy output tag -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+    :: (Output output tag, RationalOrDouble p, Ord tag)
+    => (DDom (RTag output), Default (RTag output))
+    => ProbAtomicOneStepPolicy output tag 
+    -> TaggedBellPairs (RTag output) -> CD p (TaggedBellPairs (RTag output))
 execute' p bps = D.mapProbability fromRational $ execute p bps
 
 executeWithCapacity
-    :: (Output output tag, Typeable tag, Show tag, Default tag, Ord tag)
+    :: (Output output tag, Ord tag)
+    => (DDom (RTag output), Default (RTag output))
     => NetworkCapacity tag
     -> ProbAtomicOneStepPolicy output tag
-    -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+    -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
 executeWithCapacity'
-    :: (Output output tag, Typeable tag, RationalOrDouble p, Show tag, Default tag, Ord tag)
+    :: (Output output tag, RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
+    => (DDom (RTag output), Default (RTag output))
     => NetworkCapacity tag -> ProbAtomicOneStepPolicy output tag
-    -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
+    -> TaggedBellPairs (RTag output) -> CD p (TaggedBellPairs (RTag output))
 executeWithCapacity' nc p bps = D.mapProbability fromRational $ executeWithCapacity nc p bps
 
-executePAA :: (Output output tag, Show tag, Ord tag, Default tag, Typeable tag)
-           => (TaggedBellPairs tag -> TaggedBellPairs tag)
+executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
+           => (Ord tag)
+           => (DDom (RTag output), Default (RTag output))
+           => (TaggedBellPairs (RTag output) -> TaggedBellPairs (RTag output))
            -- ^ "fixing" function to apply at the end
-           -> ProbabilisticAtomicAction output tag -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
+           -> ProbabilisticAtomicAction output tag 
+           -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
 executePAA fix act bps =
-    if (getBPsPredicate . toBPsPredicate . paaTest) act bps
+    if (getBPsPredicate . toBPsPredicate . paaTest) act (Mset.map (fmap staticTag) bps)
        then fromList
          [ cmap (fix . (<> rest)) (computeOutput (paaOutput act) chosen)
-           | Partial { chosen , rest }  <- findElemsND (toList . paaInputBPs $ act) bps]
+           | Partial { chosen , rest }  <- findElemsND' (fmap staticTag) (toList . paaInputBPs $ act) bps]
        else mempty
 
-fixNetworkCapacity :: Ord tag => NetworkCapacity tag -> TaggedBellPairs tag -> TaggedBellPairs tag
-fixNetworkCapacity (NC x) = Mset.min x
+fixNetworkCapacity 
+    :: (RuntimeTag rTag tag, Ord rTag, Ord tag) 
+    => NetworkCapacity tag -> TaggedBellPairs rTag -> TaggedBellPairs rTag
+fixNetworkCapacity (NC nc) = fst . foldl' 
+    (\(acc, nc') bp -> if (staticTag <$> bp) `Mset.member` nc' 
+                         then (acc <> Mset.singleton bp, Mset.remove (staticTag <$> bp) nc') 
+                         else (acc, nc'))
+    (mempty, nc)

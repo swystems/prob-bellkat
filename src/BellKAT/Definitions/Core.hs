@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE StrictData      #-}
+{-# LANGUAGE DeriveFunctor   #-}
 module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location(..),
@@ -77,7 +78,7 @@ type BellPairs = Multiset BellPair
 data TaggedBellPair t = TaggedBellPair
     { bellPair    :: BellPair
     , bellPairTag :: t
-    } deriving stock (Eq, Ord)
+    } deriving stock (Eq, Ord, Functor)
 
 instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
     showsPrec _ (TaggedBellPair bp t) 

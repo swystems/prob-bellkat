@@ -120,7 +120,7 @@ executePAA :: (Output output tag, RuntimeTag (RTag output) tag)
            -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
 executePAA fix act bps =
     if (getBPsPredicate . toBPsPredicate . paaTest) act (Mset.map (fmap staticTag) bps)
-       then fromList
+       then mconcat
          [ cmap (fix . (<> rest)) (computeOutput (paaOutput act) chosen)
            | Partial { chosen , rest }  <- findElemsND' (fmap staticTag) (toList . paaInputBPs $ act) bps]
        else mempty

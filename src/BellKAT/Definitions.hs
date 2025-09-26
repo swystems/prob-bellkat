@@ -184,7 +184,7 @@ applyProbStarPolicy' pac mbNC =
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 applyProbStarPolicyAutomaton
-    :: (Default tag, Ord tag, Show tag, Show (test tag), DecidableBoolean (test tag))
+    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
     => ProbabilisticActionConfiguration 
     -> Simple (OrderedGuardedPolicy (test tag)) tag
     -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag)

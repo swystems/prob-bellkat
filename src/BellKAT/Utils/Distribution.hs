@@ -12,6 +12,7 @@ module BellKAT.Utils.Distribution
     , toSubdistribution
     , fromSubdistribution
     , sdjoin
+    , DDom
     , HasMapProbability (..)
     , RationalOrDouble (..)
     ) where
@@ -28,6 +29,8 @@ import qualified Data.Aeson as A
 import Data.Aeson ((.=), (.:))
 
 import qualified Numeric.Probability.Distribution as P
+
+import BellKAT.Utils.Convex.Constraint
 
 type Probability = Rational
 
@@ -144,7 +147,7 @@ instance RationalOrDouble Double where
     toDouble = id
 
 class HasMapProbability t where
-    mapProbability :: (RationalOrDouble p, RationalOrDouble p', Show a, Typeable a, Ord a) => (p -> p') -> t p a -> t p' a
+    mapProbability :: (RationalOrDouble p, RationalOrDouble p', DDom a) => (p -> p') -> t p a -> t p' a
 
 instance HasMapProbability D where
     mapProbability f = createD . P.fromFreqs . map (second f) . P.decons .  unD

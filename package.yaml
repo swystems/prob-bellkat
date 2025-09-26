@@ -75,6 +75,7 @@ library:
     - BellKAT.Utils.PartialNDEndo
     - BellKAT.Utils.Distribution
     - BellKAT.Utils.Convex
+    - BellKAT.Utils.Convex.Constraint
     - BellKAT.Utils.Convex.DConvexHull
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA

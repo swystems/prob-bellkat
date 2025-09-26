@@ -1,7 +1,6 @@
 module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
     , ProbAtomicOneStepPolicy'
-    , Output(..)
     , NetworkCapacity (NC)
     , execute
     , execute'
@@ -15,7 +14,6 @@ import Data.List (intercalate)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
-import Control.Subcategory.Pointed
 import Control.Subcategory.Functor
 import Data.Typeable
 
@@ -28,6 +26,7 @@ import BellKAT.Definitions.Tests
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Atomic
 import BellKAT.Utils.Choice
+import BellKAT.Implementations.Output
 
 -- | Essentially a symbol for `BellKAT.Utils.Automata.Guarded.GuardedFA` representing a set of
 -- `ProbabilisticAtomicAction`s. In particular, it can be built from "basic actions" (`CreateBellPairArgs`). 
@@ -37,16 +36,6 @@ newtype ProbAtomicOneStepPolicy output tag = ProbAtomicOneStepPolicy (Set (Proba
 
 type ProbAtomicOneStepPolicy' tag = ProbAtomicOneStepPolicy (D' (TaggedBellPairs tag)) tag
 
-class Monoid output => Output output tag | output -> tag where
-    computeOutput :: output -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
-    fromProbabilisticBP :: TaggedBellPair tag -> Probability -> output
-
-instance Ord tag => Output (D' (TaggedBellPairs tag)) tag where
-    computeOutput x _ = x
-    fromProbabilisticBP o p
-      | p == 1 = cpure (Mset.singleton o)
-      | p == 0 = cpure mempty
-      | otherwise = D.choose p (Mset.singleton o) mempty
 
 instance (Show output, Show tag, Ord tag, Default tag) => Show (ProbAtomicOneStepPolicy output tag) where
     show (ProbAtomicOneStepPolicy xs) = "{" <> intercalate "," (show <$> Set.toList xs) <> "}"

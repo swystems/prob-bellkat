@@ -67,6 +67,7 @@ library:
     - BellKAT.Implementations.GuardedAutomataStepQuantum
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
+    - BellKAT.Implementations.Output
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty

@@ -167,8 +167,8 @@ applyProbStarPolicy
 applyProbStarPolicy = applyProbStarPolicy'
 
 probabilisticDesugar 
-    :: (Functor f, CanDesugarActions a, HasDupKinds (f a)) 
-    => ProbabilisticActionConfiguration -> f a -> f (Desugared a)
+    :: (Functor f, CanDesugarActions' a, HasDupKinds (f a)) 
+    => ProbabilisticActionConfiguration -> f a -> f (Desugared' a)
 probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
 
 applyProbStarPolicy' 

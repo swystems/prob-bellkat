@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.ActionEmbeddings 
     ( -- * Interpreting individual actions
 
@@ -8,6 +9,8 @@ module BellKAT.ActionEmbeddings
     , probabilisticActionMeaning
       -- * Interpreting actions within policies
     , CanDesugarActions(..)
+    , CanDesugarActions'
+    , Desugared'
     , mapDesugarActions
     ) where
 
@@ -20,19 +23,22 @@ import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core
 
 -- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
-class CanDesugarActions a where
+class CanDesugarActions op a where
     type Tag a :: Type
-    type Desugared a :: Type
-    desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> a -> Desugared a
+    type Desugared op a :: Type
+    desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> a -> Desugared op a
+
+type CanDesugarActions' = CanDesugarActions Probability
+type Desugared' a = Desugared Probability a
 
 mapDesugarActions 
-    :: (Functor f, CanDesugarActions a)
-    => (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> f a -> f (Desugared a)
+    :: (Functor f, CanDesugarActions op a)
+    => (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> f a -> f (Desugared op a)
 mapDesugarActions = fmap . desugarActions
 
 -- | gives meaning to actions in a simplistic (*BellKAT*) manner, i.e., only `Distill` and
 -- `UnstableCreate` may fail, and exactly with probability 0.5
-simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
+simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
@@ -65,7 +71,8 @@ data ProbabilisticActionConfiguration = PAC
 
 -- | gives meaning to actions while taking into account success probabilities
 -- represented as a ProbabilisticActionConfiguration`
-probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
+probabilisticActionMeaning 
+    :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs' t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
@@ -113,18 +120,18 @@ transmitProbabilitySingle pac l =
       Nothing -> error $ "no transmit probability for " <> show l
       Just p -> p
 
-instance CanDesugarActions (TaggedAction tag) where
+instance CanDesugarActions op (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag
-    type Desugared (TaggedAction tag) = CreateBellPairArgs tag
+    type Desugared op (TaggedAction tag) = CreateBellPairArgs op tag
     desugarActions = id
 
-instance CanDesugarActions a => CanDesugarActions (NonEmpty a) where
+instance CanDesugarActions op a => CanDesugarActions op (NonEmpty a) where
     type Tag (NonEmpty a) = Tag a
-    type Desugared (NonEmpty a) = NonEmpty (Desugared a)
+    type Desugared op (NonEmpty a) = NonEmpty (Desugared op a)
     desugarActions = fmap . desugarActions
 
-instance CanDesugarActions (Atomic TaggedAction test tag) where 
+instance CanDesugarActions op (Atomic TaggedAction test tag) where 
     type Tag (Atomic TaggedAction test tag) = tag
-    type Desugared (Atomic TaggedAction test tag) = (Atomic CreateBellPairArgs test tag)
+    type Desugared op (Atomic TaggedAction test tag) = (Atomic (CreateBellPairArgs op) test tag)
     desugarActions f (AAction x) = AAction (f x)
     desugarActions _ (ATest t) = ATest t

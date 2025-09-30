@@ -49,7 +49,7 @@ instance Ord t => ParallelSemigroup (TimelyHistoryQuantum t) where
                 ]
         }
 
-instance Ord t => CreatesBellPairs (TimelyHistoryQuantum t) t where
+instance Ord t => CreatesBellPairs (TimelyHistoryQuantum t) Probability t where
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _dk) = TimelyHistoryQuantum
         { requiredRootsTimely = [bps]
         , executeTimely = \h@(History ts) ->
@@ -64,7 +64,7 @@ instance Ord t => CreatesBellPairs (TimelyHistoryQuantum t) t where
                     ]
         }
 
-instance Ord t => Quantum (TimelyHistoryQuantum t) t where
+instance Ord t => Quantum (TimelyHistoryQuantum t) Probability t where
 
 execute :: Ord t => TimelyHistoryQuantum t -> History t -> Set (History t)
 execute h = Set.map fst . executeTimely h

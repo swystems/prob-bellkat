@@ -34,7 +34,7 @@ execute (AtomicOneStepPolicy act) bps =
        else mempty
 
 instance (Ord tag, Default tag) 
-  => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) tag where
+  => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) Probability tag where
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
         case prob of
           1.0 -> 

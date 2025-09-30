@@ -28,7 +28,7 @@ instance Ord tag => ChoiceSemigroup (FunctionStep test tag) where
     (FunctionStep p) <+> (FunctionStep q) = FunctionStep . PartialNDEndo $
         \h -> applyPartialNDEndo p h <> applyPartialNDEndo q h
 
-instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) tag where
+instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) Probability tag where
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob dk) =
         FunctionStep . PartialNDEndo $ \h@(History ts) ->
             case findTreeRootsND bps ts of

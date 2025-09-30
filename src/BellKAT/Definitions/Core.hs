@@ -9,6 +9,7 @@ module BellKAT.Definitions.Core (
     BellPairs,
     Probability,
     CreateBellPairArgs(..),
+    CreateBellPairArgs',
     hasLocation,
     TaggedBellPair(..),
     TaggedBellPairs,
@@ -118,18 +119,20 @@ instance Monoid DupKind where
 
 type Probability = Rational
 
-data CreateBellPairArgs tag = CreateBellPairArgs
+data CreateBellPairArgs op tag = CreateBellPairArgs
     { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
     , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
-    , cbpProbability :: Probability -- ^ probability of failure for operations that may fail
+    , cbpOp          :: op -- ^ operation creating `cbpOutputBP`
     , cbpDup         :: DupKind
     }
 
-instance HasDupKinds (CreateBellPairArgs tag) where
+type CreateBellPairArgs' = CreateBellPairArgs Probability
+
+instance HasDupKinds (CreateBellPairArgs op tag) where
   setDupKinds dk cbp = cbp { cbpDup = dk }
   modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
-instance Show1 CreateBellPairArgs where
+instance Show1 (CreateBellPairArgs op) where
   liftShowsPrec _ _ _ _ = shows "cbp"
 
 -- * History of BellPairs

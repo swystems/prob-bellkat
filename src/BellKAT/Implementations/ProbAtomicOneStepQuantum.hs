@@ -52,7 +52,7 @@ instance (Monoid output, Ord output, Ord tag) => ParallelSemigroup (ProbAtomicOn
     x <||> y = fromList $ (<||>) <$> toList x <*> toList y
 
 instance (Output output tag, Ord output, Ord tag)
-        => CreatesBellPairs (ProbAtomicOneStepPolicy output tag) tag where
+        => CreatesBellPairs (ProbAtomicOneStepPolicy output tag) Probability tag where
     tryCreateBellPairFrom (CreateBellPairArgs i o p _) = ProbAtomicOneStepPolicy $ Set.fromList $
             [ createProbabilitsticAtomicAction
                 (createRestrictedTest mempty)

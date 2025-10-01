@@ -1,3 +1,7 @@
-resolver: lts-20.26
+resolver: lts-21.21
 nix:
-  packages: [zlib, cairo, glib, pkg-config, pango]
+  packages: [
+    zlib, cairo, glib, pkg-config, pango, glpk,
+    expat, libsysprof-capture, xorg.libXdmcp, pcre2,
+    util-linux,  libselinux, libsepol, fribidi, libthai, libdatrie
+  ]

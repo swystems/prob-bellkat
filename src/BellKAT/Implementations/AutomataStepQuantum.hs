@@ -58,31 +58,33 @@ deriving newtype instance ChoiceSemigroup (AutomatonFromChoice ac a)
   => ChoiceSemigroup (AutomatonStepQuantum ac a)
 
     
-instance (Ord t, CreatesBellPairs (sq t) t, ChoiceSemigroup (sq t), Pointed (AutomatonFromChoice 'ACEmbedded))
-        => CreatesBellPairs (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
+instance (Ord t, CreatesBellPairs (sq t) op t, ChoiceSemigroup (sq t), Pointed (AutomatonFromChoice 'ACEmbedded))
+        => CreatesBellPairs (AutomatonStepQuantum 'ACEmbedded (sq t)) op t where
     tryCreateBellPairFrom = point . tryCreateBellPairFrom
 
-instance (Ord t, Ord (sq t), CreatesBellPairs (NonEmpty (sq t)) t, Pointed (AutomatonFromChoice 'ACNormal))
-        => CreatesBellPairs (AutomatonStepQuantum 'ACNormal (sq t)) t where
+instance (Ord t, Ord (sq t), CreatesBellPairs (NonEmpty (sq t)) op t, Pointed (AutomatonFromChoice 'ACNormal))
+        => CreatesBellPairs (AutomatonStepQuantum 'ACNormal (sq t)) op t where
     tryCreateBellPairFrom = foldNonEmpty (<+>) . fmap point . tryCreateBellPairFrom
 
-instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) t, CreatesBellPairs (sq t) t)
-        => Quantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
+instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) op t, CreatesBellPairs (sq t) op t)
+        => Quantum (AutomatonStepQuantum 'ACEmbedded (sq t)) op t where
 
-instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t)
-        => Quantum (AutomatonStepQuantum 'ACNormal (sq t)) t where
+instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) op t)
+        => Quantum (AutomatonStepQuantum 'ACNormal (sq t)) op t where
 
-instance (ChoiceSemigroup (sq t), Quantum (sq t) t) 
-        => OrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
+instance Layered (AutomatonStepQuantum 'ACEmbedded (sq t)) where
     newtype Layer (AutomatonStepQuantum 'ACEmbedded (sq t)) = OneStep (sq t)
-    orderedTryCreateBellPairFrom = OneStep . tryCreateBellPairFrom
     liftLayer (OneStep s) = point s
 
-instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) t, OrderedSemigroup (sq t)) 
-        => OrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) t where
+instance (ChoiceSemigroup (sq t), Quantum (sq t) op t) 
+        => OrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) op t where
+    orderedTryCreateBellPairFrom = OneStep . tryCreateBellPairFrom
 
-instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t) 
-        => OrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) t where
+instance (Ord t, ChoiceSemigroup (sq t), Quantum (sq t) op t, OrderedSemigroup (sq t)) 
+        => OrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq t)) op t where
+
+instance (Ord t, Ord (sq t), ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) op t) 
+        => OrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) op t where
 
 instance (Semigroup (sq t)) => OrderedSemigroup (Layer (AutomatonStepQuantum 'ACEmbedded (sq t))) where
    (OneStep s) <.> (OneStep s') = OneStep (s <> s')
@@ -91,15 +93,17 @@ instance (Ord tag, Pointed (AutomatonFromChoice ac), Tests (sq tag) test tag)
         => Tests (AutomatonStepQuantum ac (sq tag)) test tag where
     test = point . test
 
-instance (Ord t, Ord (sq t), Tests (sq t) test t, ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) t) 
-        => TestsOrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) test t where
+instance (Ord t, Ord (sq t), Tests (sq t) test t, ParallelSemigroup (sq t), OrderedSemigroup (sq t), CreatesBellPairs (NonEmpty (sq t)) op t) 
+        => TestsOrderedQuantum (AutomatonStepQuantum 'ACNormal (sq t)) test op t where
 
-instance (Ord tag, ChoiceSemigroup (sq tag), TestsQuantum (sq tag) test tag)
-        => TestsOrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test tag where
+instance Tests (sq t) test t => TestsOrderedLayered (AutomatonStepQuantum 'ACEmbedded (sq t)) test t where
     orderedTest = OneStep . test
 
-instance (Ord tag, ChoiceSemigroup (sq tag), OrderedSemigroup (sq tag), TestsQuantum (sq tag) test tag)
-        => TestsOrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test tag where
+instance (Ord tag, ChoiceSemigroup (sq tag), TestsQuantum (sq tag) test op tag)
+        => TestsOrderedLayeredQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test op tag where
+
+instance (Ord tag, ChoiceSemigroup (sq tag), OrderedSemigroup (sq tag), TestsQuantum (sq tag) test op tag)
+        => TestsOrderedQuantum (AutomatonStepQuantum 'ACEmbedded (sq tag)) test op tag where
 
 executeE :: (Ord b, Show b)
     => (a -> b -> Set b)

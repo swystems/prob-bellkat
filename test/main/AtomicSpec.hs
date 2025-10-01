@@ -14,25 +14,25 @@ import BellKAT.Utils.Distribution as D
 
 import Test.Hspec
 
-piA :: ProbabilisticAtomicAction ()
+piA :: ProbabilisticAtomicAction' ()
 piA = createProbabilitsticAtomicAction
     (createRestrictedTest [])
     ["C" ~ "C"]
     (D.choose (4 / 5) ["A" ~ "C"] [])
 
-piC :: ProbabilisticAtomicAction ()
+piC :: ProbabilisticAtomicAction' ()
 piC = createProbabilitsticAtomicAction 
     (createRestrictedTest [])
     []
     (D.choose (2 / 3) ["C" ~ "C"] [])
 
-piS :: ProbabilisticAtomicAction ()
+piS :: ProbabilisticAtomicAction' ()
 piS = createProbabilitsticAtomicAction
     (createRestrictedTest [["C" ~ "C"]])
     []
     (cpure [])
 
-piB :: ProbabilisticAtomicAction ()
+piB :: ProbabilisticAtomicAction' ()
 piB = createProbabilitsticAtomicAction
     (createRestrictedTest [])
     ["C" ~ "C"]

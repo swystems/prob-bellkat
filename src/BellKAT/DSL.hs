@@ -129,12 +129,12 @@ infixl 9 .~
 class Taggable a t | a -> t where
     (.~) :: a -> t -> a
 
-instance Taggable (Simple Policy (Maybe t)) t where
-    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a (Just t) dupKind)
+instance Taggable (Simple Policy t) t where
+    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a t dupKind)
     _ .~ _ = error "cannot attach tag to this thing"
 
-instance Taggable (TaggedBellPair (Maybe t)) t where
-    tbp .~ t = tbp { bellPairTag = Just t }
+instance Taggable (TaggedBellPair t) t where
+    tbp .~ t = tbp { bellPairTag = t }
 
 instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
     OGPAtomic (TaggedAction ti a _ dupKind) .~ t = OGPAtomic (TaggedAction ti a (Just t) dupKind)
@@ -158,16 +158,16 @@ instance InverseTaggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
 hasTag :: Eq t => t -> TaggedBellPair (Maybe t) -> Bool
 hasTag tag tbp = Just tag == bellPairTag tbp
 
-instance Taggable (UTree (TaggedBellPair (Maybe t))) t where
-    Node (TaggedBellPair bp _) ts .~ t = Node (TaggedBellPair bp (Just t)) ts
+instance Taggable (UTree (TaggedBellPair t)) t where
+    Node (TaggedBellPair bp _) ts .~ t = Node (TaggedBellPair bp t) ts
 
 orP :: Predicate t -> Predicate t -> Predicate t
 orP (Predicate f) (Predicate g) = Predicate ((||) <$> f <*> g)
 
-(?~) :: t -> Simple Policy (Maybe t) -> Simple Policy (Maybe t)
+(?~) :: t -> Simple Policy t -> Simple Policy t
 tIn ?~ APAtomic (TaggedAction _ a tOut dupKind) = 
-    APAtomic $ TaggedAction (Just tIn) a tOut dupKind
+    APAtomic $ TaggedAction tIn a tOut dupKind
 _ ?~ p                           = p
 
-node :: Ord t => BellPair -> UTree (TaggedBellPair (Maybe t))
-node bp = Node (TaggedBellPair bp Nothing) []
+node :: (Default t, Ord t) => BellPair -> UTree (TaggedBellPair t)
+node bp = Node (TaggedBellPair bp def) []

@@ -9,10 +9,9 @@ import           Data.Default
 
 import           BellKAT.Definitions
 import           BellKAT.Drawing
-import           BellKAT.Implementations.QuantumOps
 
 
-type Tag = QuantumTag
+type Tag = Int
 
 testEquality 
     :: (Show t, Eq t, Default t)

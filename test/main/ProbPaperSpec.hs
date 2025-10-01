@@ -19,7 +19,7 @@ import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions
-type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy BellKATTag)
+type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy' BellKATTag)
 
 -- | = Example 4.2
 
@@ -261,17 +261,17 @@ p53' n k = (p53'e n k <||> p53'e' n k) <> swap "C" ("A", "B")
 
 -- | = Auxiliary definitions
 
-fromBasicAction :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
+fromBasicAction :: CreatesBellPairs' a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
 
 
 pac :: ProbabilisticActionConfiguration
 pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)] [] []
 
-probActionMeaning :: TaggedAction t -> CreateBellPairArgs t
+probActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 probActionMeaning = probabilisticActionMeaning pac
 
-fromBasicActionP :: CreatesBellPairs a BellKATTag => TaggedAction BellKATTag -> a
+fromBasicActionP :: CreatesBellPairs' a BellKATTag => TaggedAction BellKATTag -> a
 fromBasicActionP = tryCreateBellPairFrom . probActionMeaning
 
 asAutomaton :: ProbBellKATPolicy -> BellKATAutomaton

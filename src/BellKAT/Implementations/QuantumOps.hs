@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLists #-}
+
 {- |
    Module : BellKAT.Definitions.QuantumOps
    Description : Syntactic definitions related to quantum operations
@@ -18,8 +20,10 @@ import GHC.Exts (fromList, toList)
 import qualified BellKAT.Utils.Multiset              as Mset
 import Control.Subcategory.Pointed
 import Data.Default
-import BellKAT.Utils.Distribution as D
+
+import BellKAT.Utils.Distribution as D hiding (Probability)
 import BellKAT.Definitions.Core
+import BellKAT.Implementations.Output
 
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Rational   -- representing fidelity, in the range [0,1]
@@ -38,22 +42,19 @@ instance Default QuantumTag where
     def = QuantumTag 0 0.8
                      {- ^ example to see fidelity evolving with swap -}
 
--- | Define an interpretation yeilding quantitatively correct results
-instance ValidTag QuantumTag where
-    asFunction FSkip _ =
+instance Output (TaggedBellPair (), Op QuantumTag) QuantumTag where
+    type RTag (TaggedBellPair (), Op QuantumTag) = QuantumTag
+    computeOutput (_, FSkip) _ =
         cpure mempty
 
-    asFunction (FTry p o) _
+    computeOutput (o, FTry p t) _
             | p == 0 = cpure mempty
-            | p == 1 = cpure (Mset.singleton o)
-            | otherwise = D.choose p (Mset.singleton o) mempty
+            | p == 1 = cpure (Mset.singleton $ bellPair o @ t)
+            | otherwise = [D.choose p (Mset.singleton $ bellPair o @ t) mempty]
 
-    asFunction (FSwap p o) chosenBPs =
-        swapBPs p chosenBPs o
+    computeOutput (o, FSwap p) chosenBPs = [swapBPs p chosenBPs o]
 
-    asFunction (FDistill o) chosenBPs =
-        distBPs chosenBPs o
-
+    computeOutput (o, FDistill) chosenBPs = [distBPs chosenBPs o]
 
 -- | Converts a dummy taggedBP to one with default tags (initial qualities and time of production)
 getDefaultQuantumBellPair :: TaggedBellPair tag -> TaggedBellPair QuantumTag
@@ -66,7 +67,7 @@ getDefaultQuantumBellPair (TaggedBellPair bp _) = TaggedBellPair bp def
 -- | Note: it fails if not exactly two bell pairs are given in input
 swapBPs :: Rational
             -> TaggedBellPairs QuantumTag
-            -> TaggedBellPair QuantumTag
+            -> TaggedBellPair tag
             -> D' (TaggedBellPairs QuantumTag)
 swapBPs p inBps (TaggedBellPair outBp _) = 
     case toList inBps of
@@ -89,7 +90,7 @@ swapBPs p inBps (TaggedBellPair outBp _) =
 -- | and fails with the remaining probability (yielding no output pair, as the two input pairs are consumed)
 -- | Note: it fails if not exactly two bell pairs are given in input
 distBPs :: TaggedBellPairs QuantumTag
-        -> TaggedBellPair QuantumTag
+        -> TaggedBellPair ()
         -> D' (TaggedBellPairs QuantumTag)
 distBPs inBps (TaggedBellPair outBp _) =
     case toList inBps of

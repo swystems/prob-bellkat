@@ -2,6 +2,7 @@ name: bellkat
 
 default-extensions:
   - DerivingStrategies
+  - NamedFieldPuns
   - TypeFamilies
   - GeneralizedNewtypeDeriving
   - FunctionalDependencies
@@ -9,6 +10,7 @@ default-extensions:
   - FlexibleContexts
   - ScopedTypeVariables
   - NoPolyKinds
+  - TypeOperators
 
 ghc-options:
   - -O2
@@ -65,6 +67,7 @@ library:
     - BellKAT.Implementations.GuardedAutomataStepQuantum
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
+    - BellKAT.Implementations.Output
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty
@@ -72,6 +75,7 @@ library:
     - BellKAT.Utils.PartialNDEndo
     - BellKAT.Utils.Distribution
     - BellKAT.Utils.Convex
+    - BellKAT.Utils.Convex.Constraint
     - BellKAT.Utils.Convex.DConvexHull
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA

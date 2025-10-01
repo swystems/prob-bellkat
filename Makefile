@@ -2,6 +2,8 @@ MODE = cabal
 
 ifeq ($(MODE),cabal)
 	build_and_run = cabal build $(1) && cabal run $(1) --
+else ifeq ($(MODE),stack)
+	build_and_run = stack build && stack run $(1) --
 else ifeq ($(MODE),docker)
 	build_and_run = docker run --rm -i pbkat:latest $(1)
 else ifeq ($(MODE),direct)
@@ -60,5 +62,5 @@ output/probabilistic-examples/%.txt: probabilistic-examples/%.hs
 .PHONY: test
 test:
 
-README.pdf: README.md
-	pandoc --pdf-engine=lualatex --output $@ $<
+README.pdf: README.md metadata.yaml
+	pandoc --pdf-engine=lualatex --metadata-file metadata.yaml --output $@ $<

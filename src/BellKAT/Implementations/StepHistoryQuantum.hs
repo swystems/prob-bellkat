@@ -37,15 +37,17 @@ steps <|||> steps' =
     in [hq <||> hq' | hq <- commonSteps steps | hq' <- commonSteps steps']
             ++ restSteps steps ++ restSteps steps'
 
-instance (Ord t, CreatesBellPairs (sq t) t) => CreatesBellPairs (StepHistoryQuantum (sq t)) t where
+instance (Ord t, CreatesBellPairs (sq t) op t) => CreatesBellPairs (StepHistoryQuantum (sq t)) op t where
     tryCreateBellPairFrom = point . tryCreateBellPairFrom
 
-instance (Ord t, Quantum (sq t) t) => Quantum (StepHistoryQuantum (sq t)) t where
+instance (Ord t, Quantum (sq t) op t) => Quantum (StepHistoryQuantum (sq t)) op t where
 
-instance (Ord t, Quantum (sq t) t) => OrderedLayeredQuantum (StepHistoryQuantum (sq t)) t where
+instance Layered (StepHistoryQuantum (sq t)) where
     newtype Layer (StepHistoryQuantum (sq t)) = OneStep (sq t)
-    orderedTryCreateBellPairFrom = OneStep . tryCreateBellPairFrom
     liftLayer (OneStep s) = point s
+
+instance (Ord t, Quantum (sq t) op t) => OrderedLayeredQuantum (StepHistoryQuantum (sq t)) op t where
+    orderedTryCreateBellPairFrom = OneStep . tryCreateBellPairFrom
 
 instance (Semigroup (sq t)) => OrderedSemigroup (Layer (StepHistoryQuantum (sq t))) where
    (OneStep s) <.> (OneStep s') = OneStep (s <> s')
@@ -53,8 +55,11 @@ instance (Semigroup (sq t)) => OrderedSemigroup (Layer (StepHistoryQuantum (sq t
 instance ChoiceSemigroup (StepHistoryQuantum a) where
     hq <+> hq' = StepHistoryQuantum $ getSteps hq <> getSteps hq'
 
-instance (Ord t, TestsQuantum (sq t) test t) => TestsOrderedLayeredQuantum (StepHistoryQuantum (sq t)) test t where
+instance (Ord t, Tests (sq t) test t) => TestsOrderedLayered (StepHistoryQuantum (sq t)) test t where
     orderedTest = OneStep . test
+
+instance (Ord t, Tests (sq t) test t, Quantum (sq t) op t) 
+    => TestsOrderedLayeredQuantum (StepHistoryQuantum (sq t)) test op t where
 
 execute :: Ord t
     => (a -> History t -> Set (History t))

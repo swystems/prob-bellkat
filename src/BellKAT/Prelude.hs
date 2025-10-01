@@ -12,6 +12,7 @@
 -- for ease of writing and checking policies.
 --
 module BellKAT.Prelude (
+    BellKATTagChar(..),
     BellKATTag,
     BellKATPolicy,
     drawHistoriesSVG,
@@ -31,17 +32,22 @@ module BellKAT.Prelude (
 import Data.Function
 import Data.Maybe (isJust)
 import Data.Set (Set)
+import Data.Default
 import Diagrams.Backend.Cairo.CmdLine
 
 import BellKAT.DSL
 import BellKAT.Definitions
 import BellKAT.Definitions.Structures
-import BellKAT.Definitions.Atomic()
 import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
-import BellKAT.Implementations.QuantumOps
 
-type BellKATTag = QuantumTag
+-- | for pretty-printing
+newtype BellKATTagChar = BellKATTagChar Char deriving newtype (Ord, Eq, Show)
+
+instance Default BellKATTagChar where
+    def = BellKATTagChar '0'
+
+type BellKATTag = Maybe BellKATTagChar
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag
 
 drawHistoriesSVG :: BellKATPolicy -> IO ()

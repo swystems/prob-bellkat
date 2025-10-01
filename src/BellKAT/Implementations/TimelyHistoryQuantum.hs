@@ -3,7 +3,6 @@
 {-# LANGUAGE StrictData      #-}
 module BellKAT.Implementations.TimelyHistoryQuantum (execute) where
 
-import           Data.Default               (Default(..))
 import           Data.Foldable              (toList)
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
@@ -50,24 +49,22 @@ instance Ord t => ParallelSemigroup (TimelyHistoryQuantum t) where
                 ]
         }
 
-instance (Ord t, Default t) => CreatesBellPairs (TimelyHistoryQuantum t) t where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp o _dk) =
-        let taggedBps = map (`TaggedBellPair` def) bps
-        in TimelyHistoryQuantum 
-            { requiredRootsTimely = [taggedBps]
-            , executeTimely = \h@(History ts) ->
-                case findTreeRootsND taggedBps ts of
-                    [] -> [(dupHistory h, 1)]
-                    partialTsNews -> mconcat
-                        [ case o of
-                            FSkip -> [(dupHistory (History tsRest) <> [Node bp tsNew], 1)]
-                            _ ->   [(dupHistory (History tsRest) <> [Node bp tsNew], 1)
+instance Ord t => CreatesBellPairs (TimelyHistoryQuantum t) Probability t where
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _dk) = TimelyHistoryQuantum
+        { requiredRootsTimely = [bps]
+        , executeTimely = \h@(History ts) ->
+            case findTreeRootsND bps ts of
+                [] -> [(dupHistory h, 1)]
+                partialTsNews -> mconcat
+                    [ case prob of
+                        1.0 -> [(dupHistory (History tsRest) <> [Node bp tsNew], 1)]
+                        _ ->  [(dupHistory (History tsRest) <> [Node bp tsNew], 1)
                                    ,(dupHistory (History tsRest), 1)]
-                        | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
-                        ]
-            }
+                    | Partial { chosen = tsNew, rest = tsRest } <- partialTsNews
+                    ]
+        }
 
-instance (Ord t, Default t) => Quantum (TimelyHistoryQuantum t) t where
+instance Ord t => Quantum (TimelyHistoryQuantum t) Probability t where
 
 execute :: Ord t => TimelyHistoryQuantum t -> History t -> Set (History t)
 execute h = Set.map fst . executeTimely h

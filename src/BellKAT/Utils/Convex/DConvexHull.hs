@@ -60,7 +60,7 @@ x `isInConvexHullOf` xs =
       Left e -> error $ "LP error: " <> show e
       Right _ -> True
 
-runSimplex :: Indexed sh => Array sh Double -> [Array sh Double] -> Solution (Range Int)
+runSimplex :: Indexed sh => Array sh Double -> [Array sh Double] -> Result (Range Int)
 runSimplex a as =
     let sh = Range 1 (length as)
      in simplex 

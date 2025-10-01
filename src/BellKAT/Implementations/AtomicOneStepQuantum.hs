@@ -30,19 +30,19 @@ execute (AtomicOneStepPolicy act) bps =
     if getBPsPredicate (toBPsPredicate . aaTest $ act) bps
        then Set.fromList 
         [ aaOutputBPs act <> rest partial
-        | partial <- findElemsND id (toList . aaInputBPs $ act) bps]
+        | partial <- findElemsND (toList . aaInputBPs $ act) bps]
                                {- ^ should this be untagBellPair ?-}
        else mempty
 
 instance (Ord tag, Default tag) 
-  => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) tag where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp o _) =
-        case o of
-          FSkip -> 
-            createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]
+  => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) Probability tag where
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
+        case prob of
+          1.0 -> 
+            createBasicAction (Mset.fromList bps) [bp]
           _ ->
-              createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) [bp]
-              <> createBasicAction (Mset.fromList (map (`TaggedBellPair` def) bps)) []
+              createBasicAction (Mset.fromList bps) [bp]
+              <> createBasicAction (Mset.fromList bps) []
 
 instance Ord tag => Tests (AtomicOneStepPolicy tag) FreeTest tag where
     test t = 

@@ -1,53 +1,83 @@
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.ActionEmbeddings 
     ( -- * Interpreting individual actions
 
       -- | Different means of giving meaning to individual actions, i.e., ultimately defining
       -- functions from `TaggedAction` to `CreateBellPairArgs`
       simpleActionMeaning
+    , simpleOpActionMeaning
     , ProbabilisticActionConfiguration(..)
     , probabilisticActionMeaning
+    , probabilisticOpActionMeaning
       -- * Interpreting actions within policies
     , CanDesugarActions(..)
+    , CanDesugarActions'
+    , Desugared'
     , mapDesugarActions
     ) where
 
 import Data.Kind
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
+import Data.Default
 import qualified Data.Map.Strict as Map
 
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core
 
 -- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
-class CanDesugarActions a where
+class CanDesugarActions op a where
     type Tag a :: Type
-    type Desugared a :: Type
-    desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> a -> Desugared a
+    type Desugared op a :: Type
+    desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> a -> Desugared op a
+
+type CanDesugarActions' = CanDesugarActions Probability
+type Desugared' a = Desugared Probability a
 
 mapDesugarActions 
-    :: (Functor f, CanDesugarActions a)
-    => (TaggedAction (Tag a) -> CreateBellPairArgs (Tag a)) -> f a -> f (Desugared a)
+    :: (Functor f, CanDesugarActions op a)
+    => (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> f a -> f (Desugared op a)
 mapDesugarActions = fmap . desugarActions
 
 -- | gives meaning to actions in a simplistic (*BellKAT*) manner, i.e., only `Distill` and
 -- `UnstableCreate` may fail, and exactly with probability 0.5
-simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs t
+simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta)
-        (FSwap 1.0 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        1.0 (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l] (l1 ~ l2 @ taTagOut ta)
-        (FTry 1.0 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        1.0 (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) (FTry 1.0 (l ~ l @ taTagOut ta )) (taDup ta)
-    (Destroy (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta) FSkip (taDup ta)
+        [] (l ~ l @ taTagOut ta ) 1.0 (taDup ta)
+    (Destroy (l1, l2))            -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0.0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) (FDistill (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta )
+        0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta ) (FTry 0.5 (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
+
+-- | gives meaning to action in more discriminating terms, e.g., distinguishing
+-- Swap/Try/Skip/Distill
+simpleOpActionMeaning 
+    :: Default rTag => TaggedAction t -> CreateBellPairArgs (Op rTag) t
+simpleOpActionMeaning ta = case taAction ta of
+    (Swap l (l1, l2))     -> CreateBellPairArgs
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (FSwap 1.0) (taDup ta)
+    (Transmit l (l1, l2)) -> CreateBellPairArgs
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (FTry 1.0 def) (taDup ta)
+    (Create l)            -> CreateBellPairArgs
+        [] (l ~ l @ taTagOut ta ) (FTry 1.0 def) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) FSkip (taDup ta)
+    (Distill (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) FDistill (taDup ta)
+    (UnstableCreate (l1, l2)) -> CreateBellPairArgs
+        [] (l1 ~ l2 @ taTagOut ta ) (FTry 0.5 def) (taDup ta)
 
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
@@ -64,20 +94,42 @@ data ProbabilisticActionConfiguration = PAC
 
 -- | gives meaning to actions while taking into account success probabilities
 -- represented as a ProbabilisticActionConfiguration`
-probabilisticActionMeaning :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs t
+probabilisticActionMeaning 
+    :: ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs' t
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1, l ~ l2] (l1 ~ l2 @ taTagOut ta) (FSwap (swapProbability pac l) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (swapProbability pac l) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l] (l1 ~ l2 @ taTagOut ta ) (FTry (transmitProbability pac l (l1, l2)) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (transmitProbability pac l (l1, l2)) (taDup ta)
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) (FTry (createProbability pac l) (l ~ l @ taTagOut ta )) (taDup ta)
-    (Destroy (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) FSkip (taDup ta)
+        [] (l ~ l @ taTagOut ta ) (createProbability pac l) (taDup ta)
+    (Destroy (l1, l2))            -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0 (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2, l1 ~ l2] (l1 ~ l2 @ taTagOut ta ) (FDistill (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)  
+        0.5 (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta ) (FTry (uCreateProbability pac (l1, l2)) (l1 ~ l2 @ taTagOut ta)) (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2)) (taDup ta)
+
+-- | gives meaning to actions while taking into account success probabilities
+-- represented as a ProbabilisticActionConfiguration`
+probabilisticOpActionMeaning 
+    :: Default rTag => ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs (Op rTag) t
+probabilisticOpActionMeaning pac ta = case taAction ta of
+    (Swap l (l1, l2))     -> CreateBellPairArgs
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) (FSwap (swapProbability pac l)) (taDup ta)
+    (Transmit l (l1, l2)) -> CreateBellPairArgs
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) (FTry (transmitProbability pac l (l1, l2)) def) (taDup ta)
+    (Create l)            -> CreateBellPairArgs
+        [] (l ~ l @ taTagOut ta ) (FTry (createProbability pac l) def) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) FSkip (taDup ta)
+    (Distill (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) FDistill (taDup ta)
+    (UnstableCreate (l1, l2)) -> CreateBellPairArgs
+        [] (l1 ~ l2 @ taTagOut ta ) (FTry (uCreateProbability pac (l1, l2)) def) (taDup ta)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 
@@ -109,18 +161,18 @@ transmitProbabilitySingle pac l =
       Nothing -> error $ "no transmit probability for " <> show l
       Just p -> p
 
-instance CanDesugarActions (TaggedAction tag) where
+instance CanDesugarActions op (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag
-    type Desugared (TaggedAction tag) = CreateBellPairArgs tag
+    type Desugared op (TaggedAction tag) = CreateBellPairArgs op tag
     desugarActions = id
 
-instance CanDesugarActions a => CanDesugarActions (NonEmpty a) where
+instance CanDesugarActions op a => CanDesugarActions op (NonEmpty a) where
     type Tag (NonEmpty a) = Tag a
-    type Desugared (NonEmpty a) = NonEmpty (Desugared a)
+    type Desugared op (NonEmpty a) = NonEmpty (Desugared op a)
     desugarActions = fmap . desugarActions
 
-instance CanDesugarActions (Atomic TaggedAction test tag) where 
+instance CanDesugarActions op (Atomic TaggedAction test tag) where 
     type Tag (Atomic TaggedAction test tag) = tag
-    type Desugared (Atomic TaggedAction test tag) = (Atomic CreateBellPairArgs test tag)
+    type Desugared op (Atomic TaggedAction test tag) = (Atomic (CreateBellPairArgs op) test tag)
     desugarActions f (AAction x) = AAction (f x)
     desugarActions _ (ATest t) = ATest t

@@ -6,6 +6,7 @@ module SpecSmall where
 import Test.SmallCheck
 import Test.SmallCheck.Series
 import           BellKAT.Definitions
+import           BellKAT.Implementations.UnitTagOps ()
 import           BellKAT.Utils.Multiset   (Multiset)
 import qualified BellKAT.Utils.Multiset   as Mset
 import qualified Data.Set   as Set

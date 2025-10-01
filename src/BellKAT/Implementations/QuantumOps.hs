@@ -7,6 +7,14 @@ module BellKAT.Implementations.QuantumOps (
     QuantumTag(..),
     TimeUnit,
     Werner,
+    -- * Primitive quantum operations (exported for testing)
+    swapBPs,
+    createBP,
+    transmitBP,
+    distBPs,
+    generateBP,
+    decayWerner,
+    tCoherence
 ) where
 
 import GHC.Exts (fromList, toList)
@@ -80,7 +88,10 @@ swapBPs p inBps (TaggedBellPair outBp _) =
                     }
                 successOutput = Mset.singleton (TaggedBellPair outBp newTag)
                 failureOutput = mempty
-            in fromList [ (successOutput, p), (failureOutput, 1 - p) ]
+            in case p of
+                0 -> cpure failureOutput
+                1 -> cpure successOutput
+                _ -> fromList [ (successOutput, p), (failureOutput, 1 - p) ]
         _ -> error "swapBPs: expected exactly two input tagged Bell pairs"
 
 
@@ -107,7 +118,10 @@ distBPs inBps (TaggedBellPair outBp _) =
                     }
                 successOutput = Mset.singleton (TaggedBellPair outBp newTag)
                 failureOutput = mempty
-            in fromList [ (successOutput, toRational pDistD), (failureOutput, 1 - toRational pDistD) ]
+            in case pDistD of
+                0 -> cpure failureOutput
+                1 -> cpure successOutput
+                _ -> fromList [ (successOutput, toRational pDistD), (failureOutput, 1 - toRational pDistD) ]
         _ -> error "distBPs: expected exactly two input tagged Bell pairs"
 
 

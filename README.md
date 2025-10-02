@@ -1,23 +1,3 @@
----
-title: Artifact for "A Language for Quantifying Quantum Network Behavior"
-toc: true
-colorlinks: true
-urlcolor: blue!50!black
-toccolor: green!30!black
-header-includes: |
-    \usepackage{newunicodechar}
-    \newfontfamily{\fallbackfont}{Symbola}
-    \DeclareTextFontCommand{\textfallback}{\fallbackfont}
-    \newunicodechar{⦅}{\textfallback{⦅}}
-    \newunicodechar{⦆}{\textfallback{⦆}}
-    \newunicodechar{⦄}{\textfallback{⦄}}
-    \newunicodechar{⦃}{\textfallback{⦃}}
-    \newunicodechar{▶}{\textfallback{▶}}
-    \newunicodechar{⊤}{\textfallback{⊤}}
-    \newunicodechar{∧}{\textfallback{∧}}
-    \newunicodechar{∨}{\textfallback{∨}}
----
-
 The PBKAT tool allows to analyze behaviors of quantum network protocols capturing both probabilistic behavior stemming from quantum mechanics and non-determinstic behavior arising from resource contention. The tool is based on a [Haskell][haskell] library `bellkat` plus many examples provided as executables within the same [Haskell][haskell] package.
 
 The PBKAT tool can:
@@ -25,8 +5,8 @@ The PBKAT tool can:
   * produce automata capturing guarded strings of sets via `automaton` command
   * produce the execution traces via `execution-trace` command (e.g., Fig. 5 and Fig. 11)
   * produce the convex set of probability distributions via `run` command (Table 1)
-     * these outputs can be compared for equality to check if different protocols have the same
-       semantics
+     * these outputs can be compared for equality to check if different protocols are equivalent
+       with respect to $[\![-]\!]$ semantics
      * machine-readable form for the next step is supported via `--json` option 
   * analyze the produced convex set of distributions via `probability` command (Table 1)
 
@@ -300,7 +280,7 @@ Structure of the generate PDF is the following:
 
 To check if the two protocols have the same semantics, it is enough to compare the generated convex
 sets. As an example we look at PBKAT protocol `P5_1_II_parallel_three` and try comparing it with
-a different but equivalent version `P5_1_II_parallel_three_alt`:
+a different, but equivalent version `P5_1_II_parallel_three_alt`:
 
 ```bash
 cabal run probP5_1_II_parallel_three -- \
@@ -486,19 +466,19 @@ Please, check [Haskell language server documentation][hls] for editor support (o
   * install [Stack][stack]
   * install the following extra dependencies: 
 
-     * [Pango][pango] 1.50.6
+     * [GLPK][glpk] 5.0
+     * [Pango][pango] 1.52.1
      * [Cairo][cairo] 1.21.0
-     * [Zlib][zlib] 1.3
-     * [Glib][glib] 2.72
-     * [Ncurses][ncurses] 6.3
+     * [Glib][glib] 2.80
 
-     Those can be installed on ubuntu as follows:
+     The compatible versions can be installed on [Ubuntu][ubuntu] 24.04 as follows:
 
      ```bash
-     apt-get install libz-dev libtinfo-dev libcairo-dev libpango1.0
+     apt-get install \
+        libglpk-dev libz-dev libtinfo-dev libcairo-dev libpango1.0
      ```
 
-### Building the artifact (recommended to skip)
+### Building the artifact
 
 #### Nix
 
@@ -527,3 +507,5 @@ stack build
 [HSpec]: https://hspec.github.io/
 [haddock]: https://haskell-haddock.readthedocs.io/en/latest/
 [make]: https://www.gnu.org/software/make/
+[glpk]: https://www.gnu.org/software/glpk/
+[ubuntu]: https://ubuntu.com/download

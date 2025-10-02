@@ -10,6 +10,8 @@ module BellKAT.Utils.Multiset
     , difference
     , count
     , min
+    , member
+    , remove
     ) where
 
 import           Prelude                    hiding (map, filter, min)
@@ -61,6 +63,12 @@ count x = MsetOrig.count x . unMS
 
 min :: Ord a => Multiset a -> Multiset a -> Multiset a
 min (MS x) (MS y) = MS $ MsetOrig.min x y
+
+member :: Ord a => a -> Multiset a -> Bool
+member x = MsetOrig.member x . unMS
+
+remove :: Ord a => a -> Multiset a -> Multiset a
+remove x = MS . MsetOrig.remove x . unMS
 
 instance A.ToJSON a => A.ToJSON (Multiset a) where
     toJSON = A.toJSON . toList

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE StrictData      #-}
+{-# LANGUAGE DeriveFunctor   #-}
 module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location(..),
@@ -7,7 +8,9 @@ module BellKAT.Definitions.Core (
     LikeBellPair(..),
     BellPairs,
     Probability,
+    Op(..),
     CreateBellPairArgs(..),
+    CreateBellPairArgs',
     hasLocation,
     TaggedBellPair(..),
     TaggedBellPairs,
@@ -27,9 +30,6 @@ module BellKAT.Definitions.Core (
     Predicate(..),
     Partial(..),
     UTree(..),
-    Output(..),
-    asFunction,
-    ValidTag
     ) where
 
 import           Data.Bifunctor             (bimap)
@@ -49,7 +49,6 @@ import qualified Data.Vector.Fixed          as FV
 import           Test.QuickCheck            hiding (choose, (.&&.))
 
 import           BellKAT.Utils.Choice
-import           BellKAT.Utils.Distribution (D')
 import           BellKAT.Utils.Multiset     (Multiset)
 import qualified BellKAT.Utils.Multiset     as Mset
 import           BellKAT.Utils.UnorderedTree
@@ -81,7 +80,7 @@ type BellPairs = Multiset BellPair
 data TaggedBellPair t = TaggedBellPair
     { bellPair    :: BellPair
     , bellPairTag :: t
-    } deriving stock (Eq, Ord)
+    } deriving stock (Eq, Ord, Functor)
 
 instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
     showsPrec _ (TaggedBellPair bp t) 
@@ -121,38 +120,36 @@ instance Monoid DupKind where
 
 type Probability = Rational
 
-data Output tag =
+data Op tag =
     FSkip
     -- ^ yiels mempty
-    | FCreate Probability (TaggedBellPair tag)
-    | FGenerate Probability (TaggedBellPair tag)
-    | FTransmit Probability (TaggedBellPair tag)
+    | FCreate Probability tag
+    | FGenerate Probability tag
+    | FTransmit Probability tag
     -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
-    | FDestroy (TaggedBellPair tag)
+    | FDestroy
     -- ^ yields mempty (destroyed Bell pair)
-    | FSwap Probability (TaggedBellPair tag)
+    | FSwap Probability
     -- ^ yields the swapped Bell pair given the two in input, with probability p
-    | FDistill (TaggedBellPair tag)
+    | FDistill
     -- ^ yields the distilled Bell pair given the two same-location ones in input
     -- ^ computing the probability dynamically
     deriving stock (Eq, Ord, Show)
 
-class ValidTag tag where
-    asFunction :: Output tag -> TaggedBellPairs tag -> D' (TaggedBellPairs tag)
- {- ^ Ensure that any tag type used with the Output abstraction can be interpreted into a distribution D' -}
-
-data CreateBellPairArgs tag = CreateBellPairArgs
-    { cbpInputBPs    :: [BellPair] -- a multiset of required (input) `BellPair`s
-    , cbpOutputBP    :: TaggedBellPair tag -- a produced (output) `BellPair`
-    , cbpOutputF     :: Output tag -- an output function
+data CreateBellPairArgs op tag = CreateBellPairArgs
+    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
+    , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
+    , cbpOp          :: op -- ^ operation creating `cbpOutputBP`
     , cbpDup         :: DupKind
     }
 
-instance HasDupKinds (CreateBellPairArgs tag) where
+type CreateBellPairArgs' = CreateBellPairArgs Probability
+
+instance HasDupKinds (CreateBellPairArgs op tag) where
   setDupKinds dk cbp = cbp { cbpDup = dk }
   modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
-instance Show1 CreateBellPairArgs where
+instance Show1 (CreateBellPairArgs op) where
   liftShowsPrec _ _ _ _ = shows "cbp"
 
 -- * History of BellPairs

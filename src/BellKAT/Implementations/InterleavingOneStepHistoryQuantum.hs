@@ -10,7 +10,6 @@ module BellKAT.Implementations.InterleavingOneStepHistoryQuantum
     , executeFree
     ) where
 
-import           Data.Default                 (Default)
 import           Data.Functor.Compose         (Compose (..))
 import           Data.List.NonEmpty           (NonEmpty (..))
 import           Data.Set                     (Set)
@@ -86,17 +85,17 @@ sequenceAfterDecomposition q (Left x)        = Right (x, q)
 sequenceAfterDecomposition q (Right (x, xs)) = Right (x, Sequence xs q)
 
 
-instance CreatesBellPairs a t =>  CreatesBellPairs (InterleavingOneStepPolicy a) t where
+instance CreatesBellPairs a op t =>  CreatesBellPairs (InterleavingOneStepPolicy a) op t where
     tryCreateBellPairFrom = Atomic . tryCreateBellPairFrom
 
-instance (Ord t, CreatesBellPairs (FunctionStep test t) t) 
-  => Quantum (InterleavingOneStepPolicy (FunctionStep test t)) t
+instance (Ord t, CreatesBellPairs (FunctionStep test t) op t) 
+  => Quantum (InterleavingOneStepPolicy (FunctionStep test t)) op t
 
 instance (Ord tag, Show tag, Tests a test tag) => Tests (InterleavingOneStepPolicy a) test tag where
   test = Atomic . test
 
-instance (Ord tag, Show tag, Test test, CreatesBellPairs (FunctionStep test tag) tag) 
-  => TestsQuantum (InterleavingOneStepPolicy (FunctionStep test tag)) test tag where
+instance (Ord tag, Show tag, Test test, CreatesBellPairs (FunctionStep test tag) op tag) 
+  => TestsQuantum (InterleavingOneStepPolicy (FunctionStep test tag)) test op tag where
 
 instance {-# OVERLAPPING #-} (Show1 f, Show a) => Show (Compose InterleavingOneStepPolicy f a) where
     showsPrec d  (Compose x) = liftShowsPrec (liftShowsPrec showsPrec showList) (liftShowList showsPrec showList) d x
@@ -110,16 +109,18 @@ instance (Ord t) => ChoiceSemigroup (Compose InterleavingOneStepPolicy a t) wher
 instance (Ord t) => OrderedSemigroup (Compose InterleavingOneStepPolicy a t) where
   p <.> q = Compose $ getCompose p <> getCompose q
 
-instance (Ord t, CreatesBellPairs (a t) t) => CreatesBellPairs (Compose InterleavingOneStepPolicy a t) t where
+instance (Ord t, CreatesBellPairs (a t) op t) 
+        => CreatesBellPairs (Compose InterleavingOneStepPolicy a t) op t where
   tryCreateBellPairFrom = Compose . tryCreateBellPairFrom
 
-instance (Ord t, CreatesBellPairs (a t) t) => Quantum (Compose InterleavingOneStepPolicy a t) t where
+instance (Ord t, CreatesBellPairs (a t) op t) 
+        => Quantum (Compose InterleavingOneStepPolicy a t) op t where
 
 instance (Show t, Ord t, Tests (a t) test t) => Tests (Compose InterleavingOneStepPolicy a t) test t where
   test = Compose . test
 
-instance (Show t, Ord t, Tests (a t) test t, CreatesBellPairs (a t) t)
-  => TestsQuantum (Compose InterleavingOneStepPolicy a t) test t where
+instance (Show t, Ord t, Tests (a t) test t, CreatesBellPairs (a t) op t)
+        => TestsQuantum (Compose InterleavingOneStepPolicy a t) test op t where
 
 executeOneStepPolicy :: (Ord tag) => InterleavingOneStepPolicy (FunctionStep test tag) -> FunctionStep test tag
 executeOneStepPolicy (Atomic x) = x
@@ -134,12 +135,13 @@ executePartial
 executePartial (Compose osp) = applyPartialNDEndo (executeFunctionStep (executeOneStepPolicy osp))
 
 executeFree 
-    :: forall test tag. (Test test, Ord tag, Default tag) 
-    => Compose InterleavingOneStepPolicy (FreeStep test) tag -> History tag -> Set (History tag)
+    :: forall test op tag. 
+        (Test test, Ord tag, CreatesBellPairs (FunctionStep BellPairsPredicate tag) op tag) 
+    => Compose InterleavingOneStepPolicy (FreeStep test op) tag -> History tag -> Set (History tag)
 executeFree = 
      execute 
      . Compose 
-     . fmap (runFreeStep :: FreeStep test tag -> FunctionStep BellPairsPredicate tag) 
+     . fmap (runFreeStep :: FreeStep test op tag -> FunctionStep BellPairsPredicate tag) 
      . getCompose 
 
 execute 

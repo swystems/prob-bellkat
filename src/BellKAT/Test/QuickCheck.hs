@@ -9,10 +9,9 @@ import           Data.Default
 
 import           BellKAT.Definitions
 import           BellKAT.Drawing
-import           BellKAT.Implementations.MaybeIntTagOps ()
 
 
-type Tag = Maybe Int
+type Tag = Int
 
 testEquality 
     :: (Show t, Eq t, Default t)

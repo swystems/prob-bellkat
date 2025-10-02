@@ -201,20 +201,7 @@ instance Ord tag => DecidableBoolean (BoundedTest tag) where
     isFalse = (== false)
 
 instance Test BoundedTest where
-    toBPsPredicate (BoundedTest xs) =
-        BPsPredicate $ \x -> any (\bs -> testBounds (untagBounds' bs) (untagBellPairs' x)) xs
-
--- | Remove tags from a multiset of tagged Bell pairs, yielding a stripped TaggedBellPairs
-untagBellPairs' :: (Ord tag) => TaggedBellPairs tag -> TaggedBellPairs ()
-untagBellPairs' = Mset.map (\(TaggedBellPair bp _) -> TaggedBellPair bp ())
-
--- | Remove tags from Bounds: 
--- combine ranges for all BellPairs (location only) disregarding their tags
-untagBounds' :: Ord tag => Bounds tag -> Bounds ()
-untagBounds' =
-    Map.fromListWith andRange
-    . map (\(TaggedBellPair bp _, r) -> (TaggedBellPair bp (), r))
-    . Map.toList
+    toBPsPredicate (BoundedTest xs) = BPsPredicate $ \x -> any (`testBounds` x) xs
 
 testBounds :: Ord tag => Bounds tag -> TaggedBellPairs tag -> Bool
 testBounds bs bps = Map.foldlWithKey (\acc bp rg -> acc && testRange bp rg bps) True bs

@@ -68,6 +68,7 @@ library:
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
     - BellKAT.Implementations.Output
+    - BellKAT.Implementations.QuantumOps
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty
@@ -97,6 +98,7 @@ library:
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude
     - BellKAT.ProbabilisticPrelude
+    - BellKAT.QuantumPrelude
 
 executables:
   p1:
@@ -186,24 +188,6 @@ executables:
     main: probabilistic-examples/P4.hs
     ghc-options:
       - -fprof-auto
-      - -rtsopts
-  probPd:
-    dependencies: 
-      - bellkat
-    main: probabilistic-examples/Pd.hs
-    default-extensions:
-      - OverloadedStrings
-      - OverloadedLists
-    ghc-options:
-      - -rtsopts
-  probPd_parallel:
-    dependencies: 
-      - bellkat
-    main: probabilistic-examples/Pd_parallel.hs
-    default-extensions:
-      - OverloadedStrings
-      - OverloadedLists
-    ghc-options:
       - -rtsopts
   probPa1:
     dependencies: 
@@ -353,6 +337,33 @@ executables:
     dependencies: 
       - bellkat
     main: probabilistic-examples/P5_3_coopmans_mixed.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantPa:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pa.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantPd:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pd.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantPd_parallel:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pd_parallel.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists

@@ -11,6 +11,7 @@ import           BellKAT.Definitions
 import           BellKAT.Drawing
 
 
+
 type Tag = Int
 
 testEquality 

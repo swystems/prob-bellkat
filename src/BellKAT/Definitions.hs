@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 module BellKAT.Definitions
     ( module BellKAT.Definitions.Core
     , module BellKAT.Definitions.Tests
@@ -24,6 +25,12 @@ module BellKAT.Definitions
     , applyProbStarPolicySystem'
     , applyProbStarPolicyStates
     , applyProbStarPolicyAutomaton
+    , applyProbStarPolicyQ'
+    , applyProbStarPolicyQ
+    , applyProbStarPolicyQSystem
+    , applyProbStarPolicyQSystem'
+    , applyProbStarPolicyQStates
+    , applyProbStarPolicyQAutomaton
     ) where
 
 import           Data.Set                                (Set)
@@ -47,6 +54,7 @@ import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
+import           BellKAT.Implementations.Output (RTag, OpOutput, staticBellPairs)
 
 -- | = Deterministic (no explicit choice operator) one round policies
 
@@ -220,3 +228,81 @@ applyProbStarPolicySystem
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem = applyProbStarPolicySystem'
+
+
+probabilisticDesugarQ 
+    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a, HasDupKinds (f a)) 
+    => Proxy rTag -> ProbabilisticActionConfiguration -> f a -> f (Desugared (Op rTag) a)
+probabilisticDesugarQ (_ :: Proxy rTag) pac = 
+    mapDesugarActions @(Op rTag) (probabilisticOpActionMeaning pac) . setDupKinds (DupKind True False)
+
+-- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
+applyProbStarPolicyQAutomaton
+    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
+    => (OpOutput output (Op (RTag output)) tag, Default (RTag output), Monoid output, Ord output, Show output)
+    => Proxy output -> ProbabilisticActionConfiguration 
+    -> Simple (OrderedGuardedPolicy (test tag)) tag
+    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag)
+applyProbStarPolicyQAutomaton (_ :: Proxy output)  pac = 
+    meaning . probabilisticDesugarQ (Proxy :: Proxy (RTag output)) pac
+
+applyProbStarPolicyQ' 
+    :: forall p test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
+    => Proxy output 
+    -> ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs (RTag output)-> CD p (TaggedBellPairs (RTag output))
+applyProbStarPolicyQ' proxy pac mbNC = 
+    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+     in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
+        . applyProbStarPolicyQAutomaton proxy pac
+
+applyProbStarPolicyQ 
+    :: forall test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
+    => Proxy output 
+    -> ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs (RTag output)-> CD' (TaggedBellPairs (RTag output))
+applyProbStarPolicyQ proxy pac mbNC = 
+    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+     in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
+        . applyProbStarPolicyQAutomaton proxy pac
+
+applyProbStarPolicyQStates
+    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, DDom (RTag output), Default (RTag output)) 
+    => Proxy output -> ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs (RTag output) -> GASQ.ComputedState CD' (TaggedBellPairs (RTag output))
+applyProbStarPolicyQStates proxy pac mbNC = 
+    let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
+     in GASQ.executeState ((. staticBellPairs) . (getBPsPredicate . toBPsPredicate)) executeRound
+        . applyProbStarPolicyQAutomaton proxy pac
+
+applyProbStarPolicyQSystem'
+    :: forall p test tag output. 
+        (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
+    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
+    => Proxy output -> ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs (RTag output) 
+    -> GASQ.StateSystem (CD p) (TaggedBellPairs (RTag output))
+applyProbStarPolicyQSystem' proxy pac mbNC = 
+    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+     in GASQ.executeSystem ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
+        . applyProbStarPolicyQAutomaton proxy pac
+
+applyProbStarPolicyQSystem
+    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
+    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
+    => Proxy output -> ProbabilisticActionConfiguration 
+    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> TaggedBellPairs (RTag output)-> GASQ.StateSystem CD' (TaggedBellPairs (RTag output))
+applyProbStarPolicyQSystem = applyProbStarPolicyQSystem'

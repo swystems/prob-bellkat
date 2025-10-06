@@ -35,7 +35,7 @@ type CanDesugarActions' = CanDesugarActions Probability
 type Desugared' a = Desugared Probability a
 
 mapDesugarActions 
-    :: (Functor f, CanDesugarActions op a)
+    :: forall op f a. (Functor f, CanDesugarActions op a)
     => (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> f a -> f (Desugared op a)
 mapDesugarActions = fmap . desugarActions
 

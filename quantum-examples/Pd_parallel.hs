@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 import BellKAT.QuantumPrelude
 
 initState :: NetworkState
@@ -9,7 +8,7 @@ initState = createNetworkState
     , TaggedBellPair ("A" ~ "B") (QuantumTag 1 0.6)
     ]
 
-p :: ProbBellKATPolicy
+p :: QBKATPolicy
 p = distill ("A", "B") <||> distill ("A", "B")
 
 actionConfig :: ProbabilisticActionConfiguration
@@ -25,4 +24,4 @@ actionConfig = PAC
 main :: IO ()
 main = 
     let ev = "A" ~~? "B"
-    in pbkatMain actionConfig Nothing ev p initState
+    in qbkatMainD actionConfig Nothing ev p initState

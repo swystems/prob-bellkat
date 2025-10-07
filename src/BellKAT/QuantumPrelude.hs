@@ -1,23 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ConstraintKinds #-}
+
 module BellKAT.QuantumPrelude (
-    -- * PBKAT Policy syntax
-    BellKATTag,
+    -- * QBKAT Policy syntax
+    QBKATTag,
+    QBKATRuntimeTag,
     NetworkState,
-    ProbBellKATTest,
-    ProbBellKATAction,
-    ProbBellKATPolicy,
+    QBKATTest,
+    QBKATAction,
+    QBKATPolicy,
     -- * Helpers
     createNetworkState,
-    -- * Common constructors (re-exported for examples)
+    -- * Re-exports 
     QuantumTag(..),
     TaggedBellPair(..),
-    -- * Re-exports network configuration
     ProbabilisticActionConfiguration(..),
     NetworkCapacity,
     -- * Entry points
-    pbkatMain,
-    pbkatMainD,
+    qbkatMain,
+    qbkatMainD,
     -- * Auxiliary expression generation exports
     stimes,
     -- * Re-exports from 'BellKAT.DSL'
@@ -25,7 +28,6 @@ module BellKAT.QuantumPrelude (
     (~),
     -- * Re-exports from 'BellKAT.Definitions.Structures'
     module BellKAT.Definitions.Structures,
-    -- * Re-exports from 'BellKAT.ActionEmbeddings
 ) where
 
 import Data.Typeable
@@ -40,99 +42,122 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity)
+import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, staticBellPairs)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Implementations.QuantumOps
 import qualified BellKAT.Utils.Multiset as Mset
 
-type BellKATTag = QuantumTag
-type ProbBellKATTest = BoundedTest BellKATTag
-type ProbBellKATAction = TaggedAction BellKATTag
+type QBKATTag = ()
+type QBKATRuntimeTag = QuantumTag
 
-type NetworkState = TaggedBellPairs BellKATTag
+type QBKATTest = BoundedTest QBKATTag
+type QBKATAction = TaggedAction QBKATTag
 
-type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
+type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 
--- | Construct a 'NetworkState' (multiset of tagged Bell pairs) from list
-createNetworkState :: [TaggedBellPair BellKATTag] -> NetworkState
+type QBKATOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) QBKATTag
+
+type NetworkState = TaggedBellPairs QBKATRuntimeTag
+
+-- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
+createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> NetworkState
 createNetworkState = Mset.fromList
 
-data PbkatMode = PMRun | PMTrace | PMProbability | PMAutomaton
+data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton
 
-data PbkatCLIOpts = PCO 
-    { pcoJSON :: Bool
-    , pcoMode :: PbkatMode
+data QbkatCLIOpts = QCO 
+    { qcoJSON :: Bool
+    , qcoMode :: QbkatMode
     }
 
-pcoParser :: OA.Parser PbkatCLIOpts
-pcoParser = PCO 
+qcoParser :: OA.Parser QbkatCLIOpts
+qcoParser = QCO 
     <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON") 
     <*> OA.subparser (
             OA.command "run" 
-                (OA.info (pure PMRun) (OA.progDesc "Run the procotol")) 
+                (OA.info (pure QMRun) (OA.progDesc "Run the procotol")) 
                 <>
             OA.command "execution-trace"
-                (OA.info (pure PMTrace) (OA.progDesc "Run the procotol")) 
+                (OA.info (pure QMTrace) (OA.progDesc "Run the procotol")) 
                 <>
             OA.command "automaton"
-                (OA.info (pure PMAutomaton) (OA.progDesc "Run the procotol")) 
+                (OA.info (pure QMAutomaton) (OA.progDesc "Run the procotol")) 
                 <>
             OA.command "probability" 
-                (OA.info (pure PMProbability) (OA.progDesc "Compute event probability"))
+                (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
         )
 
 
-pbkatMain' 
-    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
+qbkatMain' 
+    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p
+        , DecidableBoolean QBKATTest
+        , Show QBKATTest
+        , Show QBKATOutput
+        , Ord QBKATOutput
+        , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag 
+    )
     => Proxy p
-    -> ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity BellKATTag)
-    -> ProbBellKATTest
-    -> ProbBellKATPolicy
-    -> TaggedBellPairs BellKATTag
+    -> ProbabilisticActionConfiguration
+    -> Maybe (NetworkCapacity QBKATTag)
+    -> QBKATTest
+    -> QBKATPolicy
+    -> TaggedBellPairs QBKATRuntimeTag
     -> IO ()
-pbkatMain' (_ :: Proxy p) pac mbNC ev protocol ns =
+qbkatMain' (_ :: Proxy p) pac mbNC ev protocol ns = 
                                             {- ^ initial network state -}  
-    let r = applyProbStarPolicy' @p pac mbNC protocol ns
-        s = applyProbStarPolicySystem' @p pac mbNC protocol ns
-        a = applyProbStarPolicyAutomaton pac protocol in do
-    opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
-    case pcoMode opts of
-      PMRun ->
-        if pcoJSON opts
+    let r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
+        s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
+        a = applyProbStarPolicyQAutomaton (Proxy :: Proxy QBKATOutput) pac protocol in do
+    opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
+    case qcoMode opts of
+      QMRun ->
+        if qcoJSON opts
            then BS.putStr $ A.encode r
            else print r
-      PMTrace -> 
+      QMTrace -> 
         print s
-      PMAutomaton ->
+      QMAutomaton ->
         print a
-      PMProbability -> do
-          mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
+      QMProbability -> do
+          mbRStored :: Maybe (CD p (TaggedBellPairs (RTag QBKATOutput))) <- A.decode <$> BS.getContents
           case mbRStored of 
             Nothing -> error "Couldn't parse input"
             Just rStored -> 
-                let probRange = computeEventProbabilityRange (getBPsPredicate . toBPsPredicate  $ ev) rStored
-                 in if pcoJSON opts
+                let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
+                 in if qcoJSON opts
                        then BS.putStr $ A.encode probRange
                        else print probRange
 
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
-pbkatMain 
-    :: ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity BellKATTag)
-    -> ProbBellKATTest
-    -> ProbBellKATPolicy
-    -> TaggedBellPairs BellKATTag
+qbkatMain 
+    :: ( DecidableBoolean QBKATTest
+       , Show QBKATTest
+       , Show QBKATOutput
+       , Ord QBKATOutput
+       , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
+       )
+    => ProbabilisticActionConfiguration 
+    -> Maybe (NetworkCapacity QBKATTag)
+    -> QBKATTest
+    -> QBKATPolicy
+    -> TaggedBellPairs QBKATRuntimeTag
     -> IO ()
-pbkatMain = pbkatMain' (Proxy :: Proxy Probability)
+qbkatMain = qbkatMain' (Proxy :: Proxy Probability)
 
--- | speicialization of `pbkatMain'` to floating point probability `Double`
-pbkatMainD
-    :: ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity BellKATTag)
-    -> ProbBellKATTest
-    -> ProbBellKATPolicy
-    -> TaggedBellPairs BellKATTag
+-- | speicialization of `qbkatMain'` to floating point probability `Double`
+qbkatMainD 
+    :: ( DecidableBoolean QBKATTest
+       , Show QBKATTest
+       , Show QBKATOutput
+       , Ord QBKATOutput
+       , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
+       )
+    => ProbabilisticActionConfiguration 
+    -> Maybe (NetworkCapacity QBKATTag)
+    -> QBKATTest
+    -> QBKATPolicy
+    -> TaggedBellPairs QBKATRuntimeTag
     -> IO ()
-pbkatMainD = pbkatMain' (Proxy :: Proxy Double)
+qbkatMainD = qbkatMain' (Proxy :: Proxy Double)

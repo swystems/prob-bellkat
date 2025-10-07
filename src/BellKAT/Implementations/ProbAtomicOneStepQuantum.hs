@@ -56,7 +56,7 @@ instance (OpOutput output op tag, Monoid output, Ord output, Ord tag)
             [ createProbabilitsticAtomicAction
                 (createRestrictedTest mempty)
                 (Mset.fromList i)
-                (fromCBPOutput o p)
+                (fromCBPOutput (Mset.fromList i) o p)
             ] <>
                 if i /= mempty
                 then [createProbabilitsticAtomicAction

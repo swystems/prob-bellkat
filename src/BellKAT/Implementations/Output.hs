@@ -2,6 +2,7 @@
 module BellKAT.Implementations.Output (
     Output(..),
     OpOutput(..),
+    ListOutput(..),
     RuntimeTag(..),
     staticBellPair,
     staticBellPairs,
@@ -12,7 +13,7 @@ import Data.Default
 import Control.Subcategory.Pointed
 import Control.Subcategory.Functor
 import Control.Subcategory.Bind
-import GHC.Exts (fromList, toList)
+import GHC.Exts (fromList, toList, IsList, Item)
 
 import qualified BellKAT.Utils.Multiset              as Mset
 import BellKAT.Definitions.Core
@@ -40,10 +41,15 @@ class (RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
     computeOutput :: output -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
 
 class Output output tag => OpOutput output op tag | output -> tag where
-    fromCBPOutput :: TaggedBellPair tag -> op -> output
+    fromCBPOutput :: TaggedBellPairs tag -> TaggedBellPair tag -> op -> output
 
-newtype ListOutput output tag = ListOutput [(TaggedBellPairs tag, output)] 
-    deriving newtype (Semigroup, Monoid)
+newtype ListOutput output tag = ListOutput { unListOutput :: [(TaggedBellPairs tag, output)] }
+    deriving newtype (Semigroup, Monoid, Show, Ord, Eq)
+
+instance IsList (ListOutput output tag) where
+    type Item (ListOutput output tag) = (TaggedBellPairs tag, output)
+    toList = unListOutput
+    fromList = ListOutput
 
 -- TODO: fix undecideable instance caused by Ord (RTag) 
 instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag) 
@@ -59,12 +65,16 @@ instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag)
                 , let tl = computeOutputHelper ios (rest partial)
                 ]    
 
+instance (Ord tag, DDom (RTag output), Default (RTag output), OpOutput output op tag) 
+        => OpOutput (ListOutput output tag) op tag where
+    fromCBPOutput i o p = fromList [(i, fromCBPOutput i o p)] 
+
 instance (DDom tag, Default tag) => Output (D' (TaggedBellPairs tag)) tag where
     type RTag (D' (TaggedBellPairs tag)) = tag
     computeOutput x _ = fromList [x]
 
 instance (DDom tag, Default tag) => OpOutput (D' (TaggedBellPairs tag)) Probability tag where
-    fromCBPOutput o p
+    fromCBPOutput _ o p
       | p == 1 = cpure (Mset.singleton o)
       | p == 0 = cpure mempty
       | otherwise = D.choose p (Mset.singleton o) mempty

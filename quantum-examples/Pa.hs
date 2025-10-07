@@ -1,15 +1,15 @@
 import BellKAT.QuantumPrelude
 
-p :: ProbBellKATPolicy
-p = (create "C" <||> create "C") 
-    <> 
+p :: QBKATPolicy
+p = (create "C" <||> create "C")
+    <>
     (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
     <>
-    (swap "C" ("A", "B"))
+    swap "C" ("A", "B")
 
 actionConfig :: ProbabilisticActionConfiguration
-actionConfig = PAC 
-    { pacTransmitProbability = 
+actionConfig = PAC
+    { pacTransmitProbability =
         [(("C", "A"), 8/10)
         ,(("C", "B"), 7/10)
         ]
@@ -21,4 +21,4 @@ actionConfig = PAC
 main :: IO ()
 main =
     let ev = "A" ~~? "B"
-     in pbkatMain actionConfig Nothing ev p mempty
+    in qbkatMain actionConfig Nothing ev p mempty

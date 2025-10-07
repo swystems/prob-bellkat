@@ -49,7 +49,10 @@ instance Default QuantumTag where
     def = QuantumTag 0 0.8
                      {- ^ example to see fidelity evolving with swap -}
 
-instance Output (TaggedBellPair (), Op QuantumTag) QuantumTag where
+instance RuntimeTag QuantumTag () where
+  staticTag _ = ()
+
+instance Output (TaggedBellPair (), Op QuantumTag) () where
     type RTag (TaggedBellPair (), Op QuantumTag) = QuantumTag
     computeOutput (_, FSkip) _ =
         cpure mempty
@@ -72,6 +75,8 @@ instance Output (TaggedBellPair (), Op QuantumTag) QuantumTag where
     computeOutput (outBp, FDistill) inBps =
         [distBPs inBps outBp]
 
+instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
+    fromCBPOutput _ bp op = (bp, op)
 
 -- | Swap two Bell pairs and returns a distribution D' 
 -- | with probability p (the success probability) the output is a new tagged Bell pair connecting the two end nodes, 

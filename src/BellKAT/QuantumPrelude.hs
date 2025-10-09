@@ -18,6 +18,7 @@ module BellKAT.QuantumPrelude (
     TaggedBellPair(..),
     ProbabilisticActionConfiguration(..),
     NetworkCapacity,
+    MaxClock(..),
     -- * Entry points
     qbkatMain,
     qbkatMainD,
@@ -42,10 +43,11 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity)
-import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, staticBellPairs)
+import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, CTag, staticBellPairs)
+import BellKAT.Implementations.QuantumOps (QuantumTag(..), MaxClock(..))
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
-import BellKAT.Implementations.QuantumOps
+import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
 
 type QBKATTag = ()
@@ -56,13 +58,13 @@ type QBKATAction = TaggedAction QBKATTag
 
 type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 
-type QBKATOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) QBKATTag
+type QBKATOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) MaxClock QBKATTag
 
-type NetworkState = TaggedBellPairs QBKATRuntimeTag
+type NetworkState = LabelledMultiset MaxClock (TaggedBellPair QBKATRuntimeTag)
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
-createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> NetworkState
-createNetworkState = Mset.fromList
+createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
+createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
 data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton
 
@@ -102,32 +104,32 @@ qbkatMain'
     -> Maybe (NetworkCapacity QBKATTag)
     -> QBKATTest
     -> QBKATPolicy
-    -> TaggedBellPairs QBKATRuntimeTag
+    -> NetworkState
     -> IO ()
 qbkatMain' (_ :: Proxy p) pac mbNC ev protocol ns = 
                                             {- ^ initial network state -}  
     let r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
         s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
         a = applyProbStarPolicyQAutomaton (Proxy :: Proxy QBKATOutput) pac protocol in do
-    opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
-    case qcoMode opts of
-      QMRun ->
-        if qcoJSON opts
-           then BS.putStr $ A.encode r
-           else print r
-      QMTrace -> 
-        print s
-      QMAutomaton ->
-        print a
-      QMProbability -> do
-          mbRStored :: Maybe (CD p (TaggedBellPairs (RTag QBKATOutput))) <- A.decode <$> BS.getContents
-          case mbRStored of 
-            Nothing -> error "Couldn't parse input"
-            Just rStored -> 
-                let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
-                 in if qcoJSON opts
-                       then BS.putStr $ A.encode probRange
-                       else print probRange
+        opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
+        case qcoMode opts of
+          QMRun ->
+            if qcoJSON opts
+               then BS.putStr $ A.encode r
+               else print r
+          QMTrace -> 
+            print s
+          QMAutomaton ->
+            print a
+          QMProbability -> do
+              mbRStored :: Maybe (CD p (LabelledBellPairs (CTag QBKATOutput) (RTag QBKATOutput))) <- A.decode <$> BS.getContents
+              case mbRStored of 
+                Nothing -> error "Couldn't parse input"
+                Just rStored -> 
+                    let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
+                     in if qcoJSON opts
+                           then BS.putStr $ A.encode probRange
+                           else print probRange
 
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
@@ -142,7 +144,7 @@ qbkatMain
     -> Maybe (NetworkCapacity QBKATTag)
     -> QBKATTest
     -> QBKATPolicy
-    -> TaggedBellPairs QBKATRuntimeTag
+    -> NetworkState
     -> IO ()
 qbkatMain = qbkatMain' (Proxy :: Proxy Probability)
 
@@ -158,6 +160,6 @@ qbkatMainD
     -> Maybe (NetworkCapacity QBKATTag)
     -> QBKATTest
     -> QBKATPolicy
-    -> TaggedBellPairs QBKATRuntimeTag
+    -> NetworkState
     -> IO ()
 qbkatMainD = qbkatMain' (Proxy :: Proxy Double)

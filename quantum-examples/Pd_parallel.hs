@@ -7,6 +7,7 @@ initState = createNetworkState
     , TaggedBellPair ("A" ~ "B") (QuantumTag 1 0.7)
     , TaggedBellPair ("A" ~ "B") (QuantumTag 1 0.6)
     ]
+    (MaxClock 1)
 
 p :: QBKATPolicy
 p = distill ("A", "B") <||> distill ("A", "B")

@@ -28,10 +28,9 @@ execute
     -> Set (TaggedBellPairs tag)
 execute (AtomicOneStepPolicy act) bps =
     if getBPsPredicate (toBPsPredicate . aaTest $ act) bps
-       then Set.fromList 
-        [ aaOutputBPs act <> rest partial
-        | partial <- findElemsND (toList . aaInputBPs $ act) bps]
-                               {- ^ should this be untagBellPair ?-}
+    then Set.fromList 
+    [ aaOutputBPs act <> rest partial
+    | partial <- findElemsND'' id (toList . Mset.bellPairs . aaInputBPs $ act) bps]
        else mempty
 
 instance (Ord tag, Default tag) 
@@ -39,10 +38,10 @@ instance (Ord tag, Default tag)
     tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
         case prob of
           1.0 -> 
-            createBasicAction (Mset.fromList bps) [bp]
+            createBasicAction (Mset.fromList' bps) [bp]
           _ ->
-              createBasicAction (Mset.fromList bps) [bp]
-              <> createBasicAction (Mset.fromList bps) []
+              createBasicAction (Mset.fromList' bps) [bp]
+              <> createBasicAction (Mset.fromList' bps) []
 
 instance Ord tag => Tests (AtomicOneStepPolicy tag) FreeTest tag where
     test t = 

@@ -44,10 +44,10 @@ class DSLTestNeq t tag => DSLTest t tag where
 l ~~? l' = hasSubset [l ~ l']
 
 instance Ord t => DSLTestNeq (BellPairsPredicate t) t where
-    hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf`))
+    hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf'`))
 
 instance Ord t => DSLTest (BellPairsPredicate t) t where
-    hasSubset x = BPsPredicate (x `Mset.isSubsetOf`)
+    hasSubset x = BPsPredicate (x `Mset.isSubsetOf'`)
 
 instance Ord t => DSLTestNeq (FreeTest t) t where
     hasNotSubset x = FTNot $ FTSubset x
@@ -141,7 +141,7 @@ instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
     _ .~ _ = error "cannot attach tag to this thing"
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
-    t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) bps && getBPsPredicate t bps
+    t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) (Mset.bellPairs bps) && getBPsPredicate t bps
 
 class InverseTaggable a t | a -> t where
     (~.) :: t -> a -> a

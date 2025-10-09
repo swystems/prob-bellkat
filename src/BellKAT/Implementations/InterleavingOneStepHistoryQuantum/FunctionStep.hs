@@ -45,4 +45,7 @@ instance (Ord tag) => CreatesBellPairs (FunctionStep test tag) Probability tag w
 
 instance (Ord tag, Test test) => Tests (FunctionStep test tag) test tag where
   test t = FunctionStep . PartialNDEndo $ \h@(History ts) ->
-    if getBPsPredicate (toBPsPredicate t) (Mset.map rootLabel ts) then [ chooseNoneOf h ] else []
+        let bps = Mset.map rootLabel ts Mset.@ ()
+         in if getBPsPredicate (toBPsPredicate t) bps
+                     then [ chooseNoneOf h ]
+                     else []

@@ -76,6 +76,20 @@ findElemsND' f bps@(bp:_) ts =
             , ts'' <- findElemsND' f restBps restTrees]
 -- Thanks to Lorenzo La Corte!
 
+-- | Wrapper of 'findElemsND'' on a unit-labelled multiset (LabelledMultiset () a)
+findElemsND'' :: (Ord a, Ord b) => (b -> a) -> [a] -> Mset.LabelledMultiset () b -> [Partial (Mset.LabelledMultiset () b)]
+findElemsND'' f xs lms =
+    [ Partial { chosen = chosen p Mset.@ (), rest = rest p Mset.@ () }
+    | p <- findElemsND' f xs (Mset.bellPairs lms)
+    ]
+
+-- | Wrapper of 'findElemsND'' on a multiset labelled with a cTag
+findElemsNDT :: (Ord a, Ord b) => (b -> a) -> [a] -> Mset.LabelledMultiset cTag b -> [Partial (Mset.LabelledMultiset cTag b)]
+findElemsNDT f xs (Mset.LMS (inBps, t)) =
+    [ Partial { chosen = chosen p Mset.@ t, rest = rest p Mset.@ t }
+    | p <- findElemsND' f xs inBps
+    ]
+
 findTreeRootsP :: (Ord a) => Predicate a -> UForest a -> Partial (UForest a)
 findTreeRootsP p ts = 
      Partial 

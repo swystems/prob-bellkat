@@ -14,6 +14,7 @@ module BellKAT.Definitions.Core (
     hasLocation,
     TaggedBellPair(..),
     TaggedBellPairs,
+    LabelledBellPairs,
     (@), 
     TaggedRequiredRoots,
     History(..),
@@ -49,7 +50,7 @@ import qualified Data.Vector.Fixed          as FV
 import           Test.QuickCheck            hiding (choose, (.&&.))
 
 import           BellKAT.Utils.Choice
-import           BellKAT.Utils.Multiset     (Multiset)
+import           BellKAT.Utils.Multiset     (Multiset, LabelledMultiset)
 import qualified BellKAT.Utils.Multiset     as Mset
 import           BellKAT.Utils.UnorderedTree
 --
@@ -85,7 +86,7 @@ data TaggedBellPair t = TaggedBellPair
 instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
     showsPrec _ (TaggedBellPair bp t) 
         | t == def = shows bp
-        | otherwise = shows bp . showString "/" . shows t
+        | otherwise = shows bp . shows t
 
 instance Default tag => LikeBellPair (TaggedBellPair tag) where
     l1 ~ l2 = TaggedBellPair (l1 ~ l2) def
@@ -97,8 +98,11 @@ infix 8 @ -- less than of `(:~:)`
 (@) :: BellPair -> tag -> TaggedBellPair tag
 (@) = TaggedBellPair
 
--- | `TaggedBellPairs` is a multiset of Bell pairs, each with a tag
-type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
+-- | `LabelledBellPairs` is a labelled multiset of Bell pairs, each with a tag
+type LabelledBellPairs cTag tag = LabelledMultiset cTag (TaggedBellPair tag)
+
+-- | `TaggedBellPairs` include tags for the BPs but not for the multiset
+type TaggedBellPairs tag = LabelledMultiset () (TaggedBellPair tag)
 
 -- | DupKind controls when the nodes in the histories are duplicated
 data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool } deriving stock (Eq)
@@ -137,7 +141,7 @@ data Op tag =
     deriving stock (Eq, Ord, Show)
 
 data CreateBellPairArgs op tag = CreateBellPairArgs
-    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
+    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a list of required (input) `BellPair`s
     , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpOp          :: op -- ^ operation creating `cbpOutputBP`
     , cbpDup         :: DupKind

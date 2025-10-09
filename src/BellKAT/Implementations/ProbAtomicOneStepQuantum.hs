@@ -11,6 +11,7 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
 import qualified GHC.Exts (IsList, Item)
 import GHC.Exts (fromList, toList)
 import Data.List (intercalate)
+import Data.Typeable (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
@@ -55,12 +56,12 @@ instance (OpOutput output op tag, Monoid output, Ord output, Ord tag)
     tryCreateBellPairFrom (CreateBellPairArgs i o p _) = ProbAtomicOneStepPolicy $ Set.fromList $
             [ createProbabilitsticAtomicAction
                 (createRestrictedTest mempty)
-                (Mset.fromList i)
-                (fromCBPOutput (Mset.fromList i) o p)
+                (Mset.fromList' i)
+                (fromCBPOutput (Mset.fromList' i) o p)
             ] <>
                 if i /= mempty
                 then [createProbabilitsticAtomicAction
-                        (createRestrictedTest  [Mset.fromList i])
+                        (createRestrictedTest  [Mset.fromList' i])
                         mempty
                         mempty]
                 else mempty
@@ -81,48 +82,58 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
 -- `TaggedBellPairs`
 execute
     :: (Output output tag, Ord tag)
+    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
-    -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
+    -> LabelledBellPairs (CTag output) (RTag output)
+    -> CD' (LabelledBellPairs (CTag output) (RTag output))
 execute (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA id paa bps) xs
 
 execute'
     :: (Output output tag, RationalOrDouble p, Ord tag)
+    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
-    -> TaggedBellPairs (RTag output) -> CD p (TaggedBellPairs (RTag output))
+    -> LabelledBellPairs (CTag output) (RTag output) 
+    -> CD p (LabelledBellPairs (CTag output) (RTag output))
 execute' p bps = D.mapProbability fromRational $ execute p bps
 
 executeWithCapacity
     :: (Output output tag, Ord tag)
+    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => NetworkCapacity tag
     -> ProbAtomicOneStepPolicy output tag
-    -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
+    -> LabelledBellPairs (CTag output) (RTag output)
+    -> CD' (LabelledBellPairs (CTag output) (RTag output))
 executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
 
 executeWithCapacity'
     :: (Output output tag, RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
+    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => NetworkCapacity tag -> ProbAtomicOneStepPolicy output tag
-    -> TaggedBellPairs (RTag output) -> CD p (TaggedBellPairs (RTag output))
+    -> LabelledBellPairs (CTag output) (RTag output)
+    -> CD p (LabelledBellPairs (CTag output) (RTag output))
 executeWithCapacity' nc p bps = D.mapProbability fromRational $ executeWithCapacity nc p bps
 
 executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
            => (Ord tag)
            => (DDom (RTag output), Default (RTag output))
-           => (TaggedBellPairs (RTag output) -> TaggedBellPairs (RTag output))
+           => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+           => (LabelledBellPairs (CTag output) (RTag output) -> LabelledBellPairs (CTag output) (RTag output))
            -- ^ "fixing" function to apply at the end
            -> ProbabilisticAtomicAction output tag 
-           -> TaggedBellPairs (RTag output) -> CD' (TaggedBellPairs (RTag output))
+           -> LabelledBellPairs (CTag output) (RTag output)
+           -> CD' (LabelledBellPairs (CTag output) (RTag output))
 executePAA fix act bps =
     let testHolds = (getBPsPredicate . toBPsPredicate . paaTest) act (staticBellPairs bps)
      in if testHolds
         then mconcat
          [ cmap (fix . (<> rest)) (computeOutput (paaOutput act) chosen)
-           | Partial { chosen , rest }  <- findElemsND' (fmap staticTag) (toList . paaInputBPs $ act) bps]
+           | Partial { chosen , rest }  <- findElemsNDT (fmap staticTag) (toList . paaInputBPs $ act) bps]
         else mempty
 
 -- executePAA _ act@(ProbabilisticAtomicAction _ []) untouched =
@@ -139,17 +150,17 @@ executePAA fix act bps =
 -- | For each BellPair, keep at most the number allowed
 fixNetworkCapacity 
     :: (RuntimeTag rTag tag, Ord rTag, Ord tag)
-    => NetworkCapacity tag -> TaggedBellPairs rTag -> TaggedBellPairs rTag
-fixNetworkCapacity (NC cap) xs =
+    => NetworkCapacity tag -> LabelledBellPairs cTag rTag -> LabelledBellPairs cTag rTag
+fixNetworkCapacity (NC cap) (Mset.LMS (ms, t)) =
   let capCounts = countByBellPair (toList cap)
-      grouped = Map.fromListWith (++) [(staticBellPair tbp, [tbp]) | tbp <- toList xs]
+      grouped = Map.fromListWith (++) [(staticBellPair tbp, [tbp]) | tbp <- toList ms]
                                 {- ^ duplicates with same key concatenate -}
       clipped = concat
         [ take (Map.findWithDefault maxBound bp capCounts) tbps
         {- ^ keeps only first n tagged instances for that BellPair -}
         | (bp, tbps) <- Map.toList grouped
         ]
-  in fromList clipped
+  in Mset.LMS (Mset.fromList clipped, t)
 
 -- | Count BellPairs in a TaggedBellPairs, disregarding tag
 countByBellPair :: Ord tag => [TaggedBellPair tag] -> Map.Map (TaggedBellPair tag) Int

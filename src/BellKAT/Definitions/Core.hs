@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData      #-}
 {-# LANGUAGE DeriveFunctor   #-}
 module BellKAT.Definitions.Core (
@@ -43,6 +44,8 @@ import qualified Data.Set                   as Set
 import           Data.String                (IsString)
 import           Data.Default
 import qualified Data.Aeson as A
+import           Data.Aeson ((.:), (.=))
+import           Control.Applicative ((<|>))
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
 import           Data.Vector.Fixed          (Arity, VecList)
@@ -154,7 +157,7 @@ instance HasDupKinds (CreateBellPairArgs op tag) where
   modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
 instance Show1 (CreateBellPairArgs op) where
-  liftShowsPrec _ _ _ _ = shows "cbp"
+    liftShowsPrec _ _ _ _ = showString "cbp"
 
 -- * History of BellPairs
 
@@ -223,8 +226,21 @@ instance A.ToJSON Location where
 instance A.FromJSON Location where
     parseJSON = fmap Location . A.parseJSON
 
-instance Default t => A.ToJSON (TaggedBellPair t) where
-    toJSON = A.toJSON . locations
+instance A.ToJSON t => A.ToJSON (TaggedBellPair t) where
+    toJSON (TaggedBellPair bp t) =
+        A.object [ "locations" .= locations bp
+                 , "tag"       .= t
+                 ]
 
-instance Default t => A.FromJSON (TaggedBellPair t) where
-    parseJSON v = uncurry (~) <$> A.parseJSON v
+instance (A.FromJSON t, Default t) => A.FromJSON (TaggedBellPair t) where
+    parseJSON v =
+        -- format: { "locations": (l1,l2), "tag": t }
+        A.withObject "TaggedBellPair" (\o -> do
+            (l1, l2) <- o .: "locations"
+            t        <- o .: "tag"
+            pure $ TaggedBellPair (l1 ~ l2) t) v
+        <|>
+        -- format: (l1,l2)
+        (do
+            (l1, l2) <- A.parseJSON v
+            pure $ TaggedBellPair (l1 ~ l2) def)

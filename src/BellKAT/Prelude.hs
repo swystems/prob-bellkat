@@ -34,6 +34,7 @@ import Data.Maybe (isJust)
 import Data.Set (Set)
 import Data.Default
 import Diagrams.Backend.Cairo.CmdLine
+import qualified Data.Aeson as A
 
 import BellKAT.DSL
 import BellKAT.Definitions
@@ -46,6 +47,12 @@ newtype BellKATTagChar = BellKATTagChar Char deriving newtype (Ord, Eq, Show)
 
 instance Default BellKATTagChar where
     def = BellKATTagChar '0'
+
+instance A.ToJSON BellKATTagChar where
+    toJSON (BellKATTagChar c) = A.toJSON c
+
+instance A.FromJSON BellKATTagChar where
+    parseJSON v = BellKATTagChar <$> A.parseJSON v
 
 type BellKATTag = Maybe BellKATTagChar
 type BellKATPolicy = WithTests OrderedStarPolicy FreeTest BellKATTag

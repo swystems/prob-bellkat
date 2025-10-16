@@ -369,6 +369,42 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP5_3_pompili:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_3_pompili.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_Li:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_Li.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_ASAP:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_ASAP.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_Star:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_Star.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
 
 tests:
   spec: 

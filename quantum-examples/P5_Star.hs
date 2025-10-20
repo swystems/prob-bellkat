@@ -1,35 +1,35 @@
 import BellKAT.QuantumPrelude
 
-pG1 :: Int -> QBKATPolicy
-pG1 itG =
-    whileN itG ("A" /~? "H") (ucreate ("A", "H"))
+pG :: Int -> QBKATPolicy
+pG nG =
+    whileN nG ("A" /~? "H") (ucreate ("A", "H"))
         <||>
-    whileN itG ("C" /~? "H") (ucreate ("C", "H"))
-
-pG2 :: Int -> QBKATPolicy
-pG2 itG =
-    whileN itG ("B" /~? "H") (ucreate ("B", "H"))
+    whileN nG ("B" /~? "H") (ucreate ("B", "H"))
         <||>
-    whileN itG ("C" /~? "H") (ucreate ("C", "H"))
+    whileN nG ("C" /~? "H") (ucreate ("C", "H"))
 
-pS1 :: Int -> Int -> QBKATPolicy
-pS1 itS itG =
-    whileN itS ("A" /~? "C") oneAttempt
-        where oneAttempt = pG1 itG <> swap "H" ("A", "C")
+p :: Int -> Int -> Location -> QBKATPolicy
+p nS nG priority =
+    if priority == "A"
+        then
+            whileN nS ("A" /~? "C") (pG nG <> swap "H" ("A", "C"))
+                <.>
+            whileN nS ("B" /~? "C") (pG nG <> swap "H" ("B", "C"))
+        else
+            whileN nS ("B" /~? "C") (pG nG <> swap "H" ("B", "C"))
+                <.>
+            whileN nS ("A" /~? "C") (pG nG <> swap "H" ("A", "C"))
 
-pS2 :: Int -> Int -> QBKATPolicy
-pS2 itS itG =
-    whileN itS ("B" /~? "C") oneAttempt
-        where oneAttempt = pG2 itG <> swap "H" ("B", "C")
 
-p :: Int -> Int -> QBKATPolicy
-p itS itG = pS2 itS itG <.> pS1 itS itG
+networkCapacity :: NetworkCapacity QBKATTag
+networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
 
-actionConfig :: Rational -> Rational -> ProbabilisticActionConfiguration
-actionConfig p_gen p_swap =
+actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
+actionConfig p_gen w0 p_swap tCoh =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
+        , pacCreateWerner = []
         , pacUCreateProbability =
             [ (("A", "H"), p_gen)
             , (("B", "H"), p_gen)
@@ -37,11 +37,25 @@ actionConfig p_gen p_swap =
             ]
         , pacSwapProbability =
             [ ("H", p_swap) ]
+        , pacUCreateWerner =
+            [ (("A", "H"), w0)
+            , (("B", "H"), w0)
+            , (("C", "H"), w0)
+            ]
+        , pacCoherenceTime =
+            [ ("A", tCoh)
+            , ("B", tCoh)
+            , ("C", tCoh)
+            , ("H", tCoh)
+            ]
         }
 
 main :: IO ()
 main =
-    let ev     = "B" ~~? "C"
-        p_gen  = 1/5 {-1/100-}
-        p_swap = 3/4
-     in qbkatMainD (actionConfig p_gen p_swap) Nothing ev (p 2 1 {-4 460-}) mempty
+    let priority = "A"
+        ev       = priority ~~? "C"
+        p_gen    = 1/5 {-1/10-}
+        p_swap   = 3/4 {-1/2-}
+        w0       = 958/1000
+        tCoh     = 100
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 2 7 priority {-3 22-}) mempty

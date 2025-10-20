@@ -21,27 +21,43 @@ pS n =
 p :: Int -> QBKATPolicy
 p n = whileN n ("A" /~? "E") (pS n <> swap "C" ("A", "E"))
 
-actionConfig :: Rational -> Rational -> ProbabilisticActionConfiguration
-actionConfig p_gen p_swap =
+actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
+actionConfig pGen w0 pSwap tCoh =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
+        , pacCreateWerner = []
         , pacUCreateProbability =
-            [ (("A", "B"), p_gen)
-            , (("B", "C"), p_gen)
-            , (("C", "D"), p_gen)
-            , (("D", "E"), p_gen)
+            [ (("A", "B"), pGen)
+            , (("B", "C"), pGen)
+            , (("C", "D"), pGen)
+            , (("D", "E"), pGen)
             ]
         , pacSwapProbability =
-            [ ("B", p_swap)
-            , ("C", p_swap)
-            , ("D", p_swap)
+            [ ("B", pSwap)
+            , ("C", pSwap)
+            , ("D", pSwap)
             ]
+        , pacUCreateWerner =
+            [ (("A", "C"), w0)
+            , (("B", "C"), w0)
+            , (("C", "D"), w0)
+            , (("D", "E"), w0)
+            ]
+        , pacCoherenceTime =
+            [ ("A", tCoh)
+            , ("B", tCoh)
+            , ("C", tCoh)
+            , ("D", tCoh)
+            , ("E", tCoh)
+        ]
         }
 
 main :: IO ()
 main =
     let ev     = "A" ~~? "E"
-        p_gen  = 26/10000
-        p_swap = 75/100
-     in qbkatMainD (actionConfig p_gen p_swap) Nothing ev (p 2) mempty
+        pGen  = 26/10000
+        pSwap = 75/100
+        w0    = 958/1000
+        tCoh  = 100
+     in qbkatMainD (actionConfig pGen w0 pSwap tCoh) Nothing ev (p 2) mempty

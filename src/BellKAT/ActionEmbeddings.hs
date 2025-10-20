@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as Map
 
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core
+import BellKAT.Implementations.QuantumOps (Werner, TimeUnit)
 
 -- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
 class CanDesugarActions op a where
@@ -66,22 +67,22 @@ simpleOpActionMeaning
 simpleOpActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (FSwap 1.0) (taDup ta)
+        (FSwap 1.0 (1, 1, 1)) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (FTransmit 1.0 def) (taDup ta)
+        (FTransmit 1.0 (1, 1) def) (taDup ta)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
-        (FCreate 1.0 def) (taDup ta)
+        (FCreate 1.0 1.0 def) (taDup ta)
     (Destroy (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         FDestroy (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagOut ta ) 
-        FDistill (taDup ta)
+        (FDistill (1, 1)) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 
-        (FGenerate 1 def) (taDup ta)
+        (FGenerate 1.0 1.0 def) (taDup ta)
 
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
@@ -89,11 +90,17 @@ data ProbabilisticActionConfiguration = PAC
     { pacTransmitProbability :: Map (Location, Location) Probability
     -- | holds probabilities of successful creation at individual locations
     , pacCreateProbability :: Map Location Probability
+    -- | holds initial Werner parameter of an already distributed
+    , pacCreateWerner :: Map Location Werner
     -- | holds probabilities of successful creation of an already distributed
     , pacUCreateProbability :: Map (Location, Location) Probability
+    -- | holds initial Werner parameter of an already distributed
+    , pacUCreateWerner :: Map (Location, Location) Werner
     -- | holds probabilities of successful creation of an already distributed
     --   Bell pair (used extensively in case studies)
     , pacSwapProbability :: Map Location Probability
+    -- | holds time of coherence of memories at individual locations
+    , pacCoherenceTime :: Map Location TimeUnit
     }
 
 -- | gives meaning to actions while taking into account success probabilities
@@ -124,28 +131,34 @@ probabilisticOpActionMeaning
 probabilisticOpActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
-        (FSwap (swapProbability pac l)) (taDup ta)
+        (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2))) (taDup ta)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
-        (FTransmit (transmitProbability pac l (l1, l2)) def) (taDup ta)
+        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) def) (taDup ta)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
-        (FCreate (createProbability pac l) def) (taDup ta)
+        (FCreate (createProbability pac l) (createWerner pac l) def) (taDup ta)
     (Destroy (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
         FDestroy (taDup ta)
     (Distill (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
-        FDistill (taDup ta)
+        (FDistill (coherenceTimePair pac (l1, l2))) (taDup ta)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 
-        (FGenerate (uCreateProbability pac (l1, l2)) def) (taDup ta)
+        (FGenerate (uCreateProbability pac (l1, l2)) (uCreateWerner pac (l1, l2)) def) (taDup ta)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 
     case pacCreateProbability pac Map.!? l of
       Nothing -> error $ "no create probability for " <> show l
       Just p -> p
+
+createWerner :: ProbabilisticActionConfiguration -> Location -> Werner
+createWerner pac l =
+    case pacCreateWerner pac Map.!? l of
+      Nothing -> error $ "no initial Werner for " <> show l
+      Just w -> w
 
 swapProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 swapProbability pac l = 
@@ -159,6 +172,12 @@ uCreateProbability pac l =
       Nothing -> error $ "no ucreate probability for " <> show l
       Just p -> p
 
+uCreateWerner :: ProbabilisticActionConfiguration -> (Location, Location) -> Werner
+uCreateWerner pac (l1, l2) = 
+    case pacUCreateWerner pac Map.!? (l1, l2) of
+      Nothing -> error $ "no initial Werner for " <> show (l1, l2)
+      Just w -> w
+
 transmitProbability :: ProbabilisticActionConfiguration -> Location -> (Location, Location) -> Probability
 transmitProbability pac l (l1, l2) = 
     let p1 = if l1 == l then 1 else transmitProbabilitySingle pac (l, l1)
@@ -170,6 +189,18 @@ transmitProbabilitySingle pac l =
     case pacTransmitProbability pac Map.!? l of
       Nothing -> error $ "no transmit probability for " <> show l
       Just p -> p
+
+coherenceTime :: ProbabilisticActionConfiguration -> Location -> TimeUnit
+coherenceTime pac l =
+    case pacCoherenceTime pac Map.!? l of
+        Nothing -> error $ "no coherence time for " <> show l
+        Just t -> t
+
+coherenceTimePair :: ProbabilisticActionConfiguration -> (Location, Location) -> (TimeUnit, TimeUnit)
+coherenceTimePair pac (l1, l2) = (coherenceTime pac l1, coherenceTime pac l2)
+
+coherenceTimeTriplet :: ProbabilisticActionConfiguration -> (Location, Location, Location) -> (TimeUnit, TimeUnit, TimeUnit)
+coherenceTimeTriplet pac (l1, l2, l3) = (coherenceTime pac l1, coherenceTime pac l2, coherenceTime pac l3)
 
 instance CanDesugarActions op (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag

@@ -126,19 +126,22 @@ instance Monoid DupKind where
     mempty = DupKind False False
 
 type Probability = Rational
+type StateQuality = Double
+type CoherenceTime = Int 
 
 data Op tag =
     FSkip
     -- ^ yiels mempty
-    | FCreate Probability tag
-    | FGenerate Probability tag
-    | FTransmit Probability tag
+    | FCreate Probability StateQuality tag
+    | FGenerate Probability StateQuality tag
+    | FTransmit Probability (CoherenceTime, CoherenceTime) tag
     -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
+    -- | TODO: the tag here is redundant
     | FDestroy
     -- ^ yields mempty (destroyed Bell pair)
-    | FSwap Probability
+    | FSwap Probability (CoherenceTime, CoherenceTime, CoherenceTime)
     -- ^ yields the swapped Bell pair given the two in input, with probability p
-    | FDistill
+    | FDistill (CoherenceTime, CoherenceTime)
     -- ^ yields the distilled Bell pair given the two same-location ones in input
     -- ^ computing the probability dynamically
     deriving stock (Eq, Ord, Show)

@@ -12,16 +12,20 @@ initState = createNetworkState
 p :: QBKATPolicy
 p = distill ("A", "B")
 
-actionConfig :: ProbabilisticActionConfiguration
-actionConfig = PAC 
+actionConfig :: Int -> ProbabilisticActionConfiguration
+actionConfig tCoh = PAC 
     { pacTransmitProbability = 
         []
     , pacCreateProbability = []
     , pacSwapProbability = []
     , pacUCreateProbability = []
+    , pacCreateWerner = []
+    , pacUCreateWerner = []
+    , pacCoherenceTime = [("A", tCoh), ("B", tCoh)]
     }
 
 main :: IO ()
 main = 
     let ev = "A" ~~? "B"
-    in qbkatMainD actionConfig Nothing ev p initState
+        tCoh = 100
+    in qbkatMainD (actionConfig tCoh) Nothing ev p initState

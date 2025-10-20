@@ -16,9 +16,7 @@ module BellKAT.Implementations.QuantumOps (
     createBP,
     transmitBP,
     distBPs,
-    generateBP,
-    decayWerner,
-    tCoherence
+    generateBP
 ) where
 
 import GHC.Exts (fromList, toList)
@@ -53,17 +51,11 @@ instance Monoid MaxClock where
 instance Show MaxClock where
     show (MaxClock t) = "(" ++ show t ++ ")"
 
-updateClock :: MaxClock -> MaxClock
-updateClock clock = MaxClock (getMaxClock clock + 1)
-
 instance A.ToJSON MaxClock where
     toJSON (MaxClock t) = A.toJSON t
 
 instance A.FromJSON MaxClock where
     parseJSON v = MaxClock <$> A.parseJSON v
-
-tCoherence :: TimeUnit
-tCoherence = 100
 
 -- | A quantum tag for Bell pairs
 data QuantumTag = QuantumTag
@@ -95,23 +87,23 @@ instance Output (TaggedBellPair (), Op QuantumTag) () where
     computeOutput (_, FSkip) (Mset.LMS (_, clock)) =
         cpure (labelledMempty clock)
 
-    computeOutput (outBp, FCreate p t) inClockedBps = 
-        [createBP p inClockedBps (bellPair outBp @ t)]
+    computeOutput (outBp, FCreate p w _) inClockedBps =
+        [createBP p inClockedBps (bellPair outBp @ QuantumTag 0 w)]
 
-    computeOutput (outBp, FGenerate p t) inClockedBps = 
-        [generateBP p inClockedBps $ bellPair outBp @ t]
+    computeOutput (outBp, FGenerate p w _) inClockedBps =
+        [generateBP p inClockedBps $ bellPair outBp @ QuantumTag 1 w]
 
-    computeOutput (outBp, FTransmit p t) inClockedBps =
-        [transmitBP p inClockedBps $ bellPair outBp @ t]
+    computeOutput (outBp, FTransmit p tCohs t) inClockedBps =
+        [transmitBP p tCohs inClockedBps $ bellPair outBp @ t]
 
     computeOutput (_, FDestroy) (Mset.LMS (_, clock)) =
         [cpure (labelledMempty clock)]
 
-    computeOutput (outBp, FSwap p) inClockedBps =
-        [swapBPs p inClockedBps outBp]
+    computeOutput (outBp, FSwap p tCohs) inClockedBps =
+        [swapBPs p tCohs inClockedBps outBp]
 
-    computeOutput (outBp, FDistill) inClockedBps =
-        [distBPs inClockedBps outBp]
+    computeOutput (outBp, FDistill tCohs) inClockedBps =
+        [distBPs tCohs inClockedBps outBp]
 
 instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
     fromCBPOutput _ bp op = (bp, op)
@@ -122,17 +114,20 @@ instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
 -- | On failure, no entangled pair remains (both inputs are destroyed in the process). 
 -- | Note: it fails if not exactly two bell pairs are given in input
 swapBPs :: Rational
+            -> (TimeUnit, TimeUnit, TimeUnit)
             -> LabelledBellPairs MaxClock QuantumTag
             -> TaggedBellPair tag
             -> D' (LabelledBellPairs MaxClock QuantumTag)
-swapBPs p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) = 
+swapBPs p (tCohL, tCohL1, tCohL2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) = 
+          {- ^ swap node -}
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
                 productionTS = getMaxClock clock + 1
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
-                    , qtFidelity  = decayWerner (abs (t1 - t2)) (w1 * w2)
+                    , qtFidelity  = w1 * w2 * decay (tCohL, tCohL1) (getMaxClock clock - t1)
+                                            * decay (tCohL, tCohL2) (getMaxClock clock - t2)
                     }
                 successOutput = Mset.singletonT (TaggedBellPair outBp newTag) (MaxClock productionTS)
                 failureOutput = labelledMempty (MaxClock productionTS)
@@ -149,10 +144,11 @@ swapBPs p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
 -- | to yield one new Bell pair with improved fidelity `wDist = (wA + wB + 4 * wA * wB) / (6 * pDist)`
 -- | and fails with the remaining probability (yielding no output pair, as the two input pairs are consumed)
 -- | Note: it fails if not exactly two bell pairs are given in input
-distBPs :: LabelledBellPairs MaxClock QuantumTag
+distBPs :: (TimeUnit, TimeUnit)
+        -> LabelledBellPairs MaxClock QuantumTag
         -> TaggedBellPair ()
         -> D' (LabelledBellPairs MaxClock QuantumTag)
-distBPs (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+distBPs (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
@@ -163,7 +159,8 @@ distBPs (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
                 productionTS = getMaxClock clock + 1
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
-                    , qtFidelity  = decayWerner (abs (t1 - t2)) wDistD
+                    , qtFidelity  = wDistD * decay (tCoh1, tCoh2) (getMaxClock clock - t1)
+                                           * decay (tCoh1, tCoh2) (getMaxClock clock - t2)
                     }
                 successOutput = Mset.singletonT (TaggedBellPair outBp newTag) (MaxClock productionTS)
                 failureOutput = labelledMempty (MaxClock productionTS)
@@ -195,12 +192,10 @@ createBP :: Rational
             -> LabelledBellPairs MaxClock QuantumTag
             -> TaggedBellPair QuantumTag
             -> D' (LabelledBellPairs MaxClock QuantumTag)
-createBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) = 
+createBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag t w0)) =
     if F.null inBps then
-        -- TODO: update by getting fidelity from config 
-        let baseTag = def :: QuantumTag
-            productionTS = getMaxClock clock -- create is instantaneous
-            newTag = TaggedBellPair outBp baseTag { qtTimestamp = productionTS }
+        let productionTS = getMaxClock clock + t
+            newTag = TaggedBellPair outBp (QuantumTag productionTS w0)
         in produceBP p newTag (MaxClock productionTS)
     else
         error "createBP: expected empty input"
@@ -211,15 +206,16 @@ createBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
 -- | The output tag's time is set to (input.qtTimestamp + 1) to model the delay of transmission. 
 -- | The fidelity of the output pair decays 1.
 transmitBP :: Rational
+           -> (TimeUnit, TimeUnit)
            -> LabelledBellPairs MaxClock QuantumTag
            -> TaggedBellPair QuantumTag
            -> D' (LabelledBellPairs MaxClock QuantumTag)
-transmitBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+transmitBP p (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
     case toList inBps of
-        [TaggedBellPair _ (QuantumTag _ w)] ->
-                                   {- ^ always equal to `clock` -}
+        [TaggedBellPair _ (QuantumTag t w)] ->
+                                     {- ^ pass on the Werner parameter -}
             let productionTS = getMaxClock clock + 1
-                newTag = TaggedBellPair outBp (QuantumTag productionTS (decayWerner 1 w))
+                newTag = TaggedBellPair outBp (QuantumTag productionTS (w * decay (tCoh1, tCoh2) (getMaxClock clock - t)))
             in produceBP p newTag (MaxClock productionTS)
         _ -> error "transmitBP: expected exactly one input tagged Bell pair"
 
@@ -232,16 +228,15 @@ generateBP :: Rational
            -> LabelledBellPairs MaxClock QuantumTag
            -> TaggedBellPair QuantumTag
            -> D' (LabelledBellPairs MaxClock QuantumTag)
-generateBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+generateBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag t w0)) =
     if F.null inBps then
-         -- TODO: update by getting fidelity from config
-        let baseTag = def :: QuantumTag
-            productionTS = getMaxClock clock + 1
-            newTag  = TaggedBellPair outBp baseTag { qtTimestamp = productionTS }
+        let productionTS = getMaxClock clock + t
+            newTag  = TaggedBellPair outBp (QuantumTag productionTS w0)
         in produceBP p newTag (MaxClock productionTS)
     else
         error "generateBP: expected empty input"
 
--- | Memory decoherence, in function of time
-decayWerner:: TimeUnit -> Werner -> Werner
-decayWerner deltaT w = w * exp (-fromIntegral deltaT / fromIntegral tCoherence)
+-- | Memory decay of a pair in function of time passed and coherence time
+decay:: (TimeUnit, TimeUnit) -> TimeUnit -> Double
+decay (tCohLinkA, tCohLinkB) deltaT = 
+    exp (- fromIntegral deltaT / fromIntegral tCohLinkA - fromIntegral deltaT / fromIntegral tCohLinkB)

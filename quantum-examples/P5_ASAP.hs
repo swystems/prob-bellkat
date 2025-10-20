@@ -22,11 +22,12 @@ p n = whileN n ("A" /~? "D") pG
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "B", "B" ~ "C", "C" ~ "D", "A" ~ "C", "B" ~ "D", "A" ~ "D"]
 
-actionConfig :: Rational -> Rational -> ProbabilisticActionConfiguration
-actionConfig p_gen p_swap =
+actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
+actionConfig p_gen w0 p_swap tCoh =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
+        , pacCreateWerner = []
         , pacUCreateProbability =
             [ (("A", "B"), p_gen)
             , (("B", "C"), p_gen)
@@ -36,6 +37,17 @@ actionConfig p_gen p_swap =
             [ ("B", p_swap),
               ("C", p_swap)
             ]
+        , pacUCreateWerner =
+            [ (("A", "B"), w0)
+            , (("B", "C"), w0)
+            , (("C", "D"), w0)
+            ]
+        , pacCoherenceTime =
+            [ ("A", tCoh)
+            , ("B", tCoh)
+            , ("C", tCoh)
+            , ("D", tCoh)
+            ]
         }
 
 main :: IO ()
@@ -43,4 +55,6 @@ main =
     let ev     = "A" ~~? "D"
         p_gen  = 8/10
         p_swap = 9/10
-     in qbkatMainD (actionConfig p_gen p_swap) (Just networkCapacity) ev (p 2) mempty
+        w0     = 958/1000
+        tCoh   = 100
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 2) mempty

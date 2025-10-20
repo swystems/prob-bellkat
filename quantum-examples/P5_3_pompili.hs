@@ -16,15 +16,20 @@ p n = whileN n ("A" /~? "C" ||* "B" /~? "C") oneAttempt
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
 
-actionConfig :: ProbabilisticActionConfiguration
-actionConfig = PAC 
+actionConfig :: Double -> Int -> ProbabilisticActionConfiguration
+actionConfig w0 tCoh = PAC 
     { pacTransmitProbability = []
     , pacCreateProbability = []
+    , pacCreateWerner = []
     , pacUCreateProbability = [(("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner = [(("A", "C"), w0), (("B", "C"), w0)]
     , pacSwapProbability = [("C", 71/10000)]
+    , pacCoherenceTime = [("A", tCoh), ("B", tCoh), ("C", tCoh)]
     }
 
 main :: IO ()
 main = 
-    let ev = "A" ~~? "B"
-     in qbkatMainD actionConfig (Just networkCapacity) ev (p 1) mempty
+    let ev  = "A" ~~? "B"
+        w0  = 958/1000
+        tCoh = 100
+     in qbkatMainD (actionConfig w0 tCoh) (Just networkCapacity) ev (p 1) mempty

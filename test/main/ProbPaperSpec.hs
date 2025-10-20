@@ -158,7 +158,15 @@ p51mu2 :: D' (TaggedBellPairs BellKATTag)
 p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "C"], 171/1000), ([], 181/1000)]
 
 p51pac :: ProbabilisticActionConfiguration
-p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)] [] []
+p51pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 9/10)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = []
+    , pacUCreateWerner       = []
+    , pacSwapProbability     = []
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    }
 
 p51nc :: NetworkCapacity BellKATTag
 p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
@@ -214,7 +222,15 @@ p51iv n = whileN n ("A" /~? "C" ||* "B" /~? "C") p51iii
 -- | = Example 5.3
 
 p53pac :: ProbabilisticActionConfiguration
-p53pac = PAC [] [] [(("A", "C"), 36/10000), (("B", "C"), 28/10000)] [("C", 32/1000)]
+p53pac = PAC
+    { pacTransmitProbability = []
+    , pacCreateProbability   = []
+    , pacCreateWerner        = []
+    , pacUCreateProbability  = [( ("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
+    , pacSwapProbability     = [("C", 32/1000)]
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    }
 
 p53nc :: NetworkCapacity BellKATTag
 p53nc = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
@@ -250,11 +266,15 @@ p53'nc :: NetworkCapacity BellKATTag
 p53'nc = stimes 4 ["C" ~ "C"] <> stimes 2 ["A" ~ "C"] <> stimes 2 ["B" ~ "C"]
 
 p53'pac :: ProbabilisticActionConfiguration
-p53'pac = PAC 
-    [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)]
-    [("C", 9/10)]
-    [(("A", "C"), 36/10000), (("B", "C"), 28/10000)]
-    [("C", 32/1000)]
+p53'pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 9/10)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = [( ("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
+    , pacSwapProbability     = [("C", 32/1000)]
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    }
 
 p53' :: Int -> Int -> ProbBellKATPolicy
 p53' n k = (p53'e n k <||> p53'e' n k) <> swap "C" ("A", "B")
@@ -266,7 +286,15 @@ fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
 
 
 pac :: ProbabilisticActionConfiguration
-pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)] [] []
+pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 2/3)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = []
+    , pacUCreateWerner       = []
+    , pacSwapProbability     = []
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    }
 
 probActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 probActionMeaning = probabilisticActionMeaning pac

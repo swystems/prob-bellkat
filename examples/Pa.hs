@@ -21,8 +21,11 @@ actionConfig = PAC
         ,(("C", "B"), 7/10)
         ]
     , pacCreateProbability = [("C", 9/10)]
+    , pacCreateWerner = [("C", 1.0)]
     , pacSwapProbability = [("C", 6/10)]
     , pacUCreateProbability = []
+    , pacUCreateWerner = []
+    , pacCoherenceTime = [("A", 1), ("B", 1), ("C", 1)]
     }
 
 main :: IO ()

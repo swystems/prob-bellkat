@@ -17,8 +17,11 @@ actionConfig :: ProbabilisticActionConfiguration
 actionConfig = PAC 
     { pacTransmitProbability = [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] 
     , pacCreateProbability = [("C", 2 / 3)]
+    , pacCreateWerner = [("C", 1.0)]
     , pacUCreateProbability = []
+    , pacUCreateWerner = []
     , pacSwapProbability = [] 
+    , pacCoherenceTime = [("A", 1), ("B", 1), ("C", 1)]
     }
 
 networkCapacity :: NetworkCapacity BellKATTag

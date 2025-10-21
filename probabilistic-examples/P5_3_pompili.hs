@@ -17,8 +17,11 @@ actionConfig :: ProbabilisticActionConfiguration
 actionConfig = PAC 
     { pacTransmitProbability = []
     , pacCreateProbability = []
+    , pacCreateWerner = []
     , pacUCreateProbability = [(("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner = [(("A", "C"), 1.0), (("B", "C"), 1.0)]
     , pacSwapProbability = [("C", 71/10000)]
+    , pacCoherenceTime = [("A", 1), ("B", 1), ("C", 1)]
     }
 
 main :: IO ()

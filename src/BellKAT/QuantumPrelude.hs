@@ -17,6 +17,7 @@ module BellKAT.QuantumPrelude (
     QuantumTag(..),
     TaggedBellPair(..),
     ProbabilisticActionConfiguration(..),
+    Location,
     NetworkCapacity,
     MaxClock(..),
     -- * Entry points

@@ -22,7 +22,7 @@ p nS nG priority =
 
 
 networkCapacity :: NetworkCapacity QBKATTag
-networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
+networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H"]
 
 actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig p_gen w0 p_swap tCoh =
@@ -48,14 +48,20 @@ actionConfig p_gen w0 p_swap tCoh =
             , ("C", tCoh)
             , ("H", tCoh)
             ]
+        , pacDistances =
+            [ (("A", "H"), 1)
+            , (("B", "H"), 1)
+            , (("C", "H"), 1)
+            , (("A", "C"), 2)
+            ]
         }
 
 main :: IO ()
 main =
     let priority = "A"
         ev       = priority ~~? "C"
-        p_gen    = 1/5 {-1/10-}
-        p_swap   = 3/4 {-1/2-}
+        p_gen    = 1/3
+        p_swap   = 1/2
         w0       = 958/1000
         tCoh     = 100
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 2 7 priority {-3 22-}) mempty
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 6 priority) mempty

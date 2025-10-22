@@ -51,6 +51,18 @@ actionConfig pGen w0 pSwap tCoh =
             , ("D", tCoh)
             , ("E", tCoh)
         ]
+        , pacDistances =
+            [ (("A", "B"), 1)
+            , (("B", "C"), 1)
+            , (("C", "D"), 1)
+            , (("D", "E"), 1)
+            , (("A", "C"), 2)
+            , (("B", "D"), 2)
+            , (("C", "E"), 2)
+            , (("A", "D"), 3)
+            , (("B", "E"), 3)
+            , (("A", "E"), 4)
+            ]
         }
 
 main :: IO ()

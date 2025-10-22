@@ -19,6 +19,10 @@ actionConfig w0 tCoh = PAC
     , pacCreateWerner = [("C", w0)]
     , pacUCreateWerner = []
     , pacCoherenceTime = [("A", tCoh), ("B", tCoh), ("C", tCoh)]
+    , pacDistances = [ (("A", "C"), 1)
+                     , (("B", "C"), 1)
+                     , (("A", "B"), 2)
+                     ]
     }
 
 main :: IO ()

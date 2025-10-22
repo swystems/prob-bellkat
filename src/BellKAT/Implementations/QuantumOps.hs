@@ -9,6 +9,7 @@ module BellKAT.Implementations.QuantumOps (
     -- * Quantum tags
     QuantumTag(..),
     MaxClock(..),
+    SpaceUnit,
     TimeUnit,
     Werner,
     -- * Primitive quantum operations (exported for testing)
@@ -33,6 +34,7 @@ import Data.Semigroup ()
 import qualified Data.Aeson as A
 import           Data.Aeson ((.=), (.:))
 
+type SpaceUnit = Int     -- discrete and fixed (L) space unit
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Double     -- representing fidelity, in the range [0,1]
 
@@ -90,20 +92,20 @@ instance Output (TaggedBellPair (), Op QuantumTag) () where
     computeOutput (outBp, FCreate p w _) inClockedBps =
         [createBP p inClockedBps (bellPair outBp @ QuantumTag 0 w)]
 
-    computeOutput (outBp, FGenerate p w _) inClockedBps =
-        [generateBP p inClockedBps $ bellPair outBp @ QuantumTag 1 w]
+    computeOutput (outBp, FGenerate p w d _) inClockedBps =
+        [generateBP p d inClockedBps $ bellPair outBp @ QuantumTag 1 w]
 
-    computeOutput (outBp, FTransmit p tCohs t) inClockedBps =
-        [transmitBP p tCohs inClockedBps $ bellPair outBp @ t]
+    computeOutput (outBp, FTransmit p tCohs d t) inClockedBps =
+        [transmitBP p tCohs d inClockedBps $ bellPair outBp @ t]
 
     computeOutput (_, FDestroy) (Mset.LMS (_, clock)) =
         [cpure (labelledMempty clock)]
 
-    computeOutput (outBp, FSwap p tCohs) inClockedBps =
-        [swapBPs p tCohs inClockedBps outBp]
+    computeOutput (outBp, FSwap p tCohs ds) inClockedBps =
+        [swapBPs p tCohs ds inClockedBps outBp]
 
-    computeOutput (outBp, FDistill tCohs) inClockedBps =
-        [distBPs tCohs inClockedBps outBp]
+    computeOutput (outBp, FDistill tCohs d) inClockedBps =
+        [distBPs tCohs d inClockedBps outBp]
 
 instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
     fromCBPOutput _ bp op = (bp, op)
@@ -115,15 +117,16 @@ instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
 -- | Note: it fails if not exactly two bell pairs are given in input
 swapBPs :: Rational
             -> (TimeUnit, TimeUnit, TimeUnit)
+            -> (SpaceUnit, SpaceUnit)
             -> LabelledBellPairs MaxClock QuantumTag
             -> TaggedBellPair tag
             -> D' (LabelledBellPairs MaxClock QuantumTag)
-swapBPs p (tCohL, tCohL1, tCohL2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) = 
+swapBPs p (tCohL, tCohL1, tCohL2) (d1, d2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) = 
           {- ^ swap node -}
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
-                productionTS = getMaxClock clock + 1
+                productionTS = getMaxClock clock + max d1 d2
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
                     , qtFidelity  = w1 * w2 * decay (tCohL, tCohL1) (getMaxClock clock - t1)
@@ -145,10 +148,11 @@ swapBPs p (tCohL, tCohL1, tCohL2) (Mset.LMS (inBps, clock)) (TaggedBellPair outB
 -- | and fails with the remaining probability (yielding no output pair, as the two input pairs are consumed)
 -- | Note: it fails if not exactly two bell pairs are given in input
 distBPs :: (TimeUnit, TimeUnit)
+        -> SpaceUnit
         -> LabelledBellPairs MaxClock QuantumTag
         -> TaggedBellPair ()
         -> D' (LabelledBellPairs MaxClock QuantumTag)
-distBPs (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+distBPs (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
@@ -156,7 +160,7 @@ distBPs (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
                 pDistD = (1 + w1 * w2) / 2
                 wDistD :: Double
                 wDistD = (w1 + w2 + 4 * w1 * w2) / (6 * pDistD)
-                productionTS = getMaxClock clock + 1
+                productionTS = getMaxClock clock + d
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
                     , qtFidelity  = wDistD * decay (tCoh1, tCoh2) (getMaxClock clock - t1)
@@ -207,14 +211,15 @@ createBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag t w0)) =
 -- | The fidelity of the output pair decays 1.
 transmitBP :: Rational
            -> (TimeUnit, TimeUnit)
+           -> SpaceUnit
            -> LabelledBellPairs MaxClock QuantumTag
            -> TaggedBellPair QuantumTag
            -> D' (LabelledBellPairs MaxClock QuantumTag)
-transmitBP p (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+transmitBP p (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t w)] ->
                                      {- ^ pass on the Werner parameter -}
-            let productionTS = getMaxClock clock + 1
+            let productionTS = getMaxClock clock + d
                 newTag = TaggedBellPair outBp (QuantumTag productionTS (w * decay (tCoh1, tCoh2) (getMaxClock clock - t)))
             in produceBP p newTag (MaxClock productionTS)
         _ -> error "transmitBP: expected exactly one input tagged Bell pair"
@@ -225,12 +230,13 @@ transmitBP p (tCoh1, tCoh2) (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
 -- | The new tag's timestamp is set to a base value (we use 1) since this is a freshly generated pair. 
 -- | Its fidelity is initialized to a default baseline or configured value.
 generateBP :: Rational
+           -> SpaceUnit
            -> LabelledBellPairs MaxClock QuantumTag
            -> TaggedBellPair QuantumTag
            -> D' (LabelledBellPairs MaxClock QuantumTag)
-generateBP p (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag t w0)) =
+generateBP p d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag _ w0)) =
     if F.null inBps then
-        let productionTS = getMaxClock clock + t
+        let productionTS = getMaxClock clock + d
             newTag  = TaggedBellPair outBp (QuantumTag productionTS w0)
         in produceBP p newTag (MaxClock productionTS)
     else

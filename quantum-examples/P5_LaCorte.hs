@@ -1,29 +1,22 @@
 import BellKAT.QuantumPrelude
 
-pG :: QBKATPolicy
-pG =
-    (
-        ite ("A" /~? "B") (ucreate ("A", "B")) mempty
+pG1 :: Int -> QBKATPolicy
+pG1 n =
+    whileN n ("A" /~? "B") (ucreate ("A", "B"))
+
+pG2 :: Int -> QBKATPolicy
+pG2 n =
+    whileN n ("B" /~? "C") (ucreate ("B", "C"))
         <||>
-        ite ("B" /~? "C") (ucreate ("B", "C")) mempty
-        <||>
-        ite ("C" /~? "D") (ucreate ("C", "D")) mempty
-    )
-        <>
-    (
-        ite ("A" /~? "C") (swap "B" ("A", "C")) mempty
-        <||>
-        ite ("B" /~? "D") (swap "C" ("B", "D")) mempty
-    )
-        <>
-    (
-        swap "B" ("A", "D")
-        <||>
-        swap "C" ("A", "D")
-    )
+    whileN n ("C" /~? "D") (ucreate ("C", "D"))
+
+pS :: Int -> QBKATPolicy
+pS n =
+    whileN n ("B" /~? "D") (pG2 n <> swap "C" ("B", "D"))
 
 p :: Int -> QBKATPolicy
-p n = whileN n ("A" /~? "D") pG
+p n = whileN n ("A" /~? "D") (pS n <> swap "B" ("A", "D"))
+
 
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "B", "B" ~ "C", "C" ~ "D", "A" ~ "C", "B" ~ "D", "A" ~ "D"]

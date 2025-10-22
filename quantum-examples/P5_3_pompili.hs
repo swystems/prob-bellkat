@@ -25,6 +25,11 @@ actionConfig w0 tCoh = PAC
     , pacUCreateWerner = [(("A", "C"), w0), (("B", "C"), w0)]
     , pacSwapProbability = [("C", 71/10000)]
     , pacCoherenceTime = [("A", tCoh), ("B", tCoh), ("C", tCoh)]
+    , pacDistances =
+    [ (("A", "B"), 1)
+    , (("B", "C"), 1)
+    , (("A", "C"), 2)
+    ]
     }
 
 main :: IO ()

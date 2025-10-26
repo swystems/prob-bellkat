@@ -166,6 +166,7 @@ p51pac = PAC
     , pacUCreateWerner       = []
     , pacSwapProbability     = []
     , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
     }
 
 p51nc :: NetworkCapacity BellKATTag
@@ -230,6 +231,7 @@ p53pac = PAC
     , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
     , pacSwapProbability     = [("C", 32/1000)]
     , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
     }
 
 p53nc :: NetworkCapacity BellKATTag
@@ -274,6 +276,7 @@ p53'pac = PAC
     , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
     , pacSwapProbability     = [("C", 32/1000)]
     , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
     }
 
 p53' :: Int -> Int -> ProbBellKATPolicy
@@ -294,6 +297,7 @@ pac = PAC
     , pacUCreateWerner       = []
     , pacSwapProbability     = []
     , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [ (("C", "A"), 1), (("C", "B"), 1)]
     }
 
 probActionMeaning :: TaggedAction t -> CreateBellPairArgs' t

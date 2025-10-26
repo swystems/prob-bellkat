@@ -19,6 +19,7 @@ expectSingleton d = case D.toListD d of
 spec :: Spec
 spec = do
   describe "swapBPs" $ do
+
     it "computes Werner parameter with decoherence" $ do
       let w0 = 0.8 :: Double
           t1 = 0 :: TimeUnit
@@ -36,7 +37,7 @@ spec = do
               TaggedBellPair ("R2" ~ "B") (QuantumTag t2 w0)
             ],
             clock)
-          out = swapBPs p (tCohSwap, tCohL1, tCohL2) input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)) -- tag templated
+          out = swapBPs p (tCohSwap, tCohL1, tCohL2) (1, 1) input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)) -- tag templated, unit distances
           [ (Mset.LMS (resSet, newClock),_)] = D.toListD out
           [TaggedBellPair _ (QuantumTag tOut wOut)] = toList resSet
           -- expected: w1*w2 times decay from both memories involved in each arm until swap
@@ -49,7 +50,8 @@ spec = do
       abs (wOut - expectedWerner) `shouldSatisfy` (< 1e-12)
       tOut `shouldBe` getMaxClock clock + 1
       newClock `shouldBe` MaxClock (getMaxClock clock + 1)
-    it "fails consuming inputs when probability=0" $ do
+
+    it "fails (and consumes inputs)" $ do
       let bpIn1 = TaggedBellPair ("A" ~ "R1") (QuantumTag 0 0.8)
           bpIn2 = TaggedBellPair ("R2" ~ "B") (QuantumTag 0 0.8)
           p = 0 :: Rational
@@ -57,9 +59,10 @@ spec = do
           input = Mset.LMS (
             Mset.fromList [bpIn1, bpIn2],
             clock)
-          dist = swapBPs p (10, 10, 10) input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0))
+          dist = swapBPs p (10, 10, 10) (1, 1) input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0))
       -- should yield only empty multiset with prob 1
       D.toListD dist `shouldBe` [(labelledMempty (MaxClock (getMaxClock clock + 1)), 1)]
+
   describe "timestamp advancement" $ do
     it "create then transmit increases timestamp by one and decays" $ do
       let p = 1 :: Rational
@@ -70,9 +73,82 @@ spec = do
           [TaggedBellPair _ (QuantumTag tC wC)] = toList createdBps
           -- transmit
           outB = TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)
-          afterTx = expectSingleton (transmitBP p (10, 10) afterCreate outB)
+          afterTx = expectSingleton (transmitBP p (10, 10) 1 afterCreate outB)
           Mset.LMS (transmittedBps, _) = afterTx
           [TaggedBellPair _ (QuantumTag tT wT)] = toList transmittedBps
       tC `shouldBe` 0
       tT `shouldBe` 1
       wT `shouldSatisfy` (< wC + 1e-12) -- strictly decays or stays <= due to exp
+  -- TODO: add test when two actions run in sequence / parallel
+
+  describe "distance effects" $ do
+    it "transmitBP advances timestamp and clock by distance d" $ do
+      let p = 1 :: Rational
+          outA = TaggedBellPair ("A" ~ "A") (QuantumTag 0 0)
+          initialClock = MaxClock 6
+          afterCreate = expectSingleton (createBP p (labelledMempty initialClock) outA) -- create (but at time clock)
+          outB = TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)
+          d = 5 :: SpaceUnit -- distance to transmit
+          afterTx = expectSingleton (transmitBP p (10, 10) d afterCreate outB) -- transmit
+          Mset.LMS (transmittedBps, newClock) = afterTx
+          [TaggedBellPair _ (QuantumTag tT _)] = toList transmittedBps
+      tT `shouldBe` (getMaxClock initialClock + d)
+      newClock `shouldBe` MaxClock (getMaxClock initialClock + d)
+
+    it "generateBP advances timestamp and clock by distance d" $ do
+      let p = 1 :: Rational
+          d = 7 :: SpaceUnit
+          w0 = 0.9 :: Double
+          initialClock = MaxClock 6
+          out = TaggedBellPair ("X" ~ "Y") (QuantumTag 1 w0)
+          res = expectSingleton (generateBP p d (labelledMempty initialClock) out) -- generate (at time clock, distance d)
+          Mset.LMS (bps, clk) = res
+          [TaggedBellPair _ (QuantumTag tG wG)] = toList bps
+      tG `shouldBe` getMaxClock initialClock + d
+      wG `shouldBe` w0
+      clk `shouldBe` MaxClock (getMaxClock initialClock + d)
+
+    it "swapBPs sets timestamp to current clock + max distance" $ do
+      let w0 = 0.5 :: Double
+          t1 = 0 :: TimeUnit
+          t2 = 0 :: TimeUnit
+          p = 1 :: Rational
+          clock = MaxClock 3
+          tCohSwap = 20 :: TimeUnit
+          tCohL1   = 20 :: TimeUnit
+          tCohL2   = 20 :: TimeUnit
+          input = Mset.LMS (
+            Mset.fromList [
+              TaggedBellPair ("A" ~ "R1") (QuantumTag t1 w0),
+              TaggedBellPair ("R2" ~ "B") (QuantumTag t2 w0)
+            ],
+            clock)
+          dists = (5, 2) :: (SpaceUnit, SpaceUnit) -- distances for the two input pairs
+          maxDist = uncurry max dists
+          out = swapBPs p (tCohSwap, tCohL1, tCohL2) dists input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0))
+          [ (Mset.LMS (resSet, newClock),_)] = D.toListD out
+          [TaggedBellPair _ (QuantumTag tOut _)] = toList resSet
+      tOut `shouldBe` getMaxClock clock + maxDist
+      newClock `shouldBe` MaxClock (getMaxClock clock + maxDist)
+
+    it "distBPs sets timestamp to current clock + d and yields two outcomes" $ do
+      let t1 = 0 :: TimeUnit
+          t2 = 1 :: TimeUnit
+          w1 = 0.7 :: Double
+          w2 = 0.8 :: Double
+          clock = MaxClock 4
+          input = Mset.LMS (
+            Mset.fromList [
+              TaggedBellPair ("A" ~ "B") (QuantumTag t1 w1),
+              TaggedBellPair ("A" ~ "B") (QuantumTag t2 w2)
+            ],
+            clock)
+          d = 3 :: SpaceUnit -- distance to cover in the distill
+          out = distBPs (10, 10) d input (TaggedBellPair ("A" ~ "B") ())
+          outs = D.toListD out
+      -- should have exactly two outcomes whose clocks equal clock + d
+      length outs `shouldBe` 2
+      all (\(Mset.LMS (_, c), _) -> c == MaxClock (getMaxClock clock + d)) outs `shouldBe` True
+      -- one outcome should be empty (failure), one should be singleton (success)
+      let sizes = map (\(Mset.LMS (s,_),_) -> length (toList s)) outs
+      sum sizes `shouldBe` 1 -- exactly one singleton across outcomes

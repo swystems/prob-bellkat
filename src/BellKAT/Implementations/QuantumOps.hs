@@ -40,7 +40,7 @@ type Werner = Double     -- representing fidelity, in the range [0,1]
 
 -- | If True, swaps are considered instantaneous (no time delay)
 instantaneousSwaps :: Bool
-instantaneousSwaps = True
+instantaneousSwaps = False
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }

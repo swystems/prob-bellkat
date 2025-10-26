@@ -12,13 +12,9 @@ p :: Int -> Int -> Location -> QBKATPolicy
 p nS nG priority =
     if priority == "A"
         then
-            whileN nS ("A" /~? "C") (pG nG <||> swap "H" ("A", "C"))
-                <.>
-            whileN nS ("B" /~? "C") (pG nG <||> swap "H" ("B", "C"))
+            whileN nS ("A" /~? "C" ||* "B" /~? "C") (pG nG <> (swap "H" ("A", "C") <.> swap "H" ("B", "C")))
         else
-            whileN nS ("B" /~? "C") (pG nG <||> swap "H" ("B", "C"))
-                <.>
-            whileN nS ("A" /~? "C") (pG nG <||> swap "H" ("A", "C"))
+            whileN nS ("A" /~? "C" ||* "B" /~? "C") (pG nG <> (swap "H" ("B", "C") <.> swap "H" ("A", "C")))
 
 
 networkCapacity :: NetworkCapacity QBKATTag
@@ -52,8 +48,6 @@ actionConfig p_gen w0 p_swap tCoh =
             [ (("A", "H"), 1)
             , (("B", "H"), 1)
             , (("C", "H"), 1)
-            , (("A", "C"), 2)
-            , (("B", "C"), 2)
             ]
         }
 
@@ -63,6 +57,6 @@ main =
         ev       = priority ~~? "C"
         p_gen    = 1/4
         p_swap   = 1/2
-        w0       = 958/1000
-        tCoh     = 1000
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 8 priority) mempty
+        w0       = 95/100
+        tCoh     = 100
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 3 priority) mempty

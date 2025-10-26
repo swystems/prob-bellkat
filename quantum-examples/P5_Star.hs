@@ -12,17 +12,17 @@ p :: Int -> Int -> Location -> QBKATPolicy
 p nS nG priority =
     if priority == "A"
         then
-            whileN nS ("A" /~? "C") (pG nG <> swap "H" ("A", "C"))
+            whileN nS ("A" /~? "C") (pG nG <||> swap "H" ("A", "C"))
                 <.>
-            whileN nS ("B" /~? "C") (pG nG <> swap "H" ("B", "C"))
+            whileN nS ("B" /~? "C") (pG nG <||> swap "H" ("B", "C"))
         else
-            whileN nS ("B" /~? "C") (pG nG <> swap "H" ("B", "C"))
+            whileN nS ("B" /~? "C") (pG nG <||> swap "H" ("B", "C"))
                 <.>
-            whileN nS ("A" /~? "C") (pG nG <> swap "H" ("A", "C"))
+            whileN nS ("A" /~? "C") (pG nG <||> swap "H" ("A", "C"))
 
 
 networkCapacity :: NetworkCapacity QBKATTag
-networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H"]
+networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
 
 actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig p_gen w0 p_swap tCoh =
@@ -53,6 +53,7 @@ actionConfig p_gen w0 p_swap tCoh =
             , (("B", "H"), 1)
             , (("C", "H"), 1)
             , (("A", "C"), 2)
+            , (("B", "C"), 2)
             ]
         }
 
@@ -60,8 +61,8 @@ main :: IO ()
 main =
     let priority = "A"
         ev       = priority ~~? "C"
-        p_gen    = 1/3
+        p_gen    = 1/4
         p_swap   = 1/2
         w0       = 958/1000
-        tCoh     = 100
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 6 priority) mempty
+        tCoh     = 1000
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 8 priority) mempty

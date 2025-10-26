@@ -12,17 +12,13 @@ pG2 n =
 
 pS :: Int -> QBKATPolicy
 pS n =
-    whileN n ("B" /~? "D") (pG2 n <> swap "C" ("B", "D"))
+    whileN n ("B" /~? "D") ((pG1 n <||> pG2 n) <> swap "C" ("B", "D"))
 
 p :: Int -> QBKATPolicy
 p n = whileN n ("A" /~? "D") (pS n <> swap "B" ("A", "D"))
 
-
-networkCapacity :: NetworkCapacity QBKATTag
-networkCapacity = ["A" ~ "B", "B" ~ "C", "C" ~ "D", "A" ~ "C", "B" ~ "D", "A" ~ "D"]
-
-actionConfig :: Rational -> Double -> Rational -> ProbabilisticActionConfiguration
-actionConfig p_gen w0 p_swap =
+actionConfig :: Bool -> Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
+actionConfig useFirst p_gen w0 p_swap tCoh =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
@@ -32,21 +28,38 @@ actionConfig p_gen w0 p_swap =
             , (("B", "C"), p_gen)
             , (("C", "D"), p_gen)
             ]
-        , pacSwapProbability =
+                , pacSwapProbability =
             [ ("B", p_swap),
               ("C", p_swap)
             ]
-        , pacUCreateWerner =
-            [ (("A", "B"), w0)
-            , (("B", "C"), w0)
-            , (("C", "D"), w0)
-            ]
-        , pacCoherenceTime =
-            [ ("A", 100000)
-            , ("B", 100000)
-            , ("C", 100)
-            , ("D", 100)
-            ]
+                , pacUCreateWerner = if useFirst
+                        then
+                            -- 1st: heterogeneous Werner
+                            [ (("A", "B"), w0)
+                            , (("B", "C"), w0)
+                            , (("C", "D"), 9/10)
+                            ]
+                        else
+                            -- 2nd: homogeneous Werner
+                            [ (("A", "B"), w0)
+                            , (("B", "C"), w0)
+                            , (("C", "D"), w0)
+                            ]
+                , pacCoherenceTime = if useFirst
+                        then
+                            -- 1st: homogeneous coherence times
+                            [ ("A", tCoh)
+                            , ("B", tCoh)
+                            , ("C", tCoh)
+                            , ("D", tCoh)
+                            ]
+                        else
+                            -- 2nd: heterogeneous coherence times
+                            [ ("A", tCoh)
+                            , ("B", tCoh)
+                            , ("C", tCoh)
+                            , ("D", 100)
+                            ]
         , pacDistances =
             [ (("A", "B"), 1)
             , (("B", "C"), 1)
@@ -60,7 +73,9 @@ actionConfig p_gen w0 p_swap =
 main :: IO ()
 main =
     let ev     = "A" ~~? "D"
-        p_gen  = 1/3
-        p_swap = 1/2
+        useFirstExp = True
+        p_gen  = 1/4
+        p_swap = 3/4
         w0     = 958/1000
-     in qbkatMainD (actionConfig p_gen w0 p_swap) (Just networkCapacity) ev (p 3) mempty
+        tCoh   = 1000
+     in qbkatMainD (actionConfig useFirstExp p_gen w0 p_swap tCoh) Nothing ev (p 3) mempty

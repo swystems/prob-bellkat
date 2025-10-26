@@ -387,6 +387,15 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP5_LaCorte:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_LaCorte.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   quantP5_ASAP:
     dependencies: 
       - bellkat

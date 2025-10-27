@@ -40,7 +40,7 @@ type Werner = Double     -- representing fidelity, in the range [0,1]
 
 -- | If True, swaps are considered instantaneous (no time delay)
 instantaneousSwaps :: Bool
-instantaneousSwaps = False
+instantaneousSwaps = True
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }
@@ -130,14 +130,13 @@ swapBPs p (tCohL, tCohL1, tCohL2) (d1, d2) (Mset.LMS (inBps, clock)) (TaggedBell
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
-                productionTS = if instantaneousSwaps then
-                     getMaxClock clock
-                else
-                    getMaxClock clock + max d1 d2
+                completionTime = if instantaneousSwaps then 0 else max d1 d2
+                productionTS = getMaxClock clock + completionTime
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
-                    , qtFidelity  = w1 * w2 * decay (tCohL, tCohL1) (getMaxClock clock - t1)
-                                            * decay (tCohL, tCohL2) (getMaxClock clock - t2)
+                    , qtFidelity  = w1 * w2 * decay (tCohL,  tCohL1) (getMaxClock clock - t1)
+                                            * decay (tCohL,  tCohL2) (getMaxClock clock - t2)
+                                            * decay (tCohL1, tCohL2) (completionTime)
                     }
                 successOutput = Mset.singletonT (TaggedBellPair outBp newTag) (MaxClock productionTS)
                 failureOutput = labelledMempty (MaxClock productionTS)

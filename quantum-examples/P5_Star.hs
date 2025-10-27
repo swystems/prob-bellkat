@@ -1,20 +1,23 @@
 import BellKAT.QuantumPrelude
 
-pG :: Int -> QBKATPolicy
-pG nG =
-    whileN nG ("A" /~? "H") (ucreate ("A", "H"))
-        <||>
-    whileN nG ("B" /~? "H") (ucreate ("B", "H"))
-        <||>
-    whileN nG ("C" /~? "H") (ucreate ("C", "H"))
-
-p :: Int -> Int -> Location -> QBKATPolicy
-p nS nG priority =
-    if priority == "A"
-        then
-            whileN nS ("A" /~? "C" ||* "B" /~? "C") (pG nG <> (swap "H" ("A", "C") <.> swap "H" ("B", "C")))
-        else
-            whileN nS ("A" /~? "C" ||* "B" /~? "C") (pG nG <> (swap "H" ("B", "C") <.> swap "H" ("A", "C")))
+p :: Int -> QBKATPolicy
+p nS =
+        whileN nS ("A" /~? "C" ||* "B" /~? "C")
+        (   
+            (   -- generations in parallel
+                ite ("A" /~? "H") (ucreate ("A", "H")) mempty
+                    <||>
+                ite ("B" /~? "H") (ucreate ("B", "H")) mempty
+                    <||>
+                ite ("C" /~? "H") (ucreate ("C", "H")) mempty
+            )
+            <> -- followed by.. 
+            (
+                swap "H" ("A", "C") 
+                <.>
+                swap "H" ("B", "C")
+            )
+        ) 
 
 
 networkCapacity :: NetworkCapacity QBKATTag
@@ -53,10 +56,9 @@ actionConfig p_gen w0 p_swap tCoh =
 
 main :: IO ()
 main =
-    let priority = "A"
-        ev       = priority ~~? "C"
+    let ev       = "A" ~~? "C"
         p_gen    = 1/4
         p_swap   = 1/2
         w0       = 95/100
         tCoh     = 100
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 3 3 priority) mempty
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 27) mempty

@@ -1,21 +1,33 @@
 import BellKAT.QuantumPrelude
 
-pG1 :: Int -> QBKATPolicy
-pG1 n =
-    whileN n ("A" /~? "B") (ucreate ("A", "B"))
-
-pG2 :: Int -> QBKATPolicy
-pG2 n =
-    whileN n ("B" /~? "C") (ucreate ("B", "C"))
-        <||>
-    whileN n ("C" /~? "D") (ucreate ("C", "D"))
-
-pS :: Int -> QBKATPolicy
-pS n =
-    whileN n ("B" /~? "D") ((pG1 n <||> pG2 n) <> swap "C" ("B", "D"))
-
 p :: Int -> QBKATPolicy
-p n = whileN n ("A" /~? "D") (pS n <> swap "B" ("A", "D"))
+p n =
+    whileN n ("A" /~? "D")
+    (   
+        (
+            ite ("B" /~? "D")
+            (  
+                (
+                    -- generations in parallel
+                    (ite ("B" /~? "C") (ucreate ("B", "C")) mempty)
+                        <||>
+                    (ite ("C" /~? "D") (ucreate ("C", "D")) mempty)
+                )
+                <>
+                (
+                    swap "C" ("B", "D")
+                )
+            )
+            mempty
+            <||>
+            ite ("A" /~? "B")
+            (
+                (ucreate ("A", "B"))
+            )
+            mempty
+        )
+        <> (swap "B" ("A", "D"))
+    )
 
 actionConfig :: Bool -> Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig useFirst p_gen w0 p_swap tCoh =
@@ -76,6 +88,6 @@ main =
         useFirstExp = True
         p_gen  = 1/4
         p_swap = 3/4
-        w0     = 958/1000
+        w0     = 95/100
         tCoh   = 1000
-     in qbkatMainD (actionConfig useFirstExp p_gen w0 p_swap tCoh) Nothing ev (p 3) mempty
+     in qbkatMainD (actionConfig useFirstExp p_gen w0 p_swap tCoh) Nothing ev (p 54) mempty

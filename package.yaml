@@ -340,7 +340,96 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
-
+  probP5_LaCorte:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_LaCorte.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star1:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star1.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star2:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star2.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star3:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star3.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star4:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star4.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star5:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star5.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star6:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star6.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star7:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star7.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star8:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star8.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  probP5_Star9:
+    dependencies: 
+      - bellkat
+    main: probabilistic-examples/P5_Star9.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
 tests:
   spec: 
     main: Spec

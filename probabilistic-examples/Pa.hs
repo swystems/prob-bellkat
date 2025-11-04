@@ -19,6 +19,7 @@ actionConfig = PAC
     , pacUCreateProbability = []
     , pacUCreateWerner = []
     , pacCoherenceTime = [("A", 1), ("B", 1), ("C", 1)]
+    , pacDistances = [(("A", "B"), 1), (("B", "C"), 1)]
     }
 
 main :: IO ()

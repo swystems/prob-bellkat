@@ -27,9 +27,10 @@ spec = do
           p = 1 :: Rational
           clock = MaxClock 6 -- current clock
           -- homogeneous coherence times
-          tCohSwap = 10 :: TimeUnit
+          tCohL = 10 :: TimeUnit
           tCohL1   = 10 :: TimeUnit
           tCohL2   = 10 :: TimeUnit
+          distances = (1, 1)
           -- two pairs with same fidelity w0=0.8 at different times (to have decay)
           input = Mset.LMS (
             Mset.fromList [
@@ -37,16 +38,15 @@ spec = do
               TaggedBellPair ("R2" ~ "B") (QuantumTag t2 w0)
             ],
             clock)
-          out = swapBPs p (tCohSwap, tCohL1, tCohL2) (1, 1) input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)) -- tag templated, unit distances
+          out = swapBPs p (tCohL, tCohL1, tCohL2) distances input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)) -- tag templated, unit distances
           [ (Mset.LMS (resSet, newClock),_)] = D.toListD out
           [TaggedBellPair _ (QuantumTag tOut wOut)] = toList resSet
           -- expected: w1*w2 times decay from both memories involved in each arm until swap
           -- deltas are measured against current clock
-          d1 = getMaxClock clock - t1
-          d2 = getMaxClock clock - t2
-          decay1 = exp (- fromIntegral d1 * (1 / fromIntegral tCohSwap + 1 / fromIntegral tCohL1) )
-          decay2 = exp (- fromIntegral d2 * (1 / fromIntegral tCohSwap + 1 / fromIntegral tCohL2) )
-          expectedWerner = (w0 * w0) * decay1 * decay2
+          decay1 = exp (- fromIntegral (getMaxClock clock - t1) * (1 / fromIntegral tCohL + 1 / fromIntegral tCohL1) )
+          decay2 = exp (- fromIntegral (getMaxClock clock - t2) * (1 / fromIntegral tCohL + 1 / fromIntegral tCohL2) )
+          decay3 = exp (- fromIntegral (max (fst distances) (snd distances)) * (1 / fromIntegral tCohL1 + 1 / fromIntegral tCohL2) )
+          expectedWerner = (w0 * w0) * decay1 * decay2 * decay3
       abs (wOut - expectedWerner) `shouldSatisfy` (< 1e-12)
       tOut `shouldBe` getMaxClock clock + 1
       newClock `shouldBe` MaxClock (getMaxClock clock + 1)
@@ -114,7 +114,7 @@ spec = do
           t2 = 0 :: TimeUnit
           p = 1 :: Rational
           clock = MaxClock 3
-          tCohSwap = 20 :: TimeUnit
+          tCohL = 20 :: TimeUnit
           tCohL1   = 20 :: TimeUnit
           tCohL2   = 20 :: TimeUnit
           input = Mset.LMS (
@@ -125,7 +125,7 @@ spec = do
             clock)
           dists = (5, 2) :: (SpaceUnit, SpaceUnit) -- distances for the two input pairs
           maxDist = uncurry max dists
-          out = swapBPs p (tCohSwap, tCohL1, tCohL2) dists input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0))
+          out = swapBPs p (tCohL, tCohL1, tCohL2) dists input (TaggedBellPair ("A" ~ "B") (QuantumTag 0 0))
           [ (Mset.LMS (resSet, newClock),_)] = D.toListD out
           [TaggedBellPair _ (QuantumTag tOut _)] = toList resSet
       tOut `shouldBe` getMaxClock clock + maxDist

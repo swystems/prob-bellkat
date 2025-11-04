@@ -38,9 +38,10 @@ type SpaceUnit = Int     -- discrete and fixed (L) space unit
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Double     -- representing fidelity, in the range [0,1]
 
+-- | TODO: refactor as something to be set in the DSL
 -- | If True, swaps are considered instantaneous (no time delay)
 instantaneousSwaps :: Bool
-instantaneousSwaps = True
+instantaneousSwaps = False
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }

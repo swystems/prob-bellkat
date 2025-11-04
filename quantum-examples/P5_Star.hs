@@ -61,4 +61,4 @@ main =
         p_swap   = 1/2
         w0       = 95/100
         tCoh     = 100
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 27) mempty
+     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 9) mempty

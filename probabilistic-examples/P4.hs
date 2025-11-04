@@ -22,6 +22,7 @@ actionConfig = PAC
     , pacUCreateWerner = []
     , pacSwapProbability = [] 
     , pacCoherenceTime = [("A", 1), ("B", 1), ("C", 1)]
+    , pacDistances = [(("A", "B"), 1), (("B", "C"), 1)]
     }
 
 networkCapacity :: NetworkCapacity BellKATTag

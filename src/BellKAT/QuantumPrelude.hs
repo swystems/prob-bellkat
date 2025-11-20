@@ -20,6 +20,10 @@ module BellKAT.QuantumPrelude (
     Location,
     NetworkCapacity,
     MaxClock(..),
+    -- * Network bounds
+    CutoffSpec,
+    NetworkBounds(..),
+    nbUnbounded,
     -- * Entry points
     qbkatMain,
     qbkatMainD,
@@ -43,9 +47,9 @@ import BellKAT.Definitions
 import BellKAT.Definitions.Atomic ()  
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
-import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity)
+import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity, ExecutionParams(..))
 import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, CTag, staticBellPairs)
-import BellKAT.Implementations.QuantumOps (QuantumTag(..), MaxClock(..))
+import BellKAT.Implementations.QuantumOps (QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
@@ -62,6 +66,19 @@ type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 type QBKATOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) MaxClock QBKATTag
 
 type NetworkState = LabelledMultiset MaxClock (TaggedBellPair QBKATRuntimeTag)
+
+-- | Cutoff specification (time units for now, possibly extended with fidelity later)
+type CutoffSpec = TimeUnit
+
+-- | NetworkBounds with optional capacity and cutoff configuration
+data NetworkBounds tag = NetworkBounds
+    { nbCapacity :: Maybe (NetworkCapacity tag)
+    , nbCutoff   :: Maybe CutoffSpec
+    }
+
+-- | Default empty spec
+nbUnbounded :: NetworkBounds tag
+nbUnbounded = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
@@ -102,15 +119,18 @@ qbkatMain'
     )
     => Proxy p
     -> ProbabilisticActionConfiguration
-    -> Maybe (NetworkCapacity QBKATTag)
+    -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
     -> NetworkState
     -> IO ()
-qbkatMain' (_ :: Proxy p) pac mbNC ev protocol ns = 
-                                            {- ^ initial network state -}  
-    let r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
-        s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac mbNC protocol ns
+qbkatMain' (_ :: Proxy p) pac nb ev protocol ns = 
+                                          {- ^ initial network state -}  
+    let ep = EP { networkCapacity = nbCapacity nb
+                , bellPairFilter  = \tbp clock -> isFresh tbp clock (nbCutoff nb)
+                }
+        r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns
+        s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns
         a = applyProbStarPolicyQAutomaton (Proxy :: Proxy QBKATOutput) pac protocol in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of
@@ -142,7 +162,7 @@ qbkatMain
        , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
        )
     => ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity QBKATTag)
+    -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
     -> NetworkState
@@ -158,7 +178,7 @@ qbkatMainD
        , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
        )
     => ProbabilisticActionConfiguration 
-    -> Maybe (NetworkCapacity QBKATTag)
+    -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
     -> NetworkState

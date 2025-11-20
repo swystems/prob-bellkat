@@ -169,7 +169,7 @@ applyStarOrderedPolicyBounded =
 applyProbStarPolicy 
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 applyProbStarPolicy = applyProbStarPolicy'
@@ -182,11 +182,11 @@ probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . 
 applyProbStarPolicy' 
     :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
     => ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
-applyProbStarPolicy' pac mbNC = 
-    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+applyProbStarPolicy' pac ep = 
+    let executeRound = PAOSQ.executeWith' ep
      in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyAutomaton pac
 
@@ -201,30 +201,30 @@ applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
 applyProbStarPolicyStates
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.ComputedState CD' (TaggedBellPairs tag)
-applyProbStarPolicyStates pac mbNC = 
-    let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
+applyProbStarPolicyStates pac ep = 
+    let executeRound = PAOSQ.executeWith ep
      in GASQ.executeState (getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem'
     :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag 
     -> GASQ.StateSystem (CD p) (TaggedBellPairs tag)
-applyProbStarPolicySystem' pac mbNC = 
-    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+applyProbStarPolicySystem' pac ep = 
+    let executeRound = PAOSQ.executeWith' ep
      in GASQ.executeSystem (getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyAutomaton pac
 
 applyProbStarPolicySystem
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem = applyProbStarPolicySystem'
@@ -252,11 +252,11 @@ applyProbStarPolicyQ'
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output 
     -> ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> CD p (LabelledBellPairs (CTag output) (RTag output))
-applyProbStarPolicyQ' proxy pac mbNC = 
-    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+applyProbStarPolicyQ' proxy pac ep = 
+    let executeRound = PAOSQ.executeWith' ep
      in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyQAutomaton proxy pac
 
@@ -266,11 +266,11 @@ applyProbStarPolicyQ
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output 
     -> ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> CD' (LabelledBellPairs (CTag output) (RTag output))
-applyProbStarPolicyQ proxy pac mbNC = 
-    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+applyProbStarPolicyQ proxy pac ep = 
+    let executeRound = PAOSQ.executeWith ep
      in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyQAutomaton proxy pac
 
@@ -279,11 +279,11 @@ applyProbStarPolicyQStates
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, DDom (RTag output), Default (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output) -> GASQ.ComputedState CD' (LabelledBellPairs (CTag output) (RTag output))
-applyProbStarPolicyQStates proxy pac mbNC = 
-    let executeRound = maybe PAOSQ.execute PAOSQ.executeWithCapacity mbNC
+applyProbStarPolicyQStates proxy pac ep = 
+    let executeRound = PAOSQ.executeWith ep
      in GASQ.executeState ((. staticBellPairs) . (getBPsPredicate . toBPsPredicate)) executeRound
         . applyProbStarPolicyQAutomaton proxy pac
 
@@ -293,12 +293,12 @@ applyProbStarPolicyQSystem'
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output) 
     -> GASQ.StateSystem (CD p) (LabelledBellPairs (CTag output) (RTag output))
-applyProbStarPolicyQSystem' proxy pac mbNC = 
-    let executeRound = maybe PAOSQ.execute' PAOSQ.executeWithCapacity' mbNC
+applyProbStarPolicyQSystem' proxy pac ep = 
+    let executeRound = PAOSQ.executeWith' ep
      in GASQ.executeSystem ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
         . applyProbStarPolicyQAutomaton proxy pac
 
@@ -307,7 +307,7 @@ applyProbStarPolicyQSystem
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> Maybe (PAOSQ.NetworkCapacity tag)
+    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> GASQ.StateSystem CD' (LabelledBellPairs (CTag output) (RTag output))
 applyProbStarPolicyQSystem = applyProbStarPolicyQSystem'

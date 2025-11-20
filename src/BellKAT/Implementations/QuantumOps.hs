@@ -17,7 +17,8 @@ module BellKAT.Implementations.QuantumOps (
     createBP,
     transmitBP,
     distBPs,
-    generateBP
+    generateBP,
+    isFresh
 ) where
 
 import GHC.Exts (fromList, toList)
@@ -254,3 +255,10 @@ generateBP p d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp (QuantumTag _ w0)
 decay:: (TimeUnit, TimeUnit) -> TimeUnit -> Double
 decay (tCohLinkA, tCohLinkB) deltaT = 
     exp (- fromIntegral deltaT / fromIntegral tCohLinkA - fromIntegral deltaT / fromIntegral tCohLinkB)
+
+-- | Check if a pair is 'fresh enough' (where Nothing means no check)
+isFresh :: TaggedBellPair QuantumTag -> MaxClock -> Maybe TimeUnit -> Bool
+isFresh _ _ Nothing = True
+isFresh (TaggedBellPair _ (QuantumTag t _)) clock (Just tCut) =
+    let age = getMaxClock clock - t
+     in age <= tCut

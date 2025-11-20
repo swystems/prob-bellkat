@@ -2,10 +2,11 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     ( ProbAtomicOneStepPolicy
     , ProbAtomicOneStepPolicy'
     , NetworkCapacity (NC)
+    , ExecutionParams(..)
     , execute
     , execute'
-    , executeWithCapacity
-    , executeWithCapacity'
+    , executeWith
+    , executeWith'
     ) where
 
 import qualified GHC.Exts (IsList, Item)
@@ -78,6 +79,12 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     fromList = NC . fromList
     toList = toList . unNC
 
+-- | Combine a filter (cut-offs) with network capacity
+data ExecutionParams tag rTag cTag = EP
+    { networkCapacity :: Maybe (NetworkCapacity tag)
+    , bellPairFilter  :: TaggedBellPair rTag -> cTag -> Bool
+    }
+
 -- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
 -- `TaggedBellPairs`
 execute
@@ -99,25 +106,26 @@ execute'
     -> CD p (LabelledBellPairs (CTag output) (RTag output))
 execute' p bps = D.mapProbability fromRational $ execute p bps
 
-executeWithCapacity
+executeWith
     :: (Output output tag, Ord tag)
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
-    => NetworkCapacity tag
+    => ExecutionParams tag (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output tag
     -> LabelledBellPairs (CTag output) (RTag output)
     -> CD' (LabelledBellPairs (CTag output) (RTag output))
-executeWithCapacity nc (ProbAtomicOneStepPolicy xs) bps =
-    foldMap (\paa -> executePAA (fixNetworkCapacity nc) paa bps) xs
+executeWith ep (ProbAtomicOneStepPolicy xs) bps =
+    foldMap (\paa -> executePAA (applyExecutionParams ep) paa bps) xs
 
-executeWithCapacity'
+executeWith'
     :: (Output output tag, RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
-    => NetworkCapacity tag -> ProbAtomicOneStepPolicy output tag
+    => ExecutionParams tag (RTag output) (CTag output)
+    -> ProbAtomicOneStepPolicy output tag
     -> LabelledBellPairs (CTag output) (RTag output)
     -> CD p (LabelledBellPairs (CTag output) (RTag output))
-executeWithCapacity' nc p bps = D.mapProbability fromRational $ executeWithCapacity nc p bps
+executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
 executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
            => (Ord tag)
@@ -166,6 +174,24 @@ fixNetworkCapacity (NC cap) (Mset.LMS (ms, t)) =
 countByBellPair :: Ord tag => [TaggedBellPair tag] -> Map.Map (TaggedBellPair tag) Int
 countByBellPair xs = Map.fromListWith (+) [ (staticBellPair tbp, 1) | tbp <- xs ]
 
+-- | Apply filter and network capacity sequentially
+applyExecutionParams
+    :: (RuntimeTag rTag tag, Ord rTag, Ord tag)
+    => ExecutionParams tag rTag cTag
+    -> LabelledBellPairs cTag rTag
+    -> LabelledBellPairs cTag rTag
+applyExecutionParams (EP mbCap bpPred) bps0 =
+    let afterFilter = fixFilter bpPred bps0
+    in maybe afterFilter (`fixNetworkCapacity` afterFilter) mbCap
+
+-- | Filter labelled bell pairs using the given filter (predicate)
+fixFilter :: (Ord rTag)
+               => (TaggedBellPair rTag -> cTag -> Bool)
+               -> LabelledBellPairs cTag rTag
+               -> LabelledBellPairs cTag rTag
+fixFilter bpFilter (Mset.LMS (ms, clock)) =
+    let kept = filter (`bpFilter` clock) (GHC.Exts.toList ms)
+    in Mset.LMS (Mset.fromList kept, clock)
 
 -- TODO: "old" version
 -- fixNetworkCapacity 

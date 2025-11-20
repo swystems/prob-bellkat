@@ -34,7 +34,7 @@ import BellKAT.DSL
 import BellKAT.Definitions
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
-import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity)
+import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity, ExecutionParams(..))
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 
@@ -49,6 +49,10 @@ data PbkatCLIOpts = PCO
     { pcoJSON :: Bool
     , pcoMode :: PbkatMode
     }
+
+-- | Default filter that keeps all bell pairs
+noBellPairFilter :: TaggedBellPair tag -> () -> Bool
+noBellPairFilter _ _ = True
 
 pcoParser :: OA.Parser PbkatCLIOpts
 pcoParser = PCO 
@@ -77,8 +81,11 @@ pbkatMain'
     -> ProbBellKATPolicy
     -> IO ()
 pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
-    let r = applyProbStarPolicy' @p pac mbNC protocol mempty
-        s = applyProbStarPolicySystem' @p pac mbNC protocol mempty
+    let ep = EP { networkCapacity = mbNC
+                , bellPairFilter  = noBellPairFilter
+                }
+        r = applyProbStarPolicy' @p pac ep protocol mempty
+        s = applyProbStarPolicySystem' @p pac ep protocol mempty
         a = applyProbStarPolicyAutomaton pac protocol in do
     opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
     case pcoMode opts of

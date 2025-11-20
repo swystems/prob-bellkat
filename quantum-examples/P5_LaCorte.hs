@@ -3,46 +3,44 @@ import BellKAT.QuantumPrelude
 p :: Int -> QBKATPolicy
 p n =
     whileN n ("A" /~? "D")
-    (   
+    (
         (
             ite ("B" /~? "D")
-            (  
+            (
                 (
                     -- generations in parallel
-                    (ite ("B" /~? "C") (ucreate ("B", "C")) mempty)
+                    ite ("B" /~? "C") (ucreate ("B", "C")) mempty
                         <||>
-                    (ite ("C" /~? "D") (ucreate ("C", "D")) mempty)
+                    ite ("C" /~? "D") (ucreate ("C", "D")) mempty
                 )
                 <>
-                (
-                    swap "C" ("B", "D")
-                )
+                swap "C" ("B", "D")
             )
             mempty
             <||>
             ite ("A" /~? "B")
             (
-                (ucreate ("A", "B"))
+                ucreate ("A", "B")
             )
             mempty
         )
-        <> (swap "B" ("A", "D"))
+        <> swap "B" ("A", "D")
     )
 
 actionConfig :: Bool -> Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
-actionConfig useFirst p_gen w0 p_swap tCoh =
+actionConfig useFirst pGen w0 pSwap tCoh =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
         , pacCreateWerner = []
         , pacUCreateProbability =
-            [ (("A", "B"), p_gen)
-            , (("B", "C"), p_gen)
-            , (("C", "D"), p_gen)
+            [ (("A", "B"), pGen)
+            , (("B", "C"), pGen)
+            , (("C", "D"), pGen)
             ]
                 , pacSwapProbability =
-            [ ("B", p_swap),
-              ("C", p_swap)
+            [ ("B", pSwap),
+              ("C", pSwap)
             ]
                 , pacUCreateWerner = if useFirst
                         then
@@ -86,8 +84,8 @@ main :: IO ()
 main =
     let ev     = "A" ~~? "D"
         useFirstExp = True
-        p_gen  = 1/4
-        p_swap = 3/4
+        pGen  = 1/4
+        pSwap = 3/4
         w0     = 95/100
         tCoh   = 1000
-     in qbkatMainD (actionConfig useFirstExp p_gen w0 p_swap tCoh) Nothing ev (p 54) mempty
+    in qbkatMainD (actionConfig useFirstExp pGen w0 pSwap tCoh) nbUnbounded ev (p 27) mempty

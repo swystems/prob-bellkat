@@ -2,7 +2,7 @@ import BellKAT.QuantumPrelude
 
 p :: Int -> QBKATPolicy
 p nS =
-        whileN nS ("A" /~? "C" ||* "B" /~? "C")
+        whileN nS ("A" /~? "C" &&* "B" /~? "C")
         (   
             (   -- generations in parallel
                 ite ("A" /~? "H") (ucreate ("A", "H")) mempty
@@ -22,6 +22,9 @@ p nS =
 
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
+
+nb :: NetworkBounds QBKATTag
+nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
 
 actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig p_gen w0 p_swap tCoh =
@@ -61,4 +64,4 @@ main =
         p_swap   = 1/2
         w0       = 95/100
         tCoh     = 100
-     in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) (Just networkCapacity) ev (p 9) mempty
+    in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) nb ev (p 27) mempty

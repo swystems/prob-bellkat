@@ -28,6 +28,9 @@ p n = whileN n ("A" /~? "D") pG
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "B", "B" ~ "C", "C" ~ "D", "A" ~ "C", "B" ~ "D", "A" ~ "D"]
 
+nb :: NetworkBounds QBKATTag
+nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
+
 actionConfig :: Rational -> Double -> Rational -> ProbabilisticActionConfiguration
 actionConfig p_gen w0 p_swap =
     PAC
@@ -70,4 +73,4 @@ main =
         p_gen  = 1/3
         p_swap = 1/2
         w0     = 958/1000
-     in qbkatMainD (actionConfig p_gen w0 p_swap) (Just networkCapacity) ev (p 3) mempty
+    in qbkatMainD (actionConfig p_gen w0 p_swap) nb ev (p 3) mempty

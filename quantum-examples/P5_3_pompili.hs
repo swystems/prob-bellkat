@@ -16,6 +16,9 @@ p n = whileN n ("A" /~? "C" ||* "B" /~? "C") oneAttempt
 networkCapacity :: NetworkCapacity QBKATTag
 networkCapacity = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
 
+nb :: NetworkBounds QBKATTag
+nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
+
 actionConfig :: Double -> Int -> ProbabilisticActionConfiguration
 actionConfig w0 tCoh = PAC 
     { pacTransmitProbability = []
@@ -37,4 +40,4 @@ main =
     let ev  = "A" ~~? "B"
         w0  = 958/1000
         tCoh = 100
-     in qbkatMainD (actionConfig w0 tCoh) (Just networkCapacity) ev (p 1) mempty
+    in qbkatMainD (actionConfig w0 tCoh) nb ev (p 1) mempty

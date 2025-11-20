@@ -1,25 +1,43 @@
 import BellKAT.QuantumPrelude
 
-pG1 :: Int -> QBKATPolicy
-pG1 n =
-    whileN n ("A" /~? "B") (ucreate ("A", "B"))
-        <||>
-    whileN n ("B" /~? "C") (ucreate ("B", "C"))
-
-pG2 :: Int -> QBKATPolicy
-pG2 n =
-    whileN n ("C" /~? "D") (ucreate ("C", "D"))
-        <||>
-    whileN n ("D" /~? "E") (ucreate ("D", "E"))
-
-pS :: Int -> QBKATPolicy
-pS n =
-    whileN n ("A" /~? "C") (pG1 n <> swap "B" ("A", "C"))
-        <||>
-    whileN n ("C" /~? "E") (pG2 n <> swap "D" ("C", "E"))
-
 p :: Int -> QBKATPolicy
-p n = whileN n ("A" /~? "E") (pS n <> swap "C" ("A", "E"))
+p n =
+    whileN n ("A" /~? "C")
+    (
+        -- (
+        --     -- AB: try to obtain two copies, then distill; otherwise destroy leftovers
+        --     (
+        --         ite (hasNotSubset ["A" ~ "B", "A" ~ "B"]) (ucreate ("A", "B") <.> ucreate ("A", "B")) mempty
+        --         <>
+        --         ite (hasSubset ["A" ~ "B", "A" ~ "B"]) (distill ("A", "B")) (destroy ("A", "B"))
+        --     )
+        --     <||>
+        --     -- BC: try to obtain two copies, then distill; otherwise destroy leftovers
+        --     (
+        --         ite (hasNotSubset ["B" ~ "C", "B" ~ "C"]) (ucreate ("B", "C") <.> ucreate ("B", "C")) mempty
+        --         <>
+        --         ite (hasSubset ["B" ~ "C", "B" ~ "C"]) (distill ("B", "C")) (destroy ("B", "C"))
+        --     )
+        -- )
+        (
+            -- generations in parallel
+            ite ("A" /~? "B") (ucreate ("A", "B")) mempty
+            <||>
+            ite ("B" /~? "C") (ucreate ("B", "C")) mempty
+        )
+        <>
+        -- swap to create A~C
+        swap "B" ("A", "C")
+    )
+
+networkCapacity :: NetworkCapacity QBKATTag
+networkCapacity = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
+
+cutoff :: CutoffSpec
+cutoff = 8
+
+nb :: NetworkBounds QBKATTag
+nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Just cutoff })
 
 actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig pGen w0 pSwap tCoh =
@@ -30,46 +48,31 @@ actionConfig pGen w0 pSwap tCoh =
         , pacUCreateProbability =
             [ (("A", "B"), pGen)
             , (("B", "C"), pGen)
-            , (("C", "D"), pGen)
-            , (("D", "E"), pGen)
             ]
         , pacSwapProbability =
             [ ("B", pSwap)
-            , ("C", pSwap)
-            , ("D", pSwap)
             ]
         , pacUCreateWerner =
-            [ (("A", "C"), w0)
+            [ (("A", "B"), w0)
             , (("B", "C"), w0)
-            , (("C", "D"), w0)
-            , (("D", "E"), w0)
             ]
         , pacCoherenceTime =
             [ ("A", tCoh)
             , ("B", tCoh)
             , ("C", tCoh)
-            , ("D", tCoh)
-            , ("E", tCoh)
         ]
         , pacDistances =
             [ (("A", "B"), 1)
             , (("B", "C"), 1)
-            , (("C", "D"), 1)
-            , (("D", "E"), 1)
             , (("A", "C"), 2)
-            , (("B", "D"), 2)
-            , (("C", "E"), 2)
-            , (("A", "D"), 3)
-            , (("B", "E"), 3)
-            , (("A", "E"), 4)
             ]
         }
 
 main :: IO ()
 main =
-    let ev     = "A" ~~? "E"
-        pGen  = 26/10000
-        pSwap = 75/100
-        w0    = 958/1000
-        tCoh  = 100
-     in qbkatMainD (actionConfig pGen w0 pSwap tCoh) Nothing ev (p 2) mempty
+    let ev     = "A" ~~? "C"
+        pGen  = 1/4
+        pSwap = 3/4
+        w0     = 95/100
+        tCoh   = 1000
+    in qbkatMainD (actionConfig pGen w0 pSwap tCoh) nb ev (p 108) mempty

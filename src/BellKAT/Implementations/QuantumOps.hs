@@ -40,8 +40,8 @@ type Werner = Double     -- representing fidelity, in the range [0,1]
 
 -- | TODO: refactor as something to be set in the DSL
 -- | If True, swaps are considered instantaneous (no time delay)
-instantaneousSwaps :: Bool
-instantaneousSwaps = False
+instantaneousOps :: Bool
+instantaneousOps = True
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }
@@ -131,13 +131,13 @@ swapBPs p (tCohL, tCohL1, tCohL2) (d1, d2) (Mset.LMS (inBps, clock)) (TaggedBell
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t1 w1), TaggedBellPair _ (QuantumTag t2 w2)] ->
             let
-                completionTime = if instantaneousSwaps then 0 else max d1 d2
+                completionTime = if instantaneousOps then 0 else max d1 d2
                 productionTS = getMaxClock clock + completionTime
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
                     , qtFidelity  = w1 * w2 * decay (tCohL,  tCohL1) (getMaxClock clock - t1)
                                             * decay (tCohL,  tCohL2) (getMaxClock clock - t2)
-                                            * decay (tCohL1, tCohL2) (completionTime)
+                                            * decay (tCohL1, tCohL2) completionTime
                     }
                 successOutput = Mset.singletonT (TaggedBellPair outBp newTag) (MaxClock productionTS)
                 failureOutput = labelledMempty (MaxClock productionTS)
@@ -167,7 +167,8 @@ distBPs (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
                 pDistD = (1 + w1 * w2) / 2
                 wDistD :: Double
                 wDistD = (w1 + w2 + 4 * w1 * w2) / (6 * pDistD)
-                productionTS = getMaxClock clock + d
+                completionTime = if instantaneousOps then 0 else d
+                productionTS = getMaxClock clock + completionTime
                 newTag = QuantumTag
                     { qtTimestamp = productionTS
                     , qtFidelity  = wDistD * decay (tCoh1, tCoh2) (getMaxClock clock - t1)

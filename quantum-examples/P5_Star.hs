@@ -26,29 +26,29 @@ networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
 nb :: NetworkBounds QBKATTag
 nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
 
-actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
-actionConfig p_gen w0 p_swap tCoh =
+actionConfig :: ProbabilisticActionConfiguration
+actionConfig =
     PAC
         { pacTransmitProbability = []
         , pacCreateProbability = []
         , pacCreateWerner = []
         , pacUCreateProbability =
-            [ (("A", "H"), p_gen)
-            , (("B", "H"), p_gen)
-            , (("C", "H"), p_gen)
+            [ (("A", "H"), 1/4)
+            , (("B", "H"), 1/3)
+            , (("C", "H"), 1/3)
             ]
         , pacSwapProbability =
-            [ ("H", p_swap) ]
+            [ ("H", 1/2) ]
         , pacUCreateWerner =
-            [ (("A", "H"), w0)
-            , (("B", "H"), w0)
-            , (("C", "H"), w0)
+            [ (("A", "H"), 90/100)
+            , (("B", "H"), 95/100)
+            , (("C", "H"), 95/100)
             ]
         , pacCoherenceTime =
-            [ ("A", tCoh)
-            , ("B", tCoh)
-            , ("C", tCoh)
-            , ("H", tCoh)
+            [ ("A", 100)
+            , ("B", 100)
+            , ("C", 100)
+            , ("H", 200)
             ]
         , pacDistances =
             [ (("A", "H"), 1)
@@ -60,8 +60,4 @@ actionConfig p_gen w0 p_swap tCoh =
 main :: IO ()
 main =
     let ev       = "A" ~~? "C"
-        p_gen    = 1/4
-        p_swap   = 1/2
-        w0       = 95/100
-        tCoh     = 100
-    in qbkatMainD (actionConfig p_gen w0 p_swap tCoh) nb ev (p 27) mempty
+    in qbkatMainD actionConfig nb ev (p 54) mempty

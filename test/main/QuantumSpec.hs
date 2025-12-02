@@ -10,6 +10,11 @@ import BellKAT.Implementations.QuantumOps
 import BellKAT.Utils.Distribution as D
 import GHC.Exts (toList)
 import BellKAT.Utils.Multiset (labelledMempty)
+import BellKAT.Implementations.ProbAtomicOneStepQuantum (ExecutionParams (..), applyExecutionParams)
+
+-- | Helper to build a labelled multiset of tagged bell pairs with a given clock
+buildState :: [TaggedBellPair QuantumTag] -> MaxClock -> Mset.LabelledMultiset MaxClock (TaggedBellPair QuantumTag)
+buildState bps clk = Mset.fromList bps Mset.@ clk
 
 expectSingleton :: (Show a, Eq a) => D.D' a -> a
 expectSingleton d = case D.toListD d of
@@ -152,3 +157,25 @@ spec = do
       -- one outcome should be empty (failure), one should be singleton (success)
       let sizes = map (\(Mset.LMS (s,_),_) -> length (toList s)) outs
       sum sizes `shouldBe` 1 -- exactly one singleton across outcomes
+
+  describe "cutoff filtering" $ do
+    it "with cutoff=0 keeps only age 0 pairs and they share identical Werner parameter" $ do
+      let clock = MaxClock 10
+          -- Two fresh pairs (age 0) created "now" with identical Werner parameter
+          freshW = 0.75 :: Double
+          fresh1 = TaggedBellPair ("A" ~ "B") (QuantumTag (getMaxClock clock) freshW)
+          fresh2 = TaggedBellPair ("C" ~ "D") (QuantumTag (getMaxClock clock) freshW)
+          -- Older pairs (different timestamp and fidelity) that should be filtered out
+          old1   = TaggedBellPair ("A" ~ "C") (QuantumTag (getMaxClock clock - 1) 0.60)
+          old2   = TaggedBellPair ("B" ~ "D") (QuantumTag (getMaxClock clock - 2) 0.90)
+          initial = buildState [fresh1, fresh2, old1, old2] clock
+          ep :: ExecutionParams () QuantumTag MaxClock
+          ep = EP { networkCapacity = Nothing
+            , bellPairFilter  = \tbp clk' -> isFresh tbp clk' (Just 0) }
+          Mset.LMS (filteredSet, _) = applyExecutionParams ep initial
+          wernerParams = [ w | TaggedBellPair _ (QuantumTag _ w) <- toList filteredSet ]
+      -- Expect only the two fresh pairs to remain
+      length wernerParams `shouldBe` 2
+      wernerParams `shouldBe` replicate 2 freshW
+      -- (redundant equality check emphasizing uniformity)
+      all (== freshW) wernerParams `shouldBe` True

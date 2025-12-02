@@ -3,6 +3,7 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     , ProbAtomicOneStepPolicy'
     , NetworkCapacity (NC)
     , ExecutionParams(..)
+    , applyExecutionParams
     , execute
     , execute'
     , executeWith

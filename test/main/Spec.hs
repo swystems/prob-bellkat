@@ -34,6 +34,7 @@ import qualified GuardedAutomataSpec
 import qualified TestsSpec
 import qualified ConvexSpec
 import qualified QuantumSpec
+import qualified ProtocolSnapSpec
 
 main :: IO ()
 main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
@@ -44,8 +45,7 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Utils.Convex" ConvexSpec.spec    
     describe "Paper Tests" PaperSpec.spec
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
-    describe "Quantum time and fidelity" QuantumSpec.spec
-    describe "distill" $ do
+    describe "Distill" $ do
         it "should drop sometimes" $
             applyPolicy @Tag (distill ("A", "B")) [node ("A" ~ "B"), node ("A" ~ "B")]
                 `historiesShouldSatisfy` any (null . getForest)
@@ -125,6 +125,8 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "findTreeRootsND" $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)
+    describe "Quantum Tests for Time and Fidelity" QuantumSpec.spec
+    describe "Quantum Protocol Snapshots Tests" ProtocolSnapSpec.spec
 
 hasBellPair :: BellPair -> UTree (TaggedBellPair a) -> Bool
 hasBellPair bp = (== bp) . bellPair . rootLabel

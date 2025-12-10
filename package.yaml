@@ -430,3 +430,12 @@ tests:
     dependencies: 
       - hspec
     main: SpecSmall
+  quantum:
+    main: QuantumSpec
+    source-dirs:
+      - test/main
+      - src
+    dependencies:
+      - hspec
+    cpp-options:
+      - -DINSTANTANEOUS_OPS_FALSE

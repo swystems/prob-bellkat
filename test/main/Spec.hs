@@ -33,7 +33,6 @@ import qualified AutomataSpec
 import qualified GuardedAutomataSpec
 import qualified TestsSpec
 import qualified ConvexSpec
-import qualified QuantumSpec
 import qualified ProtocolSnapSpec
 
 main :: IO ()
@@ -125,7 +124,6 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "findTreeRootsND" $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)
-    describe "Quantum Tests for Time and Fidelity" QuantumSpec.spec
     describe "Quantum Protocol Snapshots Tests" ProtocolSnapSpec.spec
 
 hasBellPair :: BellPair -> UTree (TaggedBellPair a) -> Bool

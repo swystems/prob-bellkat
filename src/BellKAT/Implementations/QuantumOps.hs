@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 {- |
    Module : BellKAT.Definitions.QuantumOps
@@ -42,7 +43,11 @@ type Werner = Double     -- representing fidelity, in the range [0,1]
 -- | TODO: refactor as something to be set in the DSL
 -- | If True, swaps are considered instantaneous (no time delay)
 instantaneousOps :: Bool
+#ifdef INSTANTANEOUS_OPS_FALSE
+instantaneousOps = False
+#else
 instantaneousOps = True
+#endif
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }

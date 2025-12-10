@@ -179,3 +179,6 @@ spec = do
       wernerParams `shouldBe` replicate 2 freshW
       -- (redundant equality check emphasizing uniformity)
       all (== freshW) wernerParams `shouldBe` True
+
+main :: IO ()
+main = hspec spec

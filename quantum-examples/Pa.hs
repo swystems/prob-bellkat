@@ -30,4 +30,4 @@ main =
     let ev = "A" ~~? "B"
         w0 = 958/1000
         tCoh = 100
-    in qbkatMain (actionConfig w0 tCoh) nbUnbounded ev p mempty
+    in qbkatMain (actionConfig w0 tCoh) def ev p mempty

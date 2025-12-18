@@ -170,8 +170,9 @@ spec = do
           old2   = TaggedBellPair ("B" ~ "D") (QuantumTag (getMaxClock clock - 2) 0.90)
           initial = buildState [fresh1, fresh2, old1, old2] clock
           ep :: ExecutionParams () QuantumTag MaxClock
-          ep = EP { networkCapacity = Nothing
-            , bellPairFilter  = \tbp clk' -> isFresh tbp clk' (Just 0) }
+          ep = EP { epNetworkCapacity = Nothing
+                  , epFilter          = \tbp clk' -> isFresh tbp clk' (Just 0) 
+               }
           Mset.LMS (filteredSet, _) = applyExecutionParams ep initial
           wernerParams = [ w | TaggedBellPair _ (QuantumTag _ w) <- toList filteredSet ]
       -- Expect only the two fresh pairs to remain

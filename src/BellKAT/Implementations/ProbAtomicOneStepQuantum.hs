@@ -3,6 +3,7 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
     , ProbAtomicOneStepPolicy'
     , NetworkCapacity (NC)
     , ExecutionParams(..)
+    , fromNetworkCapacity
     , applyExecutionParams
     , execute
     , execute'
@@ -82,9 +83,21 @@ instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
 
 -- | Combine a filter (cut-offs) with network capacity
 data ExecutionParams tag rTag cTag = EP
-    { networkCapacity :: Maybe (NetworkCapacity tag)
-    , bellPairFilter  :: TaggedBellPair rTag -> cTag -> Bool
+    { epNetworkCapacity :: Maybe (NetworkCapacity tag)
+    , epFilter          :: TaggedBellPair rTag -> cTag -> Bool
     }
+
+-- | Construct 'ExecutionParams' from an optional 'NetworkCapacity' and
+-- a default permissive filter.
+fromNetworkCapacity :: Maybe (NetworkCapacity tag) -> ExecutionParams tag rTag cTag
+fromNetworkCapacity mbCap = EP { epNetworkCapacity = mbCap
+                               , epFilter          = \_ _ -> True
+                          }
+
+instance Default (ExecutionParams tag rTag cTag) where
+    def = EP { epNetworkCapacity = Nothing
+             , epFilter          = \_ _ -> True
+        }
 
 -- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
 -- `TaggedBellPairs`
@@ -145,17 +158,6 @@ executePAA fix act bps =
            | Partial { chosen , rest }  <- findElemsNDT (fmap staticTag) (toList . paaInputBPs $ act) bps]
         else mempty
 
--- executePAA _ act@(ProbabilisticAtomicAction _ []) untouched =
---         then fromList [cpure untouched]
--- executePAA fix act@(ProbabilisticAtomicAction _ ((i,o):ios)) bps =
---         then fromList
---                 [ cmap fix $ cmap (uncurry (<>)) $ pair (asFunction o (chosen partial)) dTail
---                 | let requiredBPs = map untagBellPair (toList i)
---                 , partial <- findElemsND untagBellPair requiredBPs bps
---                 , let tailDist = executePAA fix (ProbabilisticAtomicAction (paaTest act) ios) (rest partial)
---                 , dTail <- toList tailDist
---                 ]
-
 -- | For each BellPair, keep at most the number allowed
 fixNetworkCapacity 
     :: (RuntimeTag rTag tag, Ord rTag, Ord tag)
@@ -193,14 +195,3 @@ fixFilter :: (Ord rTag)
 fixFilter bpFilter (Mset.LMS (ms, clock)) =
     let kept = filter (`bpFilter` clock) (GHC.Exts.toList ms)
     in Mset.LMS (Mset.fromList kept, clock)
-
--- TODO: "old" version
--- fixNetworkCapacity 
---     :: (RuntimeTag rTag tag, Ord rTag, Ord tag) 
---     => NetworkCapacity tag -> TaggedBellPairs rTag -> TaggedBellPairs rTag
--- fixNetworkCapacity (NC nc) = fst . foldl' 
---     (\(acc, nc') bp -> if (staticTag <$> bp) `Mset.member` nc' 
---                          then (acc <> Mset.singleton bp, Mset.remove (staticTag <$> bp) nc') 
---                          else (acc, nc'))
---     (mempty, nc)
-

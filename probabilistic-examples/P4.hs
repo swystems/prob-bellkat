@@ -31,4 +31,4 @@ networkCapacity = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 main :: IO ()
 main = do
     let ev = hasSubset ["A" ~ "C", "B" ~ "C"]
-     in pbkatMain actionConfig (Just Main.networkCapacity) ev p
+     in pbkatMain actionConfig (Just networkCapacity) ev p

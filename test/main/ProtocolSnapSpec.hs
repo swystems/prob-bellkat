@@ -12,7 +12,7 @@ import Control.Exception (catch, IOException)
 
 import BellKAT.QuantumPrelude
   ( ProbabilisticActionConfiguration(..)
-  , NetworkBounds(..), nbUnbounded, CutoffSpec
+  , NetworkBounds(..), CutoffSpec
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag
   , MaxClock(..)
   , NetworkState
@@ -21,6 +21,7 @@ import BellKAT.QuantumPrelude
   , ite, ucreate, swap, create, trans, whileN, (<||>), (<.>)
   , (/~?), (&&*)
   )
+import Data.Default (def)
 import BellKAT.Definitions (applyProbStarPolicyQ')
 import BellKAT.Implementations.Output (ListOutput)
 import BellKAT.Definitions.Core (Op)
@@ -31,8 +32,8 @@ import BellKAT.Implementations.QuantumOps (isFresh)
 type TestOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) MaxClock QBKATTag
 
 buildEP :: NetworkBounds QBKATTag -> ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
-buildEP nb = EP { networkCapacity = nbCapacity nb
-             , bellPairFilter  = \tbp clk -> isFresh tbp clk (nbCutoff nb)
+buildEP nb = EP { epNetworkCapacity = nbCapacity nb
+                , epFilter          = \tbp clk -> isFresh tbp clk (nbCutoff nb)
              }
 
 -- Compute JSON for a protocol run
@@ -74,7 +75,7 @@ spec = describe "protocol snaps" $ do
           , pacCoherenceTime       = [("A",100),("B",100),("C",100)]
           , pacDistances           = [( ("A","C"),1 ), ( ("B","C"),1 ), ( ("A","B"),2 )]
           }
-        nb  = nbUnbounded
+        nb  = def
         pol :: QBKATPolicy
         pol = (create "C" <||> create "C")
               <> (trans "C" ("A","C") <||> trans "C" ("B","C"))

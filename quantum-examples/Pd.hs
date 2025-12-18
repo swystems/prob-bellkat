@@ -29,4 +29,4 @@ main :: IO ()
 main = 
     let ev = "A" ~~? "B"
         tCoh = 100
-    in qbkatMainD (actionConfig tCoh) nbUnbounded ev p initState
+    in qbkatMainD (actionConfig tCoh) def ev p initState

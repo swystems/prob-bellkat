@@ -7,6 +7,7 @@ module ProbPaperSpec where
 import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
 import Test.Hspec
+import Data.Default (def)
 
 import BellKAT.ProbabilisticPrelude
 import BellKAT.Utils.Distribution as D
@@ -19,7 +20,6 @@ import BellKAT.Utils.Automata.Transitions.Guarded
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions
-import BellKAT.Implementations.QuantumOps ()
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy' BellKATTag)
 
 -- | = Example 4.2
@@ -175,14 +175,10 @@ p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
 
 -- Execution params consistent with previous tests: capacity set, no cutoff filtering
 ep51 :: ExecutionParams BellKATTag BellKATTag ()
-ep51 = EP { networkCapacity = Just p51nc
-          , bellPairFilter  = \_ _ -> True
-          }
+ep51 = fromNetworkCapacity (Just p51nc)
 
 epNone :: ExecutionParams BellKATTag BellKATTag ()
-epNone = EP { networkCapacity = Nothing
-            , bellPairFilter  = \_ _ -> True
-            }
+epNone = def
 
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
@@ -407,7 +403,7 @@ spec = do
         it "prints probabilities example 5.3 (Pompili) [VERYLONG]" $ do
             print $ applyProbStarPolicy' @Double p53pac ep51 (p53 10) []
         it "prints system 5.3 (Coopmans)" $ do
-            print $ applyProbStarPolicySystem p53'pac (EP { networkCapacity = Just p53'nc, bellPairFilter = \_ _ -> True }) (p53' 2 1) []
+            print $ applyProbStarPolicySystem p53'pac (fromNetworkCapacity (Just p53'nc)) (p53' 2 1) []
         it "prints probabilities example 5.3 (Coopmans) [VERYLONG]" $ do
-            print $ applyProbStarPolicy p53'pac (EP { networkCapacity = Just p53'nc, bellPairFilter = \_ _ -> True }) (p53' 2 1) []
+            print $ applyProbStarPolicy p53'pac (fromNetworkCapacity (Just p53'nc)) (p53' 2 1) []
 

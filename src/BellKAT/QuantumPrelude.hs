@@ -23,7 +23,7 @@ module BellKAT.QuantumPrelude (
     -- * Network bounds
     CutoffSpec,
     NetworkBounds(..),
-    nbUnbounded,
+    def,
     -- * Entry points
     qbkatMain,
     qbkatMainD,
@@ -41,6 +41,7 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
 import qualified Options.Applicative as OA
 import Data.Semigroup (stimes)
+import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
@@ -76,9 +77,8 @@ data NetworkBounds tag = NetworkBounds
     , nbCutoff   :: Maybe CutoffSpec
     }
 
--- | Default empty spec
-nbUnbounded :: NetworkBounds tag
-nbUnbounded = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
+instance Default (NetworkBounds tag) where
+    def = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
@@ -126,8 +126,8 @@ qbkatMain'
     -> IO ()
 qbkatMain' (_ :: Proxy p) pac nb ev protocol ns = 
                                           {- ^ initial network state -}  
-    let ep = EP { networkCapacity = nbCapacity nb
-                , bellPairFilter  = \tbp clock -> isFresh tbp clock (nbCutoff nb)
+    let ep = EP { epNetworkCapacity = nbCapacity nb
+                , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
         r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns
         s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns

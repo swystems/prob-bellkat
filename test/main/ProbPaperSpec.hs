@@ -17,6 +17,7 @@ import BellKAT.ActionEmbeddings
 import BellKAT.PolicyEmbeddings
 import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
+import BellKAT.Implementations.Configuration
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions

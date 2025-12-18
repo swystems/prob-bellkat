@@ -34,7 +34,7 @@ import BellKAT.DSL
 import BellKAT.Definitions
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
-import BellKAT.Implementations.ProbAtomicOneStepQuantum (NetworkCapacity, fromNetworkCapacity)
+import BellKAT.Implementations.Configuration (NetworkCapacity, fromNetworkCapacity)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 

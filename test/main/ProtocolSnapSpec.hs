@@ -25,7 +25,7 @@ import Data.Default (def)
 import BellKAT.Definitions (applyProbStarPolicyQ')
 import BellKAT.Implementations.Output (ListOutput)
 import BellKAT.Definitions.Core (Op)
-import BellKAT.Implementations.ProbAtomicOneStepQuantum (ExecutionParams(..))
+import BellKAT.Implementations.Configuration (ExecutionParams(..))
 import BellKAT.Implementations.QuantumOps (isFresh)
 
 -- Output type and EP equivalent to QBKATOutput of QuantumPrelude

@@ -54,6 +54,7 @@ import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
+import           BellKAT.Implementations.Configuration (ExecutionParams)
 import           BellKAT.Implementations.Output (RTag, CTag, OpOutput, staticBellPairs)
 
 -- | = Deterministic (no explicit choice operator) one round policies
@@ -169,7 +170,7 @@ applyStarOrderedPolicyBounded =
 applyProbStarPolicy 
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag tag ()
+    -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
 applyProbStarPolicy = applyProbStarPolicy'
@@ -182,7 +183,7 @@ probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . 
 applyProbStarPolicy' 
     :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
     => ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag tag ()
+    -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 applyProbStarPolicy' pac ep = 
@@ -201,7 +202,7 @@ applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
 applyProbStarPolicyStates
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag tag ()
+    -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.ComputedState CD' (TaggedBellPairs tag)
 applyProbStarPolicyStates pac ep = 
@@ -212,7 +213,7 @@ applyProbStarPolicyStates pac ep =
 applyProbStarPolicySystem'
     :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag tag ()
+    -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag 
     -> GASQ.StateSystem (CD p) (TaggedBellPairs tag)
@@ -224,7 +225,7 @@ applyProbStarPolicySystem' pac ep =
 applyProbStarPolicySystem
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
     => ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag tag ()
+    -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem = applyProbStarPolicySystem'
@@ -252,7 +253,7 @@ applyProbStarPolicyQ'
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output 
     -> ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> CD p (LabelledBellPairs (CTag output) (RTag output))
 applyProbStarPolicyQ' proxy pac ep = 
@@ -266,7 +267,7 @@ applyProbStarPolicyQ
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output 
     -> ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> CD' (LabelledBellPairs (CTag output) (RTag output))
 applyProbStarPolicyQ proxy pac ep = 
@@ -279,7 +280,7 @@ applyProbStarPolicyQStates
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, DDom (RTag output), Default (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output) -> GASQ.ComputedState CD' (LabelledBellPairs (CTag output) (RTag output))
 applyProbStarPolicyQStates proxy pac ep = 
@@ -293,7 +294,7 @@ applyProbStarPolicyQSystem'
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output) 
     -> GASQ.StateSystem (CD p) (LabelledBellPairs (CTag output) (RTag output))
@@ -307,7 +308,7 @@ applyProbStarPolicyQSystem
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> PAOSQ.ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams tag (RTag output) (CTag output)
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> LabelledBellPairs (CTag output) (RTag output)-> GASQ.StateSystem CD' (LabelledBellPairs (CTag output) (RTag output))
 applyProbStarPolicyQSystem = applyProbStarPolicyQSystem'

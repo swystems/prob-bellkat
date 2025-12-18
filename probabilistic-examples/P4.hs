@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.ProbabilisticPrelude
 
 e :: ProbBellKATPolicy

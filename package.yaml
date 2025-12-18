@@ -64,6 +64,7 @@ library:
     - BellKAT.Implementations.StepHistoryQuantum
     - BellKAT.Implementations.HistoryQuantum
     - BellKAT.Implementations.AutomataStepQuantum
+    - BellKAT.Implementations.Configuration
     - BellKAT.Implementations.GuardedAutomataStepQuantum
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum

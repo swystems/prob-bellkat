@@ -10,7 +10,7 @@ import BellKAT.Implementations.QuantumOps
 import BellKAT.Utils.Distribution as D
 import GHC.Exts (toList)
 import BellKAT.Utils.Multiset (labelledMempty)
-import BellKAT.Implementations.ProbAtomicOneStepQuantum (ExecutionParams (..), applyExecutionParams)
+import BellKAT.Implementations.Configuration (ExecutionParams (..), applyExecutionParams)
 
 -- | Helper to build a labelled multiset of tagged bell pairs with a given clock
 buildState :: [TaggedBellPair QuantumTag] -> MaxClock -> Mset.LabelledMultiset MaxClock (TaggedBellPair QuantumTag)

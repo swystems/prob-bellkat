@@ -11,7 +11,8 @@ import           BellKAT.Definitions
 import           BellKAT.Drawing
 
 
-type Tag = Maybe Int
+
+type Tag = Int
 
 testEquality 
     :: (Show t, Eq t, Default t)

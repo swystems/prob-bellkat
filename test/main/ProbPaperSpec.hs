@@ -7,6 +7,7 @@ module ProbPaperSpec where
 import Control.Subcategory.Bind
 import Control.Subcategory.Pointed
 import Test.Hspec
+import Data.Default (def)
 
 import BellKAT.ProbabilisticPrelude
 import BellKAT.Utils.Distribution as D
@@ -16,6 +17,7 @@ import BellKAT.ActionEmbeddings
 import BellKAT.PolicyEmbeddings
 import BellKAT.Utils.Automata.Guarded
 import BellKAT.Utils.Automata.Transitions.Guarded
+import BellKAT.Implementations.Configuration
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions
@@ -158,10 +160,26 @@ p51mu2 :: D' (TaggedBellPairs BellKATTag)
 p51mu2 = [(["A" ~ "C", "B" ~ "C"], 324/1000), (["A" ~ "C"], 324/1000), (["B" ~ "C"], 171/1000), ([], 181/1000)]
 
 p51pac :: ProbabilisticActionConfiguration
-p51pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 9/10)] [] []
+p51pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 9/10)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = []
+    , pacUCreateWerner       = []
+    , pacSwapProbability     = []
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
+    }
 
 p51nc :: NetworkCapacity BellKATTag
 p51nc = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C"]
+
+-- Execution params consistent with previous tests: capacity set, no cutoff filtering
+ep51 :: ExecutionParams BellKATTag BellKATTag ()
+ep51 = fromNetworkCapacity (Just p51nc)
+
+epNone :: ExecutionParams BellKATTag BellKATTag ()
+epNone = def
 
 p51i' :: ProbBellKATPolicy
 p51i' = e51 <.> f51
@@ -214,7 +232,16 @@ p51iv n = whileN n ("A" /~? "C" ||* "B" /~? "C") p51iii
 -- | = Example 5.3
 
 p53pac :: ProbabilisticActionConfiguration
-p53pac = PAC [] [] [(("A", "C"), 36/10000), (("B", "C"), 28/10000)] [("C", 32/1000)]
+p53pac = PAC
+    { pacTransmitProbability = []
+    , pacCreateProbability   = []
+    , pacCreateWerner        = []
+    , pacUCreateProbability  = [( ("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
+    , pacSwapProbability     = [("C", 32/1000)]
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
+    }
 
 p53nc :: NetworkCapacity BellKATTag
 p53nc = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
@@ -250,11 +277,16 @@ p53'nc :: NetworkCapacity BellKATTag
 p53'nc = stimes 4 ["C" ~ "C"] <> stimes 2 ["A" ~ "C"] <> stimes 2 ["B" ~ "C"]
 
 p53'pac :: ProbabilisticActionConfiguration
-p53'pac = PAC 
-    [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)]
-    [("C", 9/10)]
-    [(("A", "C"), 36/10000), (("B", "C"), 28/10000)]
-    [("C", 32/1000)]
+p53'pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 9/10)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = [( ("A", "C"), 36/10000), (("B", "C"), 28/10000)]
+    , pacUCreateWerner       = [( ("A", "C"), 1.0), (("B", "C"), 1.0)]
+    , pacSwapProbability     = [("C", 32/1000)]
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [( ("A", "C"), 1), (("B", "C"), 1)]
+    }
 
 p53' :: Int -> Int -> ProbBellKATPolicy
 p53' n k = (p53'e n k <||> p53'e' n k) <> swap "C" ("A", "B")
@@ -266,7 +298,16 @@ fromBasicAction = tryCreateBellPairFrom . simpleActionMeaning
 
 
 pac :: ProbabilisticActionConfiguration
-pac = PAC [(("C", "B"), 1 / 2),(("C", "A"), 4 / 5)] [("C", 2 / 3)] [] []
+pac = PAC
+    { pacTransmitProbability = [( ("C", "B"), 1/2), (("C", "A"), 4/5)]
+    , pacCreateProbability   = [("C", 2/3)]
+    , pacCreateWerner        = [("C", 1.0)]
+    , pacUCreateProbability  = []
+    , pacUCreateWerner       = []
+    , pacSwapProbability     = []
+    , pacCoherenceTime       = [("A", 100), ("B", 100), ("C", 100)]
+    , pacDistances           = [ (("C", "A"), 1), (("C", "B"), 1)]
+    }
 
 probActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 probActionMeaning = probabilisticActionMeaning pac
@@ -301,68 +342,69 @@ spec = do
             print $ asAutomatonP p51iii
         it "prints example 5.1 IV (two interations)" $
             print $ asAutomatonP (p51iv 2)
-    describe "Probabilistic policy meaning" $ do
-        it "correctly computes example 4.2" $ do
-            applyProbStarPolicy pac Nothing ef42 [] `shouldBe`
-                [ [ ([]                     , 23/135)
-                  , (["B" ~ "C"]           , 6/135)
-                  , (["A" ~ "C"]           , 72/135)
-                  , (["A" ~ "C", "B" ~ "C"], 24/135)
-                  , (["C" ~ "C"]           , 10/135)
-                  ]
-                , [ ([]                    , 41/135)
-                  , (["B" ~ "C"]           , 36/135)
-                  , (["A" ~ "C"]           , 24/135)
-                  , (["A" ~ "C", "B" ~ "C"], 24/135)
-                  , (["C" ~ "C"]           , 10/135)
-                  ]
-                ]
+        describe "Probabilistic policy meaning" $ do
+                it "correctly computes example 4.2" $ do
+                        applyProbStarPolicy pac epNone ef42 [] `shouldBe`
+                            [ [ ([]                     , 23/135)
+                            , (["B" ~ "C"]           , 6/135)
+                            , (["A" ~ "C"]           , 72/135)
+                            , (["A" ~ "C", "B" ~ "C"], 24/135)
+                            , (["C" ~ "C"]           , 10/135)
+                            ]
+                            , [ ([]                    , 41/135)
+                            , (["B" ~ "C"]           , 36/135)
+                            , (["A" ~ "C"]           , 24/135)
+                            , (["A" ~ "C", "B" ~ "C"], 24/135)
+                            , (["C" ~ "C"]           , 10/135)
+                            ]
+                            ]
         it "correctly handles example 5.1.I (parallel)" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51i [] `shouldBe`
+            applyProbStarPolicy p51pac ep51 p51i [] `shouldBe`
                 [p51mu1, p51mu2]
         it "correctly handles example 5.1.I (ordered)" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51i' [] `shouldBe`
+            applyProbStarPolicy p51pac ep51 p51i' [] `shouldBe`
                 [p51mu1]
         it "prints system for example 5.1.I (parallel)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51i []
+            print $ applyProbStarPolicySystem p51pac ep51 p51i []
         it "prints system for example 5.1.I (ordered)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51i' []
+            print $ applyProbStarPolicySystem p51pac ep51 p51i' []
         it "combines correctly sequential composition i 5.1.II (parallel)" $ do
-            let k = applyProbStarPolicy p51pac (Just p51nc) p51i
-            (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac (Just p51nc) p51ii []
+            let k = applyProbStarPolicy p51pac ep51 p51i
+            (k [] >>- k) `shouldBe` applyProbStarPolicy p51pac ep51 p51ii []
         it "prints system for example 5.1.II (parallel)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) p51ii []
+            print $ applyProbStarPolicySystem p51pac ep51 p51ii []
         it "has right generators for example 5.1.II (parallel)" $ do
-            let cd = applyProbStarPolicy p51pac (Just p51nc) p51ii []
+            let cd = applyProbStarPolicy p51pac ep51 p51ii []
             let gs = C.getGenerators cd
             gs `shouldContain` [p51nu1]
             gs `shouldContain` [p51nu2]
             gs `shouldContain` [p51nu3]
             gs `shouldContain` [p51nu4]
         it "correctly handles example 5.1.II (ordered)" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51ii' [] `shouldBe`
+            applyProbStarPolicy p51pac ep51 p51ii' [] `shouldBe`
                 [p51nu1]
         it "correctly handles example 5.1.III" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51iii [] `shouldBe`
+            applyProbStarPolicy p51pac ep51 p51iii [] `shouldBe`
                 [p51nu1', p51nu2']
         it "does produce different results for 5.1.III and 5.1.II" $ 
-            applyProbStarPolicy p51pac (Just p51nc) p51ii [] `shouldNotBe`
-                applyProbStarPolicy p51pac (Just p51nc) p51iii' []
+            applyProbStarPolicy p51pac ep51 p51ii [] `shouldNotBe`
+                applyProbStarPolicy p51pac ep51 p51iii' []
         it "does produce different results for one iteration of 5.1.II and 5.1.III on input B~C" $ do
-            applyProbStarPolicy p51pac (Just p51nc) p51i ["B" ~ "C"]
+            applyProbStarPolicy p51pac ep51 p51i ["B" ~ "C"]
             `shouldNotBe`
-            applyProbStarPolicy p51pac (Just p51nc) p51iii ["B" ~ "C"]
+            applyProbStarPolicy p51pac ep51 p51iii ["B" ~ "C"]
         it "prints system of example 5.1.IV (two iterations)" $ do
-            print $ applyProbStarPolicySystem p51pac (Just p51nc) (p51iv 2) []
+            print $ applyProbStarPolicySystem p51pac ep51 (p51iv 2) []
         it "prints the probabilities of example 5.1.IV (3 iterations) [LONG]" $ do
-            let result = applyProbStarPolicy' @Double p51pac (Just p51nc) (p51iv 3) []
+            let result = applyProbStarPolicy' @Double p51pac ep51 (p51iv 3) []
             print result
             putStrLn $ "result size is " <> show (length $ C.getGenerators result)
-        it "prints probabilities example 5.3 (Pompli, one attempt) [LONG]" $ do
-            print $ applyProbStarPolicy' @Double p53pac (Just p53nc) p53OneAttempt []
-        it "prints probabilities example 5.3 (Pompli) [VERYLONG]" $ do
-            print $ applyProbStarPolicy' @Double p53pac (Just p53nc) (p53 10) []
+        it "prints probabilities example 5.3 (Pompili, one attempt) [LONG]" $ do
+            print $ applyProbStarPolicy' @Double p53pac ep51 p53OneAttempt []
+        it "prints probabilities example 5.3 (Pompili) [VERYLONG]" $ do
+            print $ applyProbStarPolicy' @Double p53pac ep51 (p53 10) []
         it "prints system 5.3 (Coopmans)" $ do
-            print $ applyProbStarPolicySystem p53'pac (Just p53'nc) (p53' 2 1) []
+            print $ applyProbStarPolicySystem p53'pac (fromNetworkCapacity (Just p53'nc)) (p53' 2 1) []
         it "prints probabilities example 5.3 (Coopmans) [VERYLONG]" $ do
-            print $ applyProbStarPolicy p53'pac (Just p53'nc) (p53' 2 1) []
+            print $ applyProbStarPolicy p53'pac (fromNetworkCapacity (Just p53'nc)) (p53' 2 1) []
+

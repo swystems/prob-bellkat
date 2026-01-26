@@ -64,10 +64,12 @@ library:
     - BellKAT.Implementations.StepHistoryQuantum
     - BellKAT.Implementations.HistoryQuantum
     - BellKAT.Implementations.AutomataStepQuantum
+    - BellKAT.Implementations.Configuration
     - BellKAT.Implementations.GuardedAutomataStepQuantum
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
     - BellKAT.Implementations.Output
+    - BellKAT.Implementations.QuantumOps
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty
@@ -97,6 +99,7 @@ library:
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude
     - BellKAT.ProbabilisticPrelude
+    - BellKAT.QuantumPrelude
 
 executables:
   p1:
@@ -340,6 +343,78 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantPa:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pa.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantPd:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pd.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantPd_parallel:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/Pd_parallel.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_3_pompili:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_3_pompili.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_Li:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_Li.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_Li_cutoff:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_Li_cutoff.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_LaCorte:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_LaCorte.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP5_Star:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P5_Star.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
 
 tests:
   spec: 
@@ -356,3 +431,12 @@ tests:
     dependencies: 
       - hspec
     main: SpecSmall
+  quantum:
+    main: QuantumSpec
+    source-dirs:
+      - test/main
+      - src
+    dependencies:
+      - hspec
+    cpp-options:
+      - -DINSTANTANEOUS_OPS_FALSE

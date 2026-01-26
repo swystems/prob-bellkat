@@ -5,8 +5,10 @@ module BellKAT.ActionEmbeddings
       -- | Different means of giving meaning to individual actions, i.e., ultimately defining
       -- functions from `TaggedAction` to `CreateBellPairArgs`
       simpleActionMeaning
+    , simpleOpActionMeaning
     , ProbabilisticActionConfiguration(..)
     , probabilisticActionMeaning
+    , probabilisticOpActionMeaning
       -- * Interpreting actions within policies
     , CanDesugarActions(..)
     , CanDesugarActions'
@@ -17,10 +19,12 @@ module BellKAT.ActionEmbeddings
 import Data.Kind
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
+import Data.Default
 import qualified Data.Map.Strict as Map
 
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions.Core
+import BellKAT.Implementations.QuantumOps (Werner, TimeUnit, SpaceUnit)
 
 -- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
 class CanDesugarActions op a where
@@ -32,7 +36,7 @@ type CanDesugarActions' = CanDesugarActions Probability
 type Desugared' a = Desugared Probability a
 
 mapDesugarActions 
-    :: (Functor f, CanDesugarActions op a)
+    :: forall op f a. (Functor f, CanDesugarActions op a)
     => (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> f a -> f (Desugared op a)
 mapDesugarActions = fmap . desugarActions
 
@@ -56,17 +60,49 @@ simpleActionMeaning ta = case taAction ta of
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
 
+-- | gives meaning to action in more discriminating terms, e.g., distinguishing
+-- Swap/Try/Skip/Distill
+simpleOpActionMeaning 
+    :: Default rTag => TaggedAction t -> CreateBellPairArgs (Op rTag) t
+simpleOpActionMeaning ta = case taAction ta of
+    (Swap l (l1, l2))     -> CreateBellPairArgs
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (FSwap 1.0 (1, 1, 1) (1, 1)) (taDup ta)
+    (Transmit l (l1, l2)) -> CreateBellPairArgs
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        (FTransmit 1.0 (1, 1) 1 def) (taDup ta)
+    (Create l)            -> CreateBellPairArgs
+        [] (l ~ l @ taTagOut ta ) 
+        (FCreate 1.0 1.0 def) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
+        FDestroy (taDup ta)
+    (Distill (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagOut ta ) 
+        (FDistill (1, 1) 1) (taDup ta)
+    (UnstableCreate (l1, l2)) -> CreateBellPairArgs
+        [] (l1 ~ l2 @ taTagOut ta ) 
+        (FGenerate 1.0 1.0 1 def) (taDup ta)
+
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
     -- | holds probabilities of successful transmission
     { pacTransmitProbability :: Map (Location, Location) Probability
     -- | holds probabilities of successful creation at individual locations
     , pacCreateProbability :: Map Location Probability
+    -- | holds initial Werner parameter of an already distributed
+    , pacCreateWerner :: Map Location Werner
     -- | holds probabilities of successful creation of an already distributed
     , pacUCreateProbability :: Map (Location, Location) Probability
+    -- | holds initial Werner parameter of an already distributed
+    , pacUCreateWerner :: Map (Location, Location) Werner
     -- | holds probabilities of successful creation of an already distributed
     --   Bell pair (used extensively in case studies)
     , pacSwapProbability :: Map Location Probability
+    -- | holds time of coherence of memories at individual locations
+    , pacCoherenceTime :: Map Location TimeUnit
+    -- | holds distances between locations
+    , pacDistances :: Map (Location, Location) SpaceUnit
     }
 
 -- | gives meaning to actions while taking into account success probabilities
@@ -90,11 +126,41 @@ probabilisticActionMeaning pac ta = case taAction ta of
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2)) (taDup ta)
 
+-- | gives meaning to actions while taking into account success probabilities
+-- represented as a ProbabilisticActionConfiguration`
+probabilisticOpActionMeaning 
+    :: Default rTag => ProbabilisticActionConfiguration -> TaggedAction t -> CreateBellPairArgs (Op rTag) t
+probabilisticOpActionMeaning pac ta = case taAction ta of
+    (Swap l (l1, l2))     -> CreateBellPairArgs
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
+        (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2)) (distanceTriplet pac (l, l1, l2))) (taDup ta)
+    (Transmit l (l1, l2)) -> CreateBellPairArgs
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
+        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)) def) (taDup ta)
+    (Create l)            -> CreateBellPairArgs
+        [] (l ~ l @ taTagOut ta ) 
+        (FCreate (createProbability pac l) (createWerner pac l) def) (taDup ta)
+    (Destroy (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
+        FDestroy (taDup ta)
+    (Distill (l1, l2))    -> CreateBellPairArgs
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
+        (FDistill (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2))) (taDup ta)
+    (UnstableCreate (l1, l2)) -> CreateBellPairArgs
+        [] (l1 ~ l2 @ taTagOut ta ) 
+        (FGenerate (uCreateProbability pac (l1, l2)) (uCreateWerner pac (l1, l2)) (distancePair pac (l1, l2)) def) (taDup ta)
+
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 
     case pacCreateProbability pac Map.!? l of
       Nothing -> error $ "no create probability for " <> show l
       Just p -> p
+
+createWerner :: ProbabilisticActionConfiguration -> Location -> Werner
+createWerner pac l =
+    case pacCreateWerner pac Map.!? l of
+      Nothing -> error $ "no initial Werner for " <> show l
+      Just w -> w
 
 swapProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 swapProbability pac l = 
@@ -108,6 +174,12 @@ uCreateProbability pac l =
       Nothing -> error $ "no ucreate probability for " <> show l
       Just p -> p
 
+uCreateWerner :: ProbabilisticActionConfiguration -> (Location, Location) -> Werner
+uCreateWerner pac (l1, l2) = 
+    case pacUCreateWerner pac Map.!? (l1, l2) of
+      Nothing -> error $ "no initial Werner for " <> show (l1, l2)
+      Just w -> w
+
 transmitProbability :: ProbabilisticActionConfiguration -> Location -> (Location, Location) -> Probability
 transmitProbability pac l (l1, l2) = 
     let p1 = if l1 == l then 1 else transmitProbabilitySingle pac (l, l1)
@@ -120,6 +192,32 @@ transmitProbabilitySingle pac l =
       Nothing -> error $ "no transmit probability for " <> show l
       Just p -> p
 
+coherenceTime :: ProbabilisticActionConfiguration -> Location -> TimeUnit
+coherenceTime pac l =
+    case pacCoherenceTime pac Map.!? l of
+        Nothing -> error $ "no coherence time for " <> show l
+        Just t -> t
+
+coherenceTimePair :: ProbabilisticActionConfiguration -> (Location, Location) -> (TimeUnit, TimeUnit)
+coherenceTimePair pac (l1, l2) = (coherenceTime pac l1, coherenceTime pac l2)
+
+coherenceTimeTriplet :: ProbabilisticActionConfiguration -> (Location, Location, Location) -> (TimeUnit, TimeUnit, TimeUnit)
+coherenceTimeTriplet pac (l1, l2, l3) = (coherenceTime pac l1, coherenceTime pac l2, coherenceTime pac l3)
+
+distancePair :: ProbabilisticActionConfiguration -> (Location, Location) -> SpaceUnit
+distancePair pac (l1, l2) =
+    case pacDistances pac Map.!? (l1, l2) of
+        Nothing ->             
+            case pacDistances pac Map.!? (l2, l1) of
+                Just d' -> d'
+                Nothing -> error $ "no distance for " <> show (l1, l2) <> " or " <> show (l2, l1)
+
+        Just d -> d
+
+distanceTriplet :: ProbabilisticActionConfiguration -> (Location, Location, Location) -> (SpaceUnit, SpaceUnit)
+distanceTriplet pac (l, l1, l2) = (distancePair pac (l, l1), distancePair pac (l, l2))
+
+    
 instance CanDesugarActions op (TaggedAction tag) where
     type Tag (TaggedAction tag) = tag
     type Desugared op (TaggedAction tag) = CreateBellPairArgs op tag

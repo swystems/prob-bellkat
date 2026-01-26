@@ -46,7 +46,7 @@ data FreeTest t
 
 instance Show1 FreeTest where
     liftShowsPrec s sl i (FTNot t) = showString "~" . liftShowsPrec s sl i t
-    liftShowsPrec _ _ _ (FTSubset bps) = shows (map bellPair $ toList bps)
+    liftShowsPrec _ _ _ (FTSubset (Mset.LMS (bps, _))) = shows (map bellPair $ toList bps)
 
 instance (Default t, Show t, Eq t) => Show (FreeTest t) where
     showsPrec _ (FTSubset x) = shows x
@@ -63,7 +63,7 @@ class Test test where
 
 instance Test FreeTest where
     toBPsPredicate (FTNot t) = BPsPredicate $ not . getBPsPredicate (toBPsPredicate t)
-    toBPsPredicate (FTSubset bps) = BPsPredicate (bps `Mset.isSubsetOf`)
+    toBPsPredicate (FTSubset bps) = BPsPredicate (bps `Mset.isSubsetOf'`)
 
 instance Test BellPairsPredicate where
     toBPsPredicate = id
@@ -90,7 +90,7 @@ createRestrictedTest = RestrictedTest . sort . restrictedTestNormalize
 restrictedTestNormalize :: Ord tag => [TaggedBellPairs tag] -> [TaggedBellPairs tag]
 restrictedTestNormalize [] = []
 restrictedTestNormalize (x : xs) =
-    if any (`Mset.isSubsetOf` x) xs
+    if any (`Mset.isSubsetOf'` x) xs
         then restrictedTestNormalize xs
         else x : restrictedTestNormalize xs
 
@@ -111,7 +111,7 @@ instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
     createRestrictedTest (bpss <> bpss')
 
 instance Test RestrictedTest where
-    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf` bps) s)
+    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf'` bps) s)
 
 -- | Bound for the number of things from below and above, the upper bound may be absent
 -- essentially meaning "infinity"
@@ -153,11 +153,11 @@ boundedTestSingleton :: TaggedBellPair tag -> Range -> BoundedTest tag
 boundedTestSingleton bps r = BoundedTest [Map.singleton bps r]
 
 boundedTestContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
-boundedTestContains bps = BoundedTest [Map.fromSet (\k -> rangeGreater (Mset.count k bps - 1)) $ Mset.toSet bps]
+boundedTestContains bps = BoundedTest [Map.fromSet (\k -> rangeGreater (Mset.count' k bps - 1)) $ Mset.toSet' bps]
 
 boundedTestNotContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
 boundedTestNotContains bps = BoundedTest $ 
-    [Map.singleton k $ rangeNotGreater (v - 1) | (k, v) <- Map.toList . Mset.toCountMap $ bps]
+    [Map.singleton k $ rangeNotGreater (v - 1) | (k, v) <- Map.toList . Mset.toCountMap' $ bps]
 
 andRange :: Range -> Range -> Range
 andRange (la, ua) (lb, ub) =
@@ -208,6 +208,6 @@ testBounds bs bps = Map.foldlWithKey (\acc bp rg -> acc && testRange bp rg bps) 
 
 testRange :: Ord tag => TaggedBellPair tag -> Range -> TaggedBellPairs tag -> Bool
 testRange bp (lb, ub) bps =
-    let c = Mset.count bp bps
+    let c = Mset.count' bp bps
      in c >= lb && maybe True (c <) ub
 

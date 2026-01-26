@@ -19,11 +19,10 @@ import BellKAT.Definitions.Core
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions
 
-pairToDiagram :: (Show t, Eq t) => TaggedBellPair (Maybe t) -> Diagram B
-pairToDiagram (TaggedBellPair bp Nothing) 
-  = (text (show bp) <> rect 4 1) # fontSize (local 0.5) 
-pairToDiagram (TaggedBellPair bp (Just t)) 
-  = (text (show bp <> "[" <> show t <> "]") <> rect 4 1) # fontSize (local 0.5) 
+pairToDiagram :: (Show t, Eq t, Default t) => TaggedBellPair t -> Diagram B
+pairToDiagram (TaggedBellPair bp t) 
+  | def == t = (text (show bp) <> rect 4 1) # fontSize (local 0.5) 
+  | otherwise = (text (show bp <> "[" <> show t <> "]") <> rect 4 1) # fontSize (local 0.5) 
 
 treeToDiagram t = 
     let childrenNames = [1..(length $ T.subForest t :: Int)]
@@ -35,49 +34,49 @@ treeToDiagram t =
 
 frameDiagram d = let d' = d # frame 0.5 in d' <> boundingRect d'
 
-historyToDiagram :: (Ord t, Show t) => History (Maybe t) -> Diagram B
+historyToDiagram :: (Ord t, Show t, Default t) => History t -> Diagram B
 historyToDiagram (History []) = rect 4 0
 historyToDiagram (History ts) = hsep 0.5 . map treeToDiagram  . toForest $ ts
 
-historiesToDiagram :: (Ord t, Show t) => [History (Maybe t)] -> Diagram B
+historiesToDiagram :: (Ord t, Show t, Default t) => [History t] -> Diagram B
 historiesToDiagram = vsep 1 . fmap (alignL . frameDiagram . historyToDiagram)
 
-drawPolicy :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
+drawPolicy :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
 drawPolicy p = historiesToDiagram . Set.elems . applyPolicy p $ []
 
-drawPolicyTimely :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
+drawPolicyTimely :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
 drawPolicyTimely p = historiesToDiagram . Set.elems . applyPolicyTimely p $ []
 
-drawPolicySteps :: (Ord t, Show t) => Simple Policy (Maybe t) -> Diagram B
+drawPolicySteps :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
 drawPolicySteps p = historiesToDiagram . Set.elems . applyPolicySteps p $ []
 
 drawOrderedPolicySteps 
-    :: (Ord t, Show t) => SeqWithTests Policy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t) => SeqWithTests Policy BellPairsPredicate t -> Diagram B
 drawOrderedPolicySteps p = historiesToDiagram . Set.elems . applyOrderedPolicy p $ []
 
 drawFullOrderedPolicySteps 
-    :: (Ord t, Show t) 
-    => SeqWithTests FullPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t) 
+    => SeqWithTests FullPolicy BellPairsPredicate t -> Diagram B
 drawFullOrderedPolicySteps p = historiesToDiagram . Set.elems . applyFullOrderedPolicy p $ []
 
 drawStarPolicySteps 
-    :: (Ord t, Show t) 
-    => WithTests OrderedStarPolicy FreeTest (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t) 
+    => WithTests OrderedStarPolicy FreeTest t -> Diagram B
 drawStarPolicySteps p = historiesToDiagram . Set.elems . applyStarPolicyH p $ []
 
 drawStarPolicyStepsText
-    :: (Ord t, Show t) 
-    => WithTests OrderedStarPolicy FreeTest (Maybe t) -> String
+    :: (Ord t, Show t, Default t) 
+    => WithTests OrderedStarPolicy FreeTest t -> String
 drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
-    :: (Ord t, Show t) 
-    => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t) 
+    => WithTests OrderedStarPolicy BellPairsPredicate t -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
-    :: (Ord t, Show t) 
-    => WithTests OrderedStarPolicy BellPairsPredicate (Maybe t) -> Diagram B
+    :: (Ord t, Show t, Default t)
+    => WithTests OrderedStarPolicy BellPairsPredicate t -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 
 drawHistoryText :: (Default tag, Show tag, Eq tag) => History tag -> String

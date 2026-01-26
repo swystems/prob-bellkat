@@ -44,10 +44,10 @@ class DSLTestNeq t tag => DSLTest t tag where
 l ~~? l' = hasSubset [l ~ l']
 
 instance Ord t => DSLTestNeq (BellPairsPredicate t) t where
-    hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf`))
+    hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf'`))
 
 instance Ord t => DSLTest (BellPairsPredicate t) t where
-    hasSubset x = BPsPredicate (x `Mset.isSubsetOf`)
+    hasSubset x = BPsPredicate (x `Mset.isSubsetOf'`)
 
 instance Ord t => DSLTestNeq (FreeTest t) t where
     hasNotSubset x = FTNot $ FTSubset x
@@ -65,37 +65,37 @@ class DSLFunctions p where
     defaultTagged :: Action -> p
     (.%) :: p -> DupKind -> p
 
-instance DSLFunctions (TaggedAction (Maybe tag)) where
+instance Default tag => DSLFunctions (TaggedAction tag) where
     defaultTagged a = TaggedAction def a def mempty
     (TaggedAction p a t _) .% dk = TaggedAction p a t dk
 
-instance DSLFunctions (Simple Policy (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple Policy tag) where
     defaultTagged = APAtomic . defaultTagged
 
     APAtomic ta .% dk = APAtomic $ ta .% dk
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests Policy test (Maybe tag)) where
+instance Default tag => DSLFunctions (SeqWithTests Policy test tag) where
     defaultTagged = APAtomic . pure . AAction . defaultTagged
 
     APAtomic (AAction ta :| []) .% dk = APAtomic [ AAction $ ta .% dk ]
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (Simple OrderedStarPolicy (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple OrderedStarPolicy tag) where
     defaultTagged = OSPAtomic . defaultTagged 
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (WithTests OrderedStarPolicy test (Maybe tag)) where
+instance Default tag => DSLFunctions (WithTests OrderedStarPolicy test tag) where
     defaultTagged = OSPAtomic . AAction . defaultTagged
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (SeqWithTests FullPolicy test (Maybe tag)) where
+instance Default tag => DSLFunctions (SeqWithTests FullPolicy test tag) where
     defaultTagged = FPAtomic . pure .  AAction . defaultTagged
 
     FPAtomic (AAction ta :| []) .% dk = FPAtomic [ AAction $ ta .% dk ]
     _ .% _ = error "cannot attach dup to this thing"
 
-instance DSLFunctions (Simple (OrderedGuardedPolicy test) (Maybe tag)) where
+instance Default tag => DSLFunctions (Simple (OrderedGuardedPolicy test) tag) where
     defaultTagged = OGPAtomic . defaultTagged
     _ .% _ = error "cannot attach dup to this thing"
 
@@ -129,19 +129,19 @@ infixl 9 .~
 class Taggable a t | a -> t where
     (.~) :: a -> t -> a
 
-instance Taggable (Simple Policy (Maybe t)) t where
-    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a (Just t) dupKind)
+instance Taggable (Simple Policy t) t where
+    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a t dupKind)
     _ .~ _ = error "cannot attach tag to this thing"
 
-instance Taggable (TaggedBellPair (Maybe t)) t where
-    tbp .~ t = tbp { bellPairTag = Just t }
+instance Taggable (TaggedBellPair t) t where
+    tbp .~ t = tbp { bellPairTag = t }
 
 instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
     OGPAtomic (TaggedAction ti a _ dupKind) .~ t = OGPAtomic (TaggedAction ti a (Just t) dupKind)
     _ .~ _ = error "cannot attach tag to this thing"
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
-    t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) bps && getBPsPredicate t bps
+    t .~ tag = BPsPredicate $ \bps -> all (hasTag tag) (Mset.bellPairs bps) && getBPsPredicate t bps
 
 class InverseTaggable a t | a -> t where
     (~.) :: t -> a -> a
@@ -158,16 +158,16 @@ instance InverseTaggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
 hasTag :: Eq t => t -> TaggedBellPair (Maybe t) -> Bool
 hasTag tag tbp = Just tag == bellPairTag tbp
 
-instance Taggable (UTree (TaggedBellPair (Maybe t))) t where
-    Node (TaggedBellPair bp _) ts .~ t = Node (TaggedBellPair bp (Just t)) ts
+instance Taggable (UTree (TaggedBellPair t)) t where
+    Node (TaggedBellPair bp _) ts .~ t = Node (TaggedBellPair bp t) ts
 
 orP :: Predicate t -> Predicate t -> Predicate t
 orP (Predicate f) (Predicate g) = Predicate ((||) <$> f <*> g)
 
-(?~) :: t -> Simple Policy (Maybe t) -> Simple Policy (Maybe t)
+(?~) :: t -> Simple Policy t -> Simple Policy t
 tIn ?~ APAtomic (TaggedAction _ a tOut dupKind) = 
-    APAtomic $ TaggedAction (Just tIn) a tOut dupKind
+    APAtomic $ TaggedAction tIn a tOut dupKind
 _ ?~ p                           = p
 
-node :: Ord t => BellPair -> UTree (TaggedBellPair (Maybe t))
-node bp = Node (TaggedBellPair bp Nothing) []
+node :: (Default t, Ord t) => BellPair -> UTree (TaggedBellPair t)
+node bp = Node (TaggedBellPair bp def) []

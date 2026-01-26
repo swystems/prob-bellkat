@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData      #-}
 {-# LANGUAGE DeriveFunctor   #-}
 module BellKAT.Definitions.Core (
@@ -8,11 +9,13 @@ module BellKAT.Definitions.Core (
     LikeBellPair(..),
     BellPairs,
     Probability,
+    Op(..),
     CreateBellPairArgs(..),
     CreateBellPairArgs',
     hasLocation,
     TaggedBellPair(..),
     TaggedBellPairs,
+    LabelledBellPairs,
     (@), 
     TaggedRequiredRoots,
     History(..),
@@ -41,6 +44,8 @@ import qualified Data.Set                   as Set
 import           Data.String                (IsString)
 import           Data.Default
 import qualified Data.Aeson as A
+import           Data.Aeson ((.:), (.=))
+import           Control.Applicative ((<|>))
 import qualified GHC.Exts                   (IsList, Item, fromList, toList)
 
 import           Data.Vector.Fixed          (Arity, VecList)
@@ -48,7 +53,7 @@ import qualified Data.Vector.Fixed          as FV
 import           Test.QuickCheck            hiding (choose, (.&&.))
 
 import           BellKAT.Utils.Choice
-import           BellKAT.Utils.Multiset     (Multiset)
+import           BellKAT.Utils.Multiset     (Multiset, LabelledMultiset)
 import qualified BellKAT.Utils.Multiset     as Mset
 import           BellKAT.Utils.UnorderedTree
 --
@@ -84,7 +89,7 @@ data TaggedBellPair t = TaggedBellPair
 instance (Show t, Eq t, Default t) => Show (TaggedBellPair t) where
     showsPrec _ (TaggedBellPair bp t) 
         | t == def = shows bp
-        | otherwise = shows bp . showString "/" . shows t
+        | otherwise = shows bp . shows t
 
 instance Default tag => LikeBellPair (TaggedBellPair tag) where
     l1 ~ l2 = TaggedBellPair (l1 ~ l2) def
@@ -96,8 +101,11 @@ infix 8 @ -- less than of `(:~:)`
 (@) :: BellPair -> tag -> TaggedBellPair tag
 (@) = TaggedBellPair
 
--- | `TaggedBellPairs` is a multiset of Bell pairs, each with a tag
-type TaggedBellPairs tag = Multiset (TaggedBellPair tag)
+-- | `LabelledBellPairs` is a labelled multiset of Bell pairs, each with a tag
+type LabelledBellPairs cTag tag = LabelledMultiset cTag (TaggedBellPair tag)
+
+-- | `TaggedBellPairs` include tags for the BPs but not for the multiset
+type TaggedBellPairs tag = LabelledMultiset () (TaggedBellPair tag)
 
 -- | DupKind controls when the nodes in the histories are duplicated
 data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool } deriving stock (Eq)
@@ -118,9 +126,29 @@ instance Monoid DupKind where
     mempty = DupKind False False
 
 type Probability = Rational
+type StateQuality = Double
+type CoherenceTime = Int 
+type Distance = Int
+
+data Op tag =
+    FSkip
+    -- ^ yiels mempty
+    | FCreate Probability StateQuality tag
+    | FGenerate Probability StateQuality Distance tag
+    | FTransmit Probability (CoherenceTime, CoherenceTime) Distance tag
+    -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
+    -- | TODO: the tag here is redundant
+    | FDestroy
+    -- ^ yields mempty (destroyed Bell pair)
+    | FSwap Probability (CoherenceTime, CoherenceTime, CoherenceTime) (Distance, Distance)
+    -- ^ yields the swapped Bell pair given the two in input, with probability p
+    | FDistill (CoherenceTime, CoherenceTime) Distance
+    -- ^ yields the distilled Bell pair given the two same-location ones in input
+    -- ^ computing the probability dynamically
+    deriving stock (Eq, Ord, Show)
 
 data CreateBellPairArgs op tag = CreateBellPairArgs
-    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a multiset of required (input) `BellPair`s
+    { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a list of required (input) `BellPair`s
     , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpOp          :: op -- ^ operation creating `cbpOutputBP`
     , cbpDup         :: DupKind
@@ -133,7 +161,7 @@ instance HasDupKinds (CreateBellPairArgs op tag) where
   modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
 instance Show1 (CreateBellPairArgs op) where
-  liftShowsPrec _ _ _ _ = shows "cbp"
+    liftShowsPrec _ _ _ _ = showString "cbp"
 
 -- * History of BellPairs
 
@@ -202,8 +230,21 @@ instance A.ToJSON Location where
 instance A.FromJSON Location where
     parseJSON = fmap Location . A.parseJSON
 
-instance Default t => A.ToJSON (TaggedBellPair t) where
-    toJSON = A.toJSON . locations
+instance A.ToJSON t => A.ToJSON (TaggedBellPair t) where
+    toJSON (TaggedBellPair bp t) =
+        A.object [ "locations" .= locations bp
+                 , "tag"       .= t
+                 ]
 
-instance Default t => A.FromJSON (TaggedBellPair t) where
-    parseJSON v = uncurry (~) <$> A.parseJSON v
+instance (A.FromJSON t, Default t) => A.FromJSON (TaggedBellPair t) where
+    parseJSON v =
+        -- format: { "locations": (l1,l2), "tag": t }
+        A.withObject "TaggedBellPair" (\o -> do
+            (l1, l2) <- o .: "locations"
+            t        <- o .: "tag"
+            pure $ TaggedBellPair (l1 ~ l2) t) v
+        <|>
+        -- format: (l1,l2)
+        (do
+            (l1, l2) <- A.parseJSON v
+            pure $ TaggedBellPair (l1 ~ l2) def)

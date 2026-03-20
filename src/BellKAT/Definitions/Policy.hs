@@ -96,6 +96,18 @@ data OrderedGuardedPolicy t a
     | OGPOne
     deriving stock (Functor)
 
+instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
+    showsPrec _ (OGPAtomic x) = shows x
+    showsPrec _ OGPOne = showString "one"
+    showsPrec d (OGPSequence x y) = showParen (d > 6) $
+        showsPrec 7 x . showString " <> " . showsPrec 7 y
+    showsPrec d (OGPParallel x y) = showParen (d > 5) $
+        showsPrec 6 x . showString " <||> " . showsPrec 6 y
+    showsPrec d (OGPOrdered x y) = showParen (d > 4) $
+        showsPrec 5 x . showString " <.> " . showsPrec 5 y
+    showsPrec d (OGPIfThenElse t p1 p2) = showParen (d > 3) $
+        showString "if " . showsPrec 4 t . showString " then " . showsPrec 4 p1 . showString " else " . showsPrec 4 p2
+
 instance Semigroup (Policy a) where
     (<>) = APSequence
 

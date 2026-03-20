@@ -16,7 +16,6 @@ import BellKAT.QuantumPrelude
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag
   , MaxClock(..)
   , NetworkState
-  , TaggedBellPair(..)
   , (~)
   , ite, ucreate, swap, create, trans, whileN, (<||>), (<.>)
   , (/~?), (&&*)
@@ -24,12 +23,11 @@ import BellKAT.QuantumPrelude
 import Data.Default (def)
 import BellKAT.Definitions (applyProbStarPolicyQ')
 import BellKAT.Implementations.Output (ListOutput)
-import BellKAT.Definitions.Core (Op)
 import BellKAT.Implementations.Configuration (ExecutionParams(..))
-import BellKAT.Implementations.QuantumOps (isFresh)
+import BellKAT.Implementations.QuantumOps (QuantumOutput, isFresh)
 
 -- Output type and EP equivalent to QBKATOutput of QuantumPrelude
-type TestOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) MaxClock QBKATTag
+type TestOutput = ListOutput QuantumOutput MaxClock QBKATTag
 
 buildEP :: NetworkBounds QBKATTag -> ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
 buildEP nb = EP { epNetworkCapacity = nbCapacity nb

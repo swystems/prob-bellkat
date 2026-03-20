@@ -9,6 +9,7 @@
 module BellKAT.Implementations.QuantumOps (
     -- * Quantum tags
     QuantumTag(..),
+    QuantumOutput(..),
     MaxClock(..),
     SpaceUnit,
     TimeUnit,
@@ -91,35 +92,41 @@ instance A.FromJSON QuantumTag where
     parseJSON = A.withObject "QuantumTag" $ \o ->
         QuantumTag <$> o .: "time" <*> o .: "werner"
 
+data QuantumOutput = QuantumOutput { qoOutputBP :: TaggedBellPair (), qoOperation :: Op QuantumTag }
+    deriving stock (Eq, Ord)
+
+instance Show QuantumOutput where
+    show (QuantumOutput bp op) = "(" ++ show bp ++ ", " ++ show op ++ ")"
+
 instance RuntimeTag QuantumTag () where
   staticTag _ = ()
 
-instance Output (TaggedBellPair (), Op QuantumTag) () where
-    type RTag (TaggedBellPair (), Op QuantumTag) = QuantumTag
-    type CTag (TaggedBellPair (), Op QuantumTag) = MaxClock
-    computeOutput (_, FSkip) (Mset.LMS (_, clock)) =
+instance Output QuantumOutput () where
+    type RTag QuantumOutput = QuantumTag
+    type CTag QuantumOutput = MaxClock
+    computeOutput QuantumOutput{qoOperation = FSkip} (Mset.LMS (_, clock)) =
         cpure (labelledMempty clock)
 
-    computeOutput (outBp, FCreate p w _) inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FCreate p w _} inClockedBps =
         [createBP p inClockedBps (bellPair outBp @ QuantumTag 0 w)]
 
-    computeOutput (outBp, FGenerate p w d _) inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FGenerate p w d _} inClockedBps =
         [generateBP p d inClockedBps $ bellPair outBp @ QuantumTag 1 w]
 
-    computeOutput (outBp, FTransmit p tCohs d t) inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FTransmit p tCohs d t} inClockedBps =
         [transmitBP p tCohs d inClockedBps $ bellPair outBp @ t]
 
-    computeOutput (_, FDestroy) (Mset.LMS (_, clock)) =
+    computeOutput QuantumOutput{qoOperation = FDestroy} (Mset.LMS (_, clock)) =
         [cpure (labelledMempty clock)]
 
-    computeOutput (outBp, FSwap p tCohs ds) inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FSwap p tCohs ds} inClockedBps =
         [swapBPs p tCohs ds inClockedBps outBp]
 
-    computeOutput (outBp, FDistill tCohs d) inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FDistill tCohs d} inClockedBps =
         [distBPs tCohs d inClockedBps outBp]
 
-instance OpOutput (TaggedBellPair (), Op QuantumTag) (Op QuantumTag) () where
-    fromCBPOutput _ bp op = (bp, op)
+instance OpOutput QuantumOutput (Op QuantumTag) () where
+    fromCBPOutput _ bp op = QuantumOutput { qoOutputBP = bp, qoOperation = op }
 
 -- | Swap two Bell pairs and returns a distribution D' 
 -- | with probability p (the success probability) the output is a new tagged Bell pair connecting the two end nodes, 

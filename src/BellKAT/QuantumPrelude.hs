@@ -50,7 +50,7 @@ import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
 import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, CTag, staticBellPairs)
-import BellKAT.Implementations.QuantumOps (QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
+import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
@@ -64,7 +64,7 @@ type QBKATAction = TaggedAction QBKATTag
 
 type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 
-type QBKATOutput = ListOutput (TaggedBellPair (), Op QBKATRuntimeTag) MaxClock QBKATTag
+type QBKATOutput = ListOutput QuantumOutput MaxClock QBKATTag
 
 type NetworkState = LabelledMultiset MaxClock (TaggedBellPair QBKATRuntimeTag)
 

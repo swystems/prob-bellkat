@@ -107,7 +107,7 @@ applyStarPolicy
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy = 
     ASQ.execute AOSQ.execute . meaning 
-        . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
+        . mapDesugarActions simpleActionMeaning
 
 applyStarPolicy' 
     :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag) 
@@ -115,7 +115,7 @@ applyStarPolicy'
     -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy' pac = 
     ASQ.execute AOSQ.execute . meaning 
-        . mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+        . mapDesugarActions (probabilisticActionMeaning pac)
 
 applyStarOrderedPolicy
     :: (Ord tag, Show tag, Default tag, Test test) 
@@ -135,7 +135,7 @@ applyStarPolicyH
     => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
 applyStarPolicyH = 
     ASQ.executeE IOSHQ.execute . meaning 
-    . mapDesugarActions simpleActionMeaning . setDupKinds (DupKind True False)
+    . mapDesugarActions simpleActionMeaning
 
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
@@ -176,9 +176,9 @@ applyProbStarPolicy
 applyProbStarPolicy = applyProbStarPolicy'
 
 probabilisticDesugar 
-    :: (Functor f, CanDesugarActions' a, HasDupKinds (f a)) 
+    :: (Functor f, CanDesugarActions' a) 
     => ProbabilisticActionConfiguration -> f a -> f (Desugared' a)
-probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac) . setDupKinds (DupKind True False)
+probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac)
 
 applyProbStarPolicy' 
     :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
@@ -232,10 +232,10 @@ applyProbStarPolicySystem = applyProbStarPolicySystem'
 
 
 probabilisticDesugarQ 
-    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a, HasDupKinds (f a)) 
+    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a) 
     => Proxy rTag -> ProbabilisticActionConfiguration -> f a -> f (Desugared (Op rTag) a)
 probabilisticDesugarQ (_ :: Proxy rTag) pac = 
-    mapDesugarActions @(Op rTag) (probabilisticOpActionMeaning pac) . setDupKinds (DupKind True False)
+    mapDesugarActions @(Op rTag) (probabilisticOpActionMeaning pac)
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 applyProbStarPolicyQAutomaton

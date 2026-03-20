@@ -33,7 +33,7 @@ instance Monad m => Serial m Action where
     series = cons2 Swap \/ cons2 Transmit \/ cons1 Distill \/ cons1 Create
 
 instance Serial m t => Serial m (TaggedAction t) where
-    series = TaggedAction <$> series <*> series <*> series <*> pure mempty
+    series = TaggedAction <$> series <*> series <*> series
 
 instance (Monad m) => Serial m (History ())  where
     series = History . Mset.fromList . map (`Node` mempty) . concat <$> (replicate <$> series <*> series)

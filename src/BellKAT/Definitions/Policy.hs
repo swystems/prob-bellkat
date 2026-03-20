@@ -27,14 +27,10 @@ data TaggedAction t = TaggedAction
     { taTagIn  :: t
     , taAction :: Action
     , taTagOut :: t
-    , taDup    :: DupKind
     }
 
 instance Show t => Show (TaggedAction t) where
     show ta = "_:" <> show (taAction ta) <> ":" <> show (taTagOut ta)
-
-instance {-# OVERLAPPING #-} HasDupKinds (TaggedAction t) where
-    modifyDupKinds f ta = ta { taDup = f (taDup ta) }
 
 -- | Define a language for policies, where `a` is the type of an atomic action
 data Policy a
@@ -163,10 +159,6 @@ instance Guarded t (OrderedGuardedPolicy t a) where
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)
 
-instance {-# OVERLAPPING #-} HasDupKinds (act tag) => HasDupKinds (Atomic act test tag) where
-    modifyDupKinds f (AAction ta) = AAction (modifyDupKinds f ta)
-    modifyDupKinds _ (ATest t) = ATest t
---
 -- | Given a policy structure `p` and a `BellPair` tag `t` returns a policy with corresponding 
 -- actions by supplying the default action structure
 type Simple p tag = p (TaggedAction tag)
@@ -201,7 +193,7 @@ instance Arbitrary Action where
 instance (Arbitrary t, Eq t) => Arbitrary (TaggedAction t) where
   arbitrary = do
     predicate <- arbitrary
-    TaggedAction predicate <$> arbitrary <*> arbitrary <*> arbitrary
+    TaggedAction predicate <$> arbitrary <*> arbitrary
 
 instance (Arbitrary a) => Arbitrary (Policy a) where
     arbitrary = do

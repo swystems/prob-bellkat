@@ -45,20 +45,17 @@ mapDesugarActions = fmap . desugarActions
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        1.0 (taDup ta)
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        1.0 (taDup ta)
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) 1.0 (taDup ta)
+        [] (l ~ l @ taTagOut ta ) 1.0 
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0.0 (taDup ta)
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0.0 
     (Distill (l1, l2))    -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta )
-        0.5 (taDup ta)
+        [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 0.5 
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta ) 0.5 (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta ) 0.5 
 
 -- | gives meaning to action in more discriminating terms, e.g., distinguishing
 -- Swap/Try/Skip/Distill
@@ -67,22 +64,22 @@ simpleOpActionMeaning
 simpleOpActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (FSwap 1.0 (1, 1, 1) (1, 1)) (taDup ta)
+        (FSwap 1.0 (1, 1, 1) (1, 1))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (FTransmit 1.0 (1, 1) 1 def) (taDup ta)
+        (FTransmit 1.0 (1, 1) 1 def)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
-        (FCreate 1.0 1.0 def) (taDup ta)
+        (FCreate 1.0 1.0 def)
     (Destroy (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        FDestroy (taDup ta)
+        FDestroy
     (Distill (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagOut ta] (l1 ~ l2 @ taTagOut ta ) 
-        (FDistill (1, 1) 1) (taDup ta)
+        (FDistill (1, 1) 1)
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 
-        (FGenerate 1.0 1.0 1 def) (taDup ta)
+        (FGenerate 1.0 1.0 1 def)
 
 -- | Record holding success probabilities of basic actions (i.e., `TaggedAction`s)
 data ProbabilisticActionConfiguration = PAC 
@@ -112,19 +109,19 @@ probabilisticActionMeaning
 probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (swapProbability pac l) (taDup ta)
+        (swapProbability pac l)
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (transmitProbability pac l (l1, l2)) (taDup ta)
+        (transmitProbability pac l (l1, l2))
     (Create l)            -> CreateBellPairArgs
-        [] (l ~ l @ taTagOut ta ) (createProbability pac l) (taDup ta)
+        [] (l ~ l @ taTagOut ta ) (createProbability pac l)
     (Destroy (l1, l2))            -> CreateBellPairArgs
-        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0 (taDup ta)
+        [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 0
     (Distill (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta, l1 ~ l2  @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)  
-        0.5 (taDup ta)
+        0.5
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
-        [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2)) (taDup ta)
+        [] (l1 ~ l2 @ taTagOut ta) (uCreateProbability pac (l1, l2))
 
 -- | gives meaning to actions while taking into account success probabilities
 -- represented as a ProbabilisticActionConfiguration`
@@ -133,22 +130,22 @@ probabilisticOpActionMeaning
 probabilisticOpActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
-        (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2)) (distanceTriplet pac (l, l1, l2))) (taDup ta)
+        (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2)) (distanceTriplet pac (l, l1, l2)))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
-        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)) def) (taDup ta)
+        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)) def)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
-        (FCreate (createProbability pac l) (createWerner pac l) def) (taDup ta)
+        (FCreate (createProbability pac l) (createWerner pac l) def)
     (Destroy (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
-        FDestroy (taDup ta)
+        FDestroy
     (Distill (l1, l2))    -> CreateBellPairArgs
         [l1 ~ l2 @ taTagIn ta, l1 ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta ) 
-        (FDistill (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2))) (taDup ta)
+        (FDistill (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)))
     (UnstableCreate (l1, l2)) -> CreateBellPairArgs
         [] (l1 ~ l2 @ taTagOut ta ) 
-        (FGenerate (uCreateProbability pac (l1, l2)) (uCreateWerner pac (l1, l2)) (distancePair pac (l1, l2)) def) (taDup ta)
+        (FGenerate (uCreateProbability pac (l1, l2)) (uCreateWerner pac (l1, l2)) (distancePair pac (l1, l2)) def)
 
 createProbability :: ProbabilisticActionConfiguration -> Location -> Probability
 createProbability pac l = 

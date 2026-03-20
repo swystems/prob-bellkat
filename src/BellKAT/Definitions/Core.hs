@@ -19,13 +19,10 @@ module BellKAT.Definitions.Core (
     (@), 
     TaggedRequiredRoots,
     History(..),
-    DupKind(..),
-    HasDupKinds(..),
     -- * Dup for nodes in `History`
     dupHistory,
     dupForest,
     dupHistoryN,
-    processDup,
     -- * `History` choice utilities
     chooseKHistories,
     -- * Reexports
@@ -107,24 +104,6 @@ type LabelledBellPairs cTag tag = LabelledMultiset cTag (TaggedBellPair tag)
 -- | `TaggedBellPairs` include tags for the BPs but not for the multiset
 type TaggedBellPairs tag = LabelledMultiset () (TaggedBellPair tag)
 
--- | DupKind controls when the nodes in the histories are duplicated
-data DupKind = DupKind { dupBefore :: Bool, dupAfter :: Bool } deriving stock (Eq)
-
-class HasDupKinds a where
-    modifyDupKinds :: (DupKind -> DupKind) -> a -> a
-
-    setDupKinds :: DupKind -> a -> a
-    setDupKinds dk = modifyDupKinds (const dk)
-
-instance (HasDupKinds a, Functor f) => HasDupKinds (f a) where
-    modifyDupKinds f = fmap (modifyDupKinds f)
-
-instance Semigroup DupKind where
-    (DupKind x y) <> (DupKind x' y') = DupKind (x || x') (y || y')
-
-instance Monoid DupKind where
-    mempty = DupKind False False
-
 type Probability = Rational
 type StateQuality = Double
 type CoherenceTime = Int 
@@ -153,14 +132,9 @@ data CreateBellPairArgs op tag = CreateBellPairArgs
     { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a list of required (input) `BellPair`s
     , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
     , cbpOp          :: op -- ^ operation taking `cbpInputBPs` into `cbpOutputBP`, e.g., (`Op`)
-    , cbpDup         :: DupKind
     }
 
 type CreateBellPairArgs' = CreateBellPairArgs Probability
-
-instance HasDupKinds (CreateBellPairArgs op tag) where
-  setDupKinds dk cbp = cbp { cbpDup = dk }
-  modifyDupKinds f cbp = cbp { cbpDup = f (cbpDup cbp) }
 
 instance Show1 (CreateBellPairArgs op) where
     liftShowsPrec _ _ _ _ = showString "cbp"
@@ -200,18 +174,6 @@ dupForest = Mset.map (\t -> Node (rootLabel t) [t])
 -- | Duplicating history
 dupHistoryN :: Ord t => Int -> History t -> History t
 dupHistoryN n = appEndo . mconcat . replicate n $ Endo dupHistory
-
-processDupAfter :: Ord a => Bool -> a -> UForest a -> UTree a
-processDupAfter True x ts  = Node x [Node x ts]
-processDupAfter False x ts = Node x ts
-
-processDupBefore :: Ord a => Bool -> UForest a -> UForest a
-processDupBefore True ts  = ts
-processDupBefore False ts = foldMap subForest ts
-
-processDup :: Ord a => DupKind -> a -> UForest a -> UTree a
-processDup dk x = processDupAfter (dupAfter dk) x . processDupBefore (dupBefore dk)
-
 -- * Testing definitions
 
 instance Arbitrary Location where
@@ -219,9 +181,6 @@ instance Arbitrary Location where
 
 instance Arbitrary BellPair where
     arbitrary = (~) <$> arbitrary <*> arbitrary
-
-instance Arbitrary DupKind where
-    arbitrary = DupKind <$> arbitrary <*> arbitrary
 
 instance (Arbitrary t) => Arbitrary (TaggedBellPair t) where
     arbitrary = TaggedBellPair <$> arbitrary <*> arbitrary

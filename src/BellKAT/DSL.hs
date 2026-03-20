@@ -6,7 +6,6 @@ module BellKAT.DSL where
 
 import           Data.Functor.Contravariant
 import           Data.Default
-import           Data.List.NonEmpty         (NonEmpty (..))
 
 import qualified BellKAT.Utils.Multiset as Mset
 import           BellKAT.Definitions.Core
@@ -63,41 +62,27 @@ instance Ord t => DSLTest (FreeTest t) t where
 
 class DSLFunctions p where
     defaultTagged :: Action -> p
-    (.%) :: p -> DupKind -> p
 
 instance Default tag => DSLFunctions (TaggedAction tag) where
-    defaultTagged a = TaggedAction def a def mempty
-    (TaggedAction p a t _) .% dk = TaggedAction p a t dk
+    defaultTagged a = TaggedAction def a def
 
 instance Default tag => DSLFunctions (Simple Policy tag) where
     defaultTagged = APAtomic . defaultTagged
 
-    APAtomic ta .% dk = APAtomic $ ta .% dk
-    _ .% _ = error "cannot attach dup to this thing"
-
 instance Default tag => DSLFunctions (SeqWithTests Policy test tag) where
     defaultTagged = APAtomic . pure . AAction . defaultTagged
 
-    APAtomic (AAction ta :| []) .% dk = APAtomic [ AAction $ ta .% dk ]
-    _ .% _ = error "cannot attach dup to this thing"
-
 instance Default tag => DSLFunctions (Simple OrderedStarPolicy tag) where
     defaultTagged = OSPAtomic . defaultTagged 
-    _ .% _ = error "cannot attach dup to this thing"
 
 instance Default tag => DSLFunctions (WithTests OrderedStarPolicy test tag) where
     defaultTagged = OSPAtomic . AAction . defaultTagged
-    _ .% _ = error "cannot attach dup to this thing"
 
 instance Default tag => DSLFunctions (SeqWithTests FullPolicy test tag) where
     defaultTagged = FPAtomic . pure .  AAction . defaultTagged
 
-    FPAtomic (AAction ta :| []) .% dk = FPAtomic [ AAction $ ta .% dk ]
-    _ .% _ = error "cannot attach dup to this thing"
-
 instance Default tag => DSLFunctions (Simple (OrderedGuardedPolicy test) tag) where
     defaultTagged = OGPAtomic . defaultTagged
-    _ .% _ = error "cannot attach dup to this thing"
 
 infixl 7 <..>
 
@@ -118,26 +103,18 @@ instance FakeOrderedSemigroup (WithTests OrderedStarPolicy test tag) where
 instance FakeOrderedSemigroup (Simple OrderedStarPolicy tag) where
     p <..> p' = OSPOrdered p p'
 
-dupA :: DupKind
-dupA = DupKind { dupBefore = False, dupAfter = True }
-
-dupB :: DupKind
-dupB = DupKind { dupBefore = True, dupAfter = False }
-
-infixl 9 .~
-
 class Taggable a t | a -> t where
     (.~) :: a -> t -> a
 
 instance Taggable (Simple Policy t) t where
-    APAtomic (TaggedAction ti a _ dupKind) .~ t = APAtomic (TaggedAction ti a t dupKind)
+    APAtomic (TaggedAction ti a _) .~ t = APAtomic (TaggedAction ti a t)
     _ .~ _ = error "cannot attach tag to this thing"
 
 instance Taggable (TaggedBellPair t) t where
     tbp .~ t = tbp { bellPairTag = t }
 
 instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
-    OGPAtomic (TaggedAction ti a _ dupKind) .~ t = OGPAtomic (TaggedAction ti a (Just t) dupKind)
+    OGPAtomic (TaggedAction ti a _) .~ t = OGPAtomic (TaggedAction ti a (Just t))
     _ .~ _ = error "cannot attach tag to this thing"
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
@@ -148,11 +125,11 @@ class InverseTaggable a t | a -> t where
 
 
 instance InverseTaggable (Simple Policy (Maybe t)) t where
-    t ~. APAtomic (TaggedAction _ a to dupKind) = APAtomic (TaggedAction (Just t) a to dupKind)
+    t ~. APAtomic (TaggedAction _ a to) = APAtomic (TaggedAction (Just t) a to)
     _ ~. _ = error "cannot attach tag to this thing"
 
 instance InverseTaggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
-    t ~. OGPAtomic (TaggedAction _ a to dupKind)= OGPAtomic (TaggedAction (Just t) a to dupKind)
+    t ~. OGPAtomic (TaggedAction _ a to)= OGPAtomic (TaggedAction (Just t) a to)
     _ ~. _ = error "cannot attach tag to this thing"
 
 hasTag :: Eq t => t -> TaggedBellPair (Maybe t) -> Bool
@@ -165,8 +142,8 @@ orP :: Predicate t -> Predicate t -> Predicate t
 orP (Predicate f) (Predicate g) = Predicate ((||) <$> f <*> g)
 
 (?~) :: t -> Simple Policy t -> Simple Policy t
-tIn ?~ APAtomic (TaggedAction _ a tOut dupKind) = 
-    APAtomic $ TaggedAction tIn a tOut dupKind
+tIn ?~ APAtomic (TaggedAction _ a tOut) = 
+    APAtomic $ TaggedAction tIn a tOut
 _ ?~ p                           = p
 
 node :: (Default t, Ord t) => BellPair -> UTree (TaggedBellPair t)

@@ -35,7 +35,7 @@ execute (AtomicOneStepPolicy act) bps =
 
 instance (Ord tag, Default tag) 
   => CreatesBellPairs (NonEmpty (AtomicOneStepPolicy tag)) Probability tag where
-    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob _) =
+    tryCreateBellPairFrom (CreateBellPairArgs bps bp prob) =
         case prob of
           1.0 -> 
             createBasicAction (Mset.fromList' bps) [bp]

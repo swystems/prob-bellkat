@@ -1,2 +1,3 @@
 --command ghci
 --test=":run Spec.main --fail-fast --skip LONG" 
+--test=":run QuantumSpec.main --fail-fast --skip LONG"

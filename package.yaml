@@ -424,6 +424,7 @@ tests:
       - src
     dependencies: 
       - hspec
+      - bellkat
   small:
     source-dirs:
       - test/small

@@ -40,11 +40,13 @@ import Data.Typeable
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
 import qualified Options.Applicative as OA
+import Control.Monad.Logger (runStderrLoggingT)
 import Data.Semigroup (stimes)
 import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
+import BellKAT.Bundles.Guarded
 import BellKAT.Definitions.Atomic ()  
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
@@ -55,6 +57,7 @@ import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
+import BellKAT.Bundles.Core
 
 type QBKATTag = ()
 type QBKATRuntimeTag = QuantumTag
@@ -79,6 +82,10 @@ data NetworkBounds tag = NetworkBounds
 
 instance Default (NetworkBounds tag) where
     def = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
+
+runLoggedPipeline :: Pipeline a b -> a -> IO b
+runLoggedPipeline p input = runStderrLoggingT $ executePipeline p input
+
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
@@ -129,19 +136,20 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
-        r = applyProbStarPolicyQ' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns
-        s = applyProbStarPolicyQSystem' @p (Proxy :: Proxy QBKATOutput) pac ep protocol ns
-        a = applyProbStarPolicyQAutomaton (Proxy :: Proxy QBKATOutput) pac protocol in do
+        runPipeline = probStarPolicyQPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        systemPipeline = probStarPolicyQSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of
-          QMRun ->
-            if qcoJSON opts
-               then BS.putStr $ A.encode r
-               else print r
+          QMRun -> do
+              r <- runLoggedPipeline runPipeline protocol
+              if qcoJSON opts
+                 then BS.putStr $ A.encode r
+                 else print r
           QMTrace -> 
-            print s
+              runLoggedPipeline systemPipeline protocol >>= print
           QMAutomaton ->
-            print a
+              runLoggedPipeline automatonPipeline protocol >>= print
           QMProbability -> do
               mbRStored :: Maybe (CD p (OutputBellPairs QBKATOutput)) <- A.decode <$> BS.getContents
               case mbRStored of 

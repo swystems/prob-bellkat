@@ -19,7 +19,7 @@ import BellKAT.Implementations.Output
 -- a `TaggedBellPairs`
 newtype NetworkCapacity tag = NC
     { unNC :: TaggedBellPairs tag
-    } deriving newtype (Monoid, Semigroup)
+    } deriving newtype (Monoid, Semigroup, Show)
 
 instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     type Item (NetworkCapacity tag) = TaggedBellPair tag
@@ -33,6 +33,8 @@ data ExecutionParams tag rTag cTag = EP
     { epNetworkCapacity :: Maybe (NetworkCapacity tag)
     , epFilter          :: TaggedBellPair rTag -> cTag -> Bool
     }
+instance (Show tag, Eq tag, Default tag) => Show (ExecutionParams tag rTag cTag) where
+    show (EP mbCap _) = "EP { epNetworkCapacity = " <> show mbCap <> ", epFilter = <function> }"
 
 -- | Construct 'ExecutionParams' from an optional 'NetworkCapacity' and
 -- a default permissive filter.

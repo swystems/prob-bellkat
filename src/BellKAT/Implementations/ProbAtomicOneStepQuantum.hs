@@ -73,18 +73,18 @@ execute
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
-    -> LabelledBellPairs (CTag output) (RTag output)
-    -> CD' (LabelledBellPairs (CTag output) (RTag output))
+    -> OutputBellPairs output
+    -> OutputM output (OutputBellPairs output)
 execute (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA id paa bps) xs
 
 execute'
-    :: (Output output tag, RationalOrDouble p, Ord tag)
+    :: (Output output tag, OutputM output ~ CD', RationalOrDouble p, Ord tag)
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
-    -> LabelledBellPairs (CTag output) (RTag output) 
-    -> CD p (LabelledBellPairs (CTag output) (RTag output))
+    -> OutputBellPairs output 
+    -> CD p (OutputBellPairs output)
 execute' p bps = D.mapProbability fromRational $ execute p bps
 
 executeWith
@@ -93,30 +93,30 @@ executeWith
     => (DDom (RTag output), Default (RTag output))
     => ExecutionParams tag (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output tag
-    -> LabelledBellPairs (CTag output) (RTag output)
-    -> CD' (LabelledBellPairs (CTag output) (RTag output))
+    -> OutputBellPairs output
+    -> OutputM output (OutputBellPairs output)
 executeWith ep (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA (applyExecutionParams ep) paa bps) xs
 
 executeWith'
-    :: (Output output tag, RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
+    :: (Output output tag, OutputM output ~ CD', RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
     => (DDom (RTag output), Default (RTag output))
     => ExecutionParams tag (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output tag
-    -> LabelledBellPairs (CTag output) (RTag output)
-    -> CD p (LabelledBellPairs (CTag output) (RTag output))
+    -> OutputBellPairs output
+    -> CD p (OutputBellPairs output)
 executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
 executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
            => (Ord tag)
            => (DDom (RTag output), Default (RTag output))
            => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-           => (LabelledBellPairs (CTag output) (RTag output) -> LabelledBellPairs (CTag output) (RTag output))
+           => (OutputBellPairs output -> OutputBellPairs output)
            -- ^ "fixing" function to apply at the end
            -> ProbabilisticAtomicAction output tag 
-           -> LabelledBellPairs (CTag output) (RTag output)
-           -> CD' (LabelledBellPairs (CTag output) (RTag output))
+           -> OutputBellPairs output
+           -> OutputM output (OutputBellPairs output)
 executePAA fix act bps =
     let testHolds = (getBPsPredicate . toBPsPredicate . paaTest) act (staticBellPairs bps)
      in if testHolds

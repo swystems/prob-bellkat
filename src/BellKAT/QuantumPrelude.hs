@@ -49,7 +49,7 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, CTag, staticBellPairs)
+import BellKAT.Implementations.Output (ListOutput, OpOutput, RTag, CTag, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
@@ -143,7 +143,7 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
           QMAutomaton ->
             print a
           QMProbability -> do
-              mbRStored :: Maybe (CD p (LabelledBellPairs (CTag QBKATOutput) (RTag QBKATOutput))) <- A.decode <$> BS.getContents
+              mbRStored :: Maybe (CD p (OutputBellPairs QBKATOutput)) <- A.decode <$> BS.getContents
               case mbRStored of 
                 Nothing -> error "Couldn't parse input"
                 Just rStored -> 

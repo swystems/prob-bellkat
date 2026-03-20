@@ -33,6 +33,7 @@ import BellKAT.Utils.Distribution as D hiding (Probability)
 import BellKAT.Definitions.Core
 import BellKAT.Implementations.Output
 import BellKAT.Utils.Multiset (labelledMempty)
+import BellKAT.Utils.Convex (CD')
 import Data.Semigroup ()
 import qualified Data.Aeson as A
 import           Data.Aeson ((.=), (.:))
@@ -104,6 +105,7 @@ instance RuntimeTag QuantumTag () where
 instance Output QuantumOutput () where
     type RTag QuantumOutput = QuantumTag
     type CTag QuantumOutput = MaxClock
+    type OutputM QuantumOutput = CD'
     computeOutput QuantumOutput{qoOperation = FSkip} (Mset.LMS (_, clock)) =
         cpure (labelledMempty clock)
 

@@ -1,6 +1,9 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.Implementations.Output (
     Output(..),
+    OutputBellPairs,
     OpOutput(..),
     ListOutput(..),
     RuntimeTag(..),
@@ -36,14 +39,23 @@ staticBellPair = fmap staticTag
 staticBellPairs :: (RuntimeTag rTag tag, Ord rTag, Ord tag) => LabelledBellPairs cTag rTag -> TaggedBellPairs tag
 staticBellPairs = Mset.map' staticBellPair
 
+-- ^ Constraints on the monoid structure of `OutputM`
+type OutputDom a b = (Foldable a, CPointed a, CBind a, Dom a b, Dom a (a b), Monoid (a b))
 
-class (Pointed (OutputM output), Functor (OutputM output), Bind (OutputM output), RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
+-- ^ Convenience type class to quickly get output's BellPairs type
+type OutputBellPairs output = LabelledBellPairs (CTag output) (RTag output)
+
+-- ^ Shorthand for checking well-formedness of `OutputM` associated type  of `Output`
+type WellFormedOutputM output = OutputDom (OutputM output) (OutputBellPairs output)
+
+class (WellFormedOutputM output, RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
     type RTag output :: Type
     type CTag output :: Type
     type OutputM output :: Type -> Type
     computeOutput :: output
-                  -> LabelledBellPairs (CTag output) (RTag output)
-                  -> OutputM output (LabelledBellPairs (CTag output) (RTag output))
+                  -> OutputBellPairs output
+                  -> OutputM output (OutputBellPairs output)
+
 
 class Output output tag => OpOutput output op tag | output -> tag where
     fromCBPOutput :: TaggedBellPairs tag -> TaggedBellPair tag -> op -> output
@@ -58,7 +70,6 @@ instance IsList (ListOutput output cTag tag) where
 
 -- TODO: fix undecideable instance caused by Ord (RTag) 
 instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag,
-          Monoid (OutputM output (LabelledBellPairs (CTag output) (RTag output))),
           Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output))
         => Output (ListOutput output cTag tag) tag where
     type RTag (ListOutput output cTag tag) = (RTag output)

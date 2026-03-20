@@ -1,6 +1,7 @@
 {-# LANGUAGE StrictData #-}
 module BellKAT.Utils.Automata.Guarded
     ( GuardedFA(..)
+    , guardedLoop
     ) where
 
 import qualified Data.IntSet                  as IS
@@ -154,6 +155,24 @@ productWith f (GFA aI aT) (GFA bI bT) =
         -> GuardedTransitionSystem t () -- | where to exti from on the right
         -> GuardedTransitionSystem t (Either Eps a)
     stepFinalRight encode lS rFinal rF = stepFinalLeft (flip encode) rFinal rF lS
+
+-- | TODO: detect wether body has at least one action
+guardedLoop 
+    :: (Show t, DecidableBoolean t) 
+    => t -- | guard for the loop
+    -> GuardedFA t a -- | body of the loop
+    -> GuardedFA t a
+guardedLoop t body = 
+    let GEFA bI bT = gfaToGefa body -- | add epsilons for looping
+        bT' = shiftUp 1 bT -- | shift for the body states of 1 to make room for the new initial state
+        rewired = setDoneToStep (Left Eps) 0 bT' -- | rewire body to loop back to the start (0 is the new initial state and bT' is the shifted body)
+        -- | now, from the new head, transition to the body if the guard holds, and transition to done if the guard doesn't hold
+        headT = gtsFromList 
+            [(0, [ (t, Step (Left Eps) (bI + 1)) 
+                 , (notB t, Done)
+                 ])]
+        loopsEpsFA = GEFA 0 (headT <> rewired)
+        in gefaToGfa loopsEpsFA
 
 instance (Show t, Show a, DecidableBoolean t, ParallelSemigroup a) =>  ParallelSemigroup (GuardedFA t a) where
     p <||> q = productWith (<||>) p q 

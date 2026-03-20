@@ -54,27 +54,24 @@ execExecution executeTest executeStep gfa m =
         st = initialExecutionState gfa
      in (`execState` st) . (`runReaderT` env) $ m
 
-computeFrom 
-    :: CanExecuteState t k s 
+-- | Prevent infinite recursion on cycles
+computeFrom
+    :: CanExecuteState t k s
     => Int -> s -> ExecutionMonad k t a s ()
-computeFrom i st = getOrCompute i st >>= mapM_ (uncurry computeFrom)
+computeFrom i st = do
+    cached <- gets (Map.lookup st . (IM.! i))
+    case cached of
+      Just _  -> pure ()
+      Nothing -> do
+          r <- compute i st
+          modify' (IM.update (Just . Map.insert st r) i)
+          mapM_ (uncurry computeFrom) r
 
-getOrCompute 
-    :: (Boolean t, Ord s, Dom k s, Dom k (Int, s), CBind k, Monoid (k (Int, s)), Foldable k) 
-    => Int -> s -> ExecutionMonad k t a s (k (Int, s))
-getOrCompute i st =
-    gets (Map.lookup st . (IM.! i)) >>= \case
-        Just r -> pure r
-        Nothing -> do
-            r <- compute i st
-            modify' (IM.update (Just . Map.insert st r) i)
-            pure r
-
-compute 
-    :: (CanExecuteState t k s, MonadReader (ExecutionEnvironment k t a s) m) 
+compute
+    :: (CanExecuteState t k s, MonadReader (ExecutionEnvironment k t a s) m)
     => Int -> s -> m (k (Int, s))
-compute i st = 
+compute i st =
     computeTransitionsAtState i st >>= \case
-      Nothing -> pure mempty 
+      Nothing -> pure mempty
       Just Done -> pure mempty -- TODO: should be smthing like mone
       Just (Step f j) -> pure $ cmap (j,) f

@@ -93,8 +93,12 @@ data OrderedGuardedPolicy t a
     | OGPParallel (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPOrdered (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPIfThenElse t (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
+    | OGPWhile t (OrderedGuardedPolicy t a)
     | OGPOne
     deriving stock (Functor)
+
+while :: t -> OrderedGuardedPolicy t a -> OrderedGuardedPolicy t a
+while = OGPWhile
 
 instance Semigroup (Policy a) where
     (<>) = APSequence

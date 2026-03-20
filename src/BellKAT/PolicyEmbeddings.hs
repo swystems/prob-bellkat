@@ -5,6 +5,8 @@ import Data.List.NonEmpty (NonEmpty)
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Policy
+import qualified BellKAT.Implementations.GuardedAutomataStepQuantum as GASQ
+import BellKAT.Utils.Automata.Guarded (guardedLoop)
 import BellKAT.Utils.NonEmpty
 
 class HasMeaning p a where
@@ -76,11 +78,21 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test op tag)
     meaning (OSPParallel p q) = meaning p <||> meaning q
     meaning (OSPChoice p q) = meaning p <+> meaning q
 
-instance (OrderedSemigroup a, Monoid a, ParallelSemigroup a, Guarded test a, Quantum a op tag) 
-  => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs op tag)) a where
+instance ( Show test
+         , Show (step tag)
+         , DecidableBoolean test
+         , OrderedSemigroup (step tag)
+         , ParallelSemigroup (step tag)
+         , CreatesBellPairs (step tag) op tag
+         )
+  => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs op tag)) (GASQ.GuardedAutomatonStepQuantum test (step tag)) where
     meaning OGPOne = mempty
     meaning (OGPAtomic ta) = meaning ta
     meaning (OGPOrdered p q) = meaning p <.> meaning q
     meaning (OGPSequence p q) = meaning p <> meaning q
     meaning (OGPParallel p q) = meaning p <||> meaning q
     meaning (OGPIfThenElse t p q) = ite t (meaning p) (meaning q)
+    meaning (OGPWhile t p) = -- | use guarded loop to interpret while
+      let body :: GASQ.GuardedAutomatonStepQuantum test (step tag)
+          body = meaning p
+       in GASQ.GASQ $ guardedLoop t $ GASQ.getGFA body

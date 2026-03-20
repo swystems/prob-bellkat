@@ -1,5 +1,5 @@
 module BellKAT.Implementations.GuardedAutomataStepQuantum 
-    ( GuardedAutomatonStepQuantum (getGFA)
+    ( GuardedAutomatonStepQuantum (..)
     , execute
     , executeWith
     , executeSystem

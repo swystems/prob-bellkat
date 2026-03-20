@@ -37,12 +37,13 @@ staticBellPairs :: (RuntimeTag rTag tag, Ord rTag, Ord tag) => LabelledBellPairs
 staticBellPairs = Mset.map' staticBellPair
 
 
-class (RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
+class (Pointed (OutputM output), Functor (OutputM output), Bind (OutputM output), RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
     type RTag output :: Type
     type CTag output :: Type
+    type OutputM output :: Type -> Type
     computeOutput :: output
                   -> LabelledBellPairs (CTag output) (RTag output)
-                  -> CD' (LabelledBellPairs (CTag output) (RTag output))
+                  -> OutputM output (LabelledBellPairs (CTag output) (RTag output))
 
 class Output output tag => OpOutput output op tag | output -> tag where
     fromCBPOutput :: TaggedBellPairs tag -> TaggedBellPair tag -> op -> output
@@ -57,10 +58,12 @@ instance IsList (ListOutput output cTag tag) where
 
 -- TODO: fix undecideable instance caused by Ord (RTag) 
 instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag,
+          Monoid (OutputM output (LabelledBellPairs (CTag output) (RTag output))),
           Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output))
         => Output (ListOutput output cTag tag) tag where
     type RTag (ListOutput output cTag tag) = (RTag output)
     type CTag (ListOutput output cTag tag) = (CTag output)
+    type OutputM (ListOutput output cTag tag) = OutputM output
     computeOutput (ListOutput xs) = computeOutputHelper xs
       where
         computeOutputHelper [] untouched = cpure untouched
@@ -82,6 +85,7 @@ instance (DDom tag, Default tag, Semigroup cTag, Show cTag, Ord cTag, Typeable c
     => Output (D' (LabelledBellPairs cTag tag)) tag where
     type RTag (D' (LabelledBellPairs cTag tag)) = tag
     type CTag (D' (LabelledBellPairs cTag tag)) = cTag
+    type OutputM (D' (LabelledBellPairs cTag tag)) = CD'
     computeOutput x _ = fromList [x]
 
 instance (DDom tag, Default tag) => OpOutput (D' (LabelledBellPairs () tag)) Probability tag where

@@ -130,6 +130,8 @@ type StateQuality = Double
 type CoherenceTime = Int 
 type Distance = Int
 
+-- ^ Describes the hardware details of a quantum operation irrespective of input and output
+-- `BellPair`s, which are handled by `CreateBellPairArgs`
 data Op tag =
     FSkip
     -- ^ yiels mempty
@@ -150,7 +152,7 @@ data Op tag =
 data CreateBellPairArgs op tag = CreateBellPairArgs
     { cbpInputBPs    :: [TaggedBellPair tag] -- ^ a list of required (input) `BellPair`s
     , cbpOutputBP    :: TaggedBellPair tag -- ^ a produced (output) `BellPair`
-    , cbpOp          :: op -- ^ operation creating `cbpOutputBP`
+    , cbpOp          :: op -- ^ operation taking `cbpInputBPs` into `cbpOutputBP`, e.g., (`Op`)
     , cbpDup         :: DupKind
     }
 

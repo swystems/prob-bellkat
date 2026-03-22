@@ -139,6 +139,9 @@ type CreateBellPairArgs' = CreateBellPairArgs Probability
 instance Show1 (CreateBellPairArgs op) where
     liftShowsPrec _ _ _ _ = showString "cbp"
 
+instance Show tag => Show (CreateBellPairArgs op tag) where
+    showsPrec = showsPrec1
+
 -- * History of BellPairs
 
 type TaggedRequiredRoots tag = [TaggedBellPair tag]

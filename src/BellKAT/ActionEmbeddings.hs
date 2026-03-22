@@ -100,7 +100,7 @@ data ProbabilisticActionConfiguration = PAC
     , pacCoherenceTime :: Map Location TimeUnit
     -- | holds distances between locations
     , pacDistances :: Map (Location, Location) SpaceUnit
-    }
+    } deriving stock (Show)
 
 -- | gives meaning to actions while taking into account success probabilities
 -- represented as a ProbabilisticActionConfiguration`

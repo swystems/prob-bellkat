@@ -25,12 +25,6 @@ module BellKAT.Definitions
     , applyProbStarPolicySystem'
     , applyProbStarPolicyStates
     , applyProbStarPolicyAutomaton
-    , applyProbStarPolicyQ'
-    , applyProbStarPolicyQ
-    , applyProbStarPolicyQSystem
-    , applyProbStarPolicyQSystem'
-    , applyProbStarPolicyQStates
-    , applyProbStarPolicyQAutomaton
     ) where
 
 import           Data.Set                                (Set)
@@ -55,7 +49,6 @@ import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
 import           BellKAT.Implementations.Configuration (ExecutionParams)
-import           BellKAT.Implementations.Output (RTag, CTag, OpOutput, staticBellPairs, Output (OutputM), OutputBellPairs)
 
 -- | = Deterministic (no explicit choice operator) one round policies
 
@@ -229,86 +222,3 @@ applyProbStarPolicySystem
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem = applyProbStarPolicySystem'
-
-
-probabilisticDesugarQ 
-    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a) 
-    => Proxy rTag -> ProbabilisticActionConfiguration -> f a -> f (Desugared (Op rTag) a)
-probabilisticDesugarQ (_ :: Proxy rTag) pac = 
-    mapDesugarActions @(Op rTag) (probabilisticOpActionMeaning pac)
-
--- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
-applyProbStarPolicyQAutomaton
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
-    => (OpOutput output (Op (RTag output)) tag, Default (RTag output), Monoid output, Ord output, Show output)
-    => Proxy output -> ProbabilisticActionConfiguration 
-    -> Simple (OrderedGuardedPolicy (test tag)) tag
-    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag)
-applyProbStarPolicyQAutomaton (_ :: Proxy output)  pac = 
-    meaning . probabilisticDesugarQ (Proxy :: Proxy (RTag output)) pac
-
-applyProbStarPolicyQ' 
-    :: forall p test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-    => Proxy output 
-    -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> OutputBellPairs output -> CD p (OutputBellPairs output)
-applyProbStarPolicyQ' proxy pac ep = 
-    let executeRound = PAOSQ.executeWith' ep
-     in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyQAutomaton proxy pac
-
-applyProbStarPolicyQ 
-    :: forall test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-    => Proxy output 
-    -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> OutputBellPairs output -> OutputM output (OutputBellPairs output)
-applyProbStarPolicyQ proxy pac ep = 
-    let executeRound = PAOSQ.executeWith ep
-     in GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyQAutomaton proxy pac
-
-applyProbStarPolicyQStates
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, DDom (RTag output), Default (RTag output)) 
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-    => Proxy output -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> OutputBellPairs output -> GASQ.ComputedState (OutputM output) (OutputBellPairs output)
-applyProbStarPolicyQStates proxy pac ep = 
-    let executeRound = PAOSQ.executeWith ep
-     in GASQ.executeState ((. staticBellPairs) . (getBPsPredicate . toBPsPredicate)) executeRound
-        . applyProbStarPolicyQAutomaton proxy pac
-
-applyProbStarPolicyQSystem'
-    :: forall p test tag output. 
-        (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-    => Proxy output -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> OutputBellPairs output
-    -> GASQ.StateSystem (CD p) (OutputBellPairs output)
-applyProbStarPolicyQSystem' proxy pac ep = 
-    let executeRound = PAOSQ.executeWith' ep
-     in GASQ.executeSystem ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyQAutomaton proxy pac
-
-applyProbStarPolicyQSystem
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
-    => Proxy output -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> OutputBellPairs output-> GASQ.StateSystem CD' (OutputBellPairs output)
-applyProbStarPolicyQSystem = applyProbStarPolicyQSystem'

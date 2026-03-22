@@ -41,6 +41,7 @@ dependencies:
   - comfort-glpk
   - optparse-applicative
   - aeson
+  - monad-logger
 
 library:
   source-dirs: src
@@ -70,6 +71,8 @@ library:
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
     - BellKAT.Implementations.Output
     - BellKAT.Implementations.QuantumOps
+    - BellKAT.Bundles.Core
+    - BellKAT.Bundles.Guarded
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty

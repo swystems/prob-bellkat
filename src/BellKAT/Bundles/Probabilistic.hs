@@ -14,25 +14,13 @@ import           BellKAT.Utils.Convex
 import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Bundles.Core
+import           BellKAT.Bundles.Desugaring
 
 import           BellKAT.Implementations.Configuration
 import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import Control.Monad.Identity
 import Control.Monad.Logger
-
--- | A stage that desugars actions within a functorial structure using a probabilistic interpretation.
---   It applies the 'probabilisticActionMeaning' to each action based on the provided
---   'ProbabilisticActionConfiguration'. This stage uses the 'NoOp' action embedding.
-probabilisticDesugarStage
-    :: (Functor f, CanDesugarActions' tag)
-    => ProbabilisticActionConfiguration
-    -> Stage ProbabilisticActionConfiguration (f tag) (f (Desugared' tag))
-probabilisticDesugarStage pac = Stage
-    { stageName = "probabilistic_desugaring"
-    , stageConfig = pac
-    , stageFunction = mapDesugarActions . probabilisticActionMeaning
-    }
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy 
 -- `OrderedGuardedPolicy` using probabilistic interpretation configured via 

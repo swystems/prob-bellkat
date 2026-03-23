@@ -12,6 +12,8 @@ module BellKAT.Bundles.Star
     , policyToAutomatonStage
     ) where
 
+import           Control.Monad.Identity
+import           Control.Monad.Logger
 import           Data.Set                                (Set)
 import           Data.Default
 
@@ -23,20 +25,10 @@ import           BellKAT.Definitions.Policy.Extra
 import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Bundles.Core
+import           BellKAT.Bundles.Desugaring
 import qualified BellKAT.Implementations.InterleavingOneStepHistoryQuantum as IOSHQ
 import qualified BellKAT.Implementations.AutomataStepQuantum    as ASQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
-
--- | A stage that desugars actions within a functorial structure using a simple interpretation.
---   It applies the 'simpleActionMeaning' to each action.
-desugarStage
-    :: (Functor f, CanDesugarActions' tag)
-    => Stage () (f tag) (f (Desugared' tag))
-desugarStage = Stage
-    { stageName = "desugaring"
-    , stageConfig = ()
-    , stageFunction = \() -> mapDesugarActions simpleActionMeaning
-    }
 
 -- | A stage that executes a policy automaton on a set of Bell pairs.
 automatonStage
@@ -66,21 +58,46 @@ policyToAutomatonStage = Stage
 
 -- * Policies with iteration, i.e., based on `OrderedStarPolicy`
 
+-- | A stage that builds an automaton from an ordered star policy.
+starPolicyToAutomatonStage
+    :: (Ord tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    => Stage ()
+        (OrderedStarPolicy (Atomic CreateBellPairArgs' test tag))
+        (ASQ.AutomatonStepQuantum 'ASQ.ACNormal (AOSQ.AtomicOneStepPolicy tag))
+starPolicyToAutomatonStage = Stage
+    { stageName = "constructing_automaton_from_star_policy"
+    , stageConfig = ()
+    , stageFunction = \() -> meaning
+    }
+
+starPolicyPipeline
+    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    => TaggedBellPairs tag
+    -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
+starPolicyPipeline initialState =
+    stage desugarStage >>> stage starPolicyToAutomatonStage >>> stage (automatonStage initialState)
+
+starPolicyPipeline'
+    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    => ProbabilisticActionConfiguration
+    -> TaggedBellPairs tag
+    -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
+starPolicyPipeline' pac initialState =
+    stage (probabilisticDesugarStage pac) >>> stage starPolicyToAutomatonStage >>> stage (automatonStage initialState)
+
 -- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
-applyStarPolicy =
-    ASQ.execute AOSQ.execute . meaning
-        . mapDesugarActions simpleActionMeaning
+applyStarPolicy policy initialState =
+    runIdentity . runNoLoggingT $ executePipeline (starPolicyPipeline initialState) policy
 
 applyStarPolicy'
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => ProbabilisticActionConfiguration
     -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
-applyStarPolicy' pac =
-    ASQ.execute AOSQ.execute . meaning
-        . mapDesugarActions (probabilisticActionMeaning pac)
+applyStarPolicy' pac policy initialState =
+    runIdentity . runNoLoggingT $ executePipeline (starPolicyPipeline' pac initialState) policy
 
 applyStarOrderedPolicy
     :: (Ord tag, Show tag, Default tag, Test test)

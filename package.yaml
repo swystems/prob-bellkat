@@ -72,6 +72,7 @@ library:
     - BellKAT.Implementations.Output
     - BellKAT.Implementations.QuantumOps
     - BellKAT.Bundles.Core
+    - BellKAT.Bundles.Desugaring
     - BellKAT.Bundles.OpBased
     - BellKAT.Bundles.Probabilistic
     - BellKAT.Bundles.Star

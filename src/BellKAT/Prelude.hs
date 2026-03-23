@@ -39,6 +39,7 @@ import qualified Data.Aeson as A
 import BellKAT.DSL
 import BellKAT.Definitions
 import BellKAT.Definitions.Structures
+import BellKAT.Bundles.Star
 import BellKAT.Drawing hiding (drawHistoriesText)
 import BellKAT.Test
 

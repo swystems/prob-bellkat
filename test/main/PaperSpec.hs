@@ -6,7 +6,8 @@ import qualified Data.Set as Set
 import Test.Hspec
 
 import BellKAT.Prelude 
-import BellKAT.Definitions (UTree(..), applyStarPolicyH)
+import BellKAT.Definitions (UTree(..))
+import BellKAT.Bundles.HistoryBased (applyStarPolicyH)
 
 p1 :: BellKATPolicy 
 p1 =

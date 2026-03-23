@@ -1,15 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Bundles.Star
-    ( applyStarOrderedPolicy
-    , applyStarPolicyWithValidity
-    , applyStarOrderedPolicyBounded
+    ( applyStarPolicyWithValidity
     , applyStarPolicy
     , applyStarPolicy'
-    , applyStarPolicyH
-    , desugarStage
-    , automatonStage
-    , policyToAutomatonStage
     ) where
 
 import           Control.Monad.Identity
@@ -19,14 +13,11 @@ import           Data.Default
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Definitions.Core
-import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
-import           BellKAT.Definitions.Policy.Extra
 import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Bundles.Core
 import           BellKAT.Bundles.Desugaring
-import qualified BellKAT.Implementations.InterleavingOneStepHistoryQuantum as IOSHQ
 import qualified BellKAT.Implementations.AutomataStepQuantum    as ASQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 
@@ -44,28 +35,16 @@ automatonStage initialState = Stage
     , stageFunction = flip (ASQ.execute AOSQ.execute)
     }
 
--- | A stage that builds an automaton from a policy.
-policyToAutomatonStage
-    :: (Ord tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
-    => Stage ()
-        (Atomic CreateBellPairArgs' test tag)
-        (ASQ.AutomatonStepQuantum 'ASQ.ACNormal (AOSQ.AtomicOneStepPolicy tag))
-policyToAutomatonStage = Stage
-    { stageName = "constructing_automaton"
-    , stageConfig = ()
-    , stageFunction = \() -> meaning
-    }
-
 -- * Policies with iteration, i.e., based on `OrderedStarPolicy`
 
 -- | A stage that builds an automaton from an ordered star policy.
-starPolicyToAutomatonStage
+policyToAutomatonStage
     :: (Ord tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => Stage ()
         (OrderedStarPolicy (Atomic CreateBellPairArgs' test tag))
         (ASQ.AutomatonStepQuantum 'ASQ.ACNormal (AOSQ.AtomicOneStepPolicy tag))
-starPolicyToAutomatonStage = Stage
-    { stageName = "constructing_automaton_from_star_policy"
+policyToAutomatonStage = Stage
+    { stageName = "constructing_automaton"
     , stageConfig = ()
     , stageFunction = \() -> meaning
     }
@@ -75,7 +54,7 @@ starPolicyPipeline
     => TaggedBellPairs tag
     -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
 starPolicyPipeline initialState =
-    stage desugarStage >>> stage starPolicyToAutomatonStage >>> stage (automatonStage initialState)
+    stage desugarStage >>> stage policyToAutomatonStage >>> stage (automatonStage initialState)
 
 starPolicyPipeline'
     :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
@@ -83,7 +62,7 @@ starPolicyPipeline'
     -> TaggedBellPairs tag
     -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
 starPolicyPipeline' pac initialState =
-    stage (probabilisticDesugarStage pac) >>> stage starPolicyToAutomatonStage >>> stage (automatonStage initialState)
+    stage (probabilisticDesugarStage pac) >>> stage policyToAutomatonStage >>> stage (automatonStage initialState)
 
 -- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy
@@ -99,26 +78,6 @@ applyStarPolicy'
 applyStarPolicy' pac policy initialState =
     runIdentity . runNoLoggingT $ executePipeline (starPolicyPipeline' pac initialState) policy
 
-applyStarOrderedPolicy
-    :: (Ord tag, Show tag, Default tag, Test test)
-    => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
-applyStarOrderedPolicy =
-    ASQ.executeE IOSHQ.execute . meaning . mapDesugarActions simpleActionMeaning
-    . handleOrderingError . orderedAsSequence
-  where
-    handleOrderingError :: Maybe a -> a
-    handleOrderingError Nothing = error "couldn't desugar ordered composition"
-    handleOrderingError (Just x) = x
-
--- | executes `OrderedStarPolicy` with tests as function on histories
--- Warning: note, histories may grow arbitrary long with `OrderedStarPolicy`
-applyStarPolicyH
-    :: (Ord tag, Show tag, Default tag, Tests (IOSHQ.FunctionStep test tag) test tag)
-    => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
-applyStarPolicyH =
-    ASQ.executeE IOSHQ.execute . meaning
-    . mapDesugarActions simpleActionMeaning
-
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
     :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
@@ -129,21 +88,3 @@ applyStarPolicyWithValidity
 applyStarPolicyWithValidity isValid =
     ASQ.executeWith (def { ASQ.isValidState = isValid }) AOSQ.execute
     . meaning  . mapDesugarActions simpleActionMeaning
-
--- | Similar to `applyStarPolicy` but errors if too many network state are observed in a given state
--- of policy execution
-applyStarOrderedPolicyBounded
-    :: (Ord tag, Show tag, Default tag, Test test)
-    => WithTests OrderedStarPolicy test tag -> History tag -> Set (History tag)
-applyStarOrderedPolicyBounded =
-    (handleExecutionError .)
-    . ASQ.executeWithE (def { ASQ.maxOptionsPerState = Just 100}) IOSHQ.execute
-    . meaning . mapDesugarActions simpleActionMeaning . handleOrderingError . orderedAsSequence
-  where
-    handleExecutionError :: Maybe a -> a
-    handleExecutionError Nothing = error "couldn't execute"
-    handleExecutionError (Just x) = x
-
-    handleOrderingError :: Maybe a -> a
-    handleOrderingError Nothing = error "couldn't desugar ordered composition"
-    handleOrderingError (Just x) = x

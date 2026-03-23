@@ -11,6 +11,7 @@ import           BellKAT.Drawing
 import           BellKAT.DSL
 import           BellKAT.Test.QuickCheck
 import           BellKAT.Utils.UnorderedTree
+import           BellKAT.Bundles.HistoryBased
 
 import           Control.Monad              (unless)
 import           Data.Monoid                (Sum (..))

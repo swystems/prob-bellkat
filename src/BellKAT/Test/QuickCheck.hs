@@ -8,6 +8,7 @@ import           Data.Set          (Set)
 import           Data.Default
 
 import           BellKAT.Definitions
+import           BellKAT.Bundles.HistoryBased
 import           BellKAT.Drawing
 
 

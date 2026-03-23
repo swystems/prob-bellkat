@@ -18,6 +18,7 @@ import BellKAT.Utils.UnorderedTree (toForest)
 import BellKAT.Definitions.Core
 import BellKAT.Definitions.Policy
 import BellKAT.Definitions
+import BellKAT.Bundles.HistoryBased
 
 pairToDiagram :: (Show t, Eq t, Default t) => TaggedBellPair t -> Diagram B
 pairToDiagram (TaggedBellPair bp t) 

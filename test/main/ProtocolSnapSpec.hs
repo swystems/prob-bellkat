@@ -21,7 +21,7 @@ import BellKAT.QuantumPrelude
   , (/~?), (&&*)
   )
 import Data.Default (def)
-import BellKAT.Bundles.OpBased (applyProbStarPolicyQ')
+import BellKAT.Bundles.OpBased (applyProbStarPolicyOp')
 import BellKAT.Implementations.Output (ListOutput)
 import BellKAT.Implementations.Configuration (ExecutionParams(..))
 import BellKAT.Implementations.QuantumOps (QuantumOutput, isFresh)
@@ -41,7 +41,7 @@ evalProtocol :: ProbabilisticActionConfiguration
              -> NetworkState
              -> A.Value
 evalProtocol pac nb pol ns =
-  let r = applyProbStarPolicyQ' @Double (Proxy :: Proxy TestOutput) pac (buildEP nb) pol ns
+  let r = applyProbStarPolicyOp' @Double (Proxy :: Proxy TestOutput) pac (buildEP nb) pol ns
   in  A.toJSON r
 
 -- If UPDATE_SNAP=1, write the file, otherwise compare results

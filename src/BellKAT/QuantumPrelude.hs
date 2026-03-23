@@ -131,8 +131,8 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
-        runPipeline = probStarPolicyQPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-        systemPipeline = probStarPolicyQSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of

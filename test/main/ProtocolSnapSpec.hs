@@ -21,7 +21,7 @@ import BellKAT.QuantumPrelude
   , (/~?), (&&*)
   )
 import Data.Default (def)
-import BellKAT.Bundles.Guarded (applyProbStarPolicyQ')
+import BellKAT.Bundles.OpBased (applyProbStarPolicyQ')
 import BellKAT.Implementations.Output (ListOutput)
 import BellKAT.Implementations.Configuration (ExecutionParams(..))
 import BellKAT.Implementations.QuantumOps (QuantumOutput, isFresh)

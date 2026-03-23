@@ -46,7 +46,7 @@ import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
-import BellKAT.Bundles.Guarded
+import BellKAT.Bundles.OpBased
 import BellKAT.Definitions.Atomic ()  
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))

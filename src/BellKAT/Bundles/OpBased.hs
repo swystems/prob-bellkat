@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
-module BellKAT.Bundles.Guarded where
+module BellKAT.Bundles.OpBased where
 
 import           Data.Default
 import           Data.Typeable

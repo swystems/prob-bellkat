@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 module BellKAT.Definitions
     ( module BellKAT.Definitions.Core
     , module BellKAT.Definitions.Tests
@@ -19,39 +18,26 @@ module BellKAT.Definitions
     , applyStarPolicy
     , applyStarPolicy'
     , applyStarPolicyH
-    , applyProbStarPolicy
-    , applyProbStarPolicy'
-    , applyProbStarPolicySystem
-    , applyProbStarPolicySystem'
-    , applyProbStarPolicyStates
-    , applyProbStarPolicyAutomaton
     ) where
 
 import           Data.Set                                (Set)
 import           Data.Default
-import           Data.Typeable
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Policy.Extra
-import           BellKAT.Utils.Convex
-import           BellKAT.Utils.Distribution
 import           BellKAT.ActionEmbeddings 
 import           BellKAT.PolicyEmbeddings
 import qualified BellKAT.Implementations.HistoryQuantum        as HQ
 import qualified BellKAT.Implementations.InterleavingOneStepHistoryQuantum as IOSHQ
 import qualified BellKAT.Implementations.StepHistoryQuantum    as SHQ
 import qualified BellKAT.Implementations.AutomataStepQuantum    as ASQ
-import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
-import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 import qualified BellKAT.Implementations.TimelyHistoryQuantum  as THQ
-import           BellKAT.Implementations.Configuration (ExecutionParams)
 
 -- | = Deterministic (no explicit choice operator) one round policies
-
 applyPolicy :: Ord tag => Simple Policy tag -> History tag -> Set (History tag)
 applyPolicy = HQ.execute . meaning . mapDesugarActions simpleActionMeaning
 
@@ -158,67 +144,3 @@ applyStarOrderedPolicyBounded =
     handleOrderingError :: Maybe a -> a
     handleOrderingError Nothing = error "couldn't desugar ordered composition"
     handleOrderingError (Just x) = x
-
--- | Probabilistic semantic function
-applyProbStarPolicy 
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => ProbabilisticActionConfiguration 
-    -> ExecutionParams tag tag ()
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> CD' (TaggedBellPairs tag)
-applyProbStarPolicy = applyProbStarPolicy'
-
-probabilisticDesugar 
-    :: (Functor f, CanDesugarActions' a) 
-    => ProbabilisticActionConfiguration -> f a -> f (Desugared' a)
-probabilisticDesugar pac = mapDesugarActions (probabilisticActionMeaning pac)
-
-applyProbStarPolicy' 
-    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
-    => ProbabilisticActionConfiguration 
-    -> ExecutionParams tag tag ()
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
-applyProbStarPolicy' pac ep = 
-    let executeRound = PAOSQ.executeWith' ep
-     in GASQ.execute (getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyAutomaton pac
-
--- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
-applyProbStarPolicyAutomaton
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
-    => ProbabilisticActionConfiguration 
-    -> Simple (OrderedGuardedPolicy (test tag)) tag
-    -> GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag)
-applyProbStarPolicyAutomaton pac = meaning . probabilisticDesugar pac
-
-applyProbStarPolicyStates
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => ProbabilisticActionConfiguration 
-    -> ExecutionParams tag tag ()
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> GASQ.ComputedState CD' (TaggedBellPairs tag)
-applyProbStarPolicyStates pac ep = 
-    let executeRound = PAOSQ.executeWith ep
-     in GASQ.executeState (getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyAutomaton pac
-
-applyProbStarPolicySystem'
-    :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => ProbabilisticActionConfiguration 
-    -> ExecutionParams tag tag ()
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag 
-    -> GASQ.StateSystem (CD p) (TaggedBellPairs tag)
-applyProbStarPolicySystem' pac ep = 
-    let executeRound = PAOSQ.executeWith' ep
-     in GASQ.executeSystem (getBPsPredicate . toBPsPredicate) executeRound
-        . applyProbStarPolicyAutomaton pac
-
-applyProbStarPolicySystem
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
-    => ProbabilisticActionConfiguration 
-    -> ExecutionParams tag tag ()
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
-    -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
-applyProbStarPolicySystem = applyProbStarPolicySystem'

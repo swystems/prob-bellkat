@@ -23,24 +23,24 @@ import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import Control.Monad.Logger (runNoLoggingT)
 import Control.Monad.Identity
 
-probabilisticDesugarStage
+probabilisticOpDesugarStage
     :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a)
     => Proxy rTag
     -> ProbabilisticActionConfiguration
     -> Stage ProbabilisticActionConfiguration (f a) (f (Desugared (Op rTag) a))
-probabilisticDesugarStage (_ :: Proxy rTag) pac = Stage
-    { stageName = "probabilistic_desugaring"
+probabilisticOpDesugarStage (_ :: Proxy rTag) pac = Stage
+    { stageName = "probabilistic_op_desugaring"
     , stageConfig = pac
     , stageFunction = mapDesugarActions @(Op rTag) . probabilisticOpActionMeaning
     }
 
-probabilisticAutomatonStage
+probabilisticOpAutomatonStage
     :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output)
     => Stage ()
         (OrderedGuardedPolicy (test tag) (CreateBellPairArgs (Op (RTag output)) tag))
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
-probabilisticAutomatonStage = Stage
+probabilisticOpAutomatonStage = Stage
     { stageName = "constructing_guarded_automaton"
     , stageConfig = ()
     , stageFunction = \() -> meaning
@@ -124,8 +124,8 @@ probStarPolicyAutomatonPipeline
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag)
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
 probStarPolicyAutomatonPipeline (_ :: Proxy output) pac
-    = stage (probabilisticDesugarStage (Proxy :: Proxy (RTag output)) pac) 
-    >>> stage probabilisticAutomatonStage
+    = stage (probabilisticOpDesugarStage (Proxy :: Proxy (RTag output)) pac) 
+    >>> stage probabilisticOpAutomatonStage
 
 probStarPolicyQPipeline'
     :: forall p test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p)
@@ -151,7 +151,6 @@ probStarPolicyQPipeline
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (OutputM output (OutputBellPairs output))
 probStarPolicyQPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage ep initialState)
-
 
 probStarPolicyQSystemPipeline'
     :: forall p test tag output. 

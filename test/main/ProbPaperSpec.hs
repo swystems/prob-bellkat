@@ -21,6 +21,8 @@ import BellKAT.Implementations.Configuration
 import BellKAT.Implementations.GuardedAutomataStepQuantum
 import BellKAT.Implementations.ProbAtomicOneStepQuantum
 import BellKAT.Definitions
+import BellKAT.Bundles.Probabilistic
+
 type BellKATAutomaton = GuardedFA ProbBellKATTest (ProbAtomicOneStepPolicy' BellKATTag)
 
 -- | = Example 4.2

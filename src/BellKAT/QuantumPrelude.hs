@@ -40,13 +40,11 @@ import Data.Typeable
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
 import qualified Options.Applicative as OA
-import Control.Monad.Logger (runStderrLoggingT)
 import Data.Semigroup (stimes)
 import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
-import BellKAT.Bundles.OpBased
 import BellKAT.Definitions.Atomic ()  
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
@@ -57,6 +55,7 @@ import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
+import BellKAT.Bundles.OpBased
 import BellKAT.Bundles.Core
 
 type QBKATTag = ()
@@ -82,10 +81,6 @@ data NetworkBounds tag = NetworkBounds
 
 instance Default (NetworkBounds tag) where
     def = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
-
-runLoggedPipeline :: Pipeline a b -> a -> IO b
-runLoggedPipeline p input = runStderrLoggingT $ executePipeline p input
-
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState

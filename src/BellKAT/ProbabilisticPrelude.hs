@@ -37,6 +37,8 @@ import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, fromNetworkCapacity)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
+import BellKAT.Bundles.Probabilistic
+import BellKAT.Bundles.Core
 
 type ProbBellKATTest = BoundedTest BellKATTag
 type ProbBellKATAction = TaggedAction BellKATTag
@@ -79,19 +81,20 @@ pbkatMain'
     -> IO ()
 pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
     let ep = fromNetworkCapacity mbNC
-        r = applyProbStarPolicy' @p pac ep protocol mempty
-        s = applyProbStarPolicySystem' @p pac ep protocol mempty
-        a = applyProbStarPolicyAutomaton pac protocol in do
+        runPipeline = probStarPolicyPipeline' @p pac ep mempty
+        systemPipeline = probStarPolicySystemPipeline' @p pac ep mempty
+        automatonPipeline = probStarPolicyAutomatonPipeline pac in do
     opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
     case pcoMode opts of
-      PMRun ->
+      PMRun -> do
+        r <- runLoggedPipeline runPipeline protocol
         if pcoJSON opts
            then BS.putStr $ A.encode r
            else print r
       PMTrace -> 
-        print s
+        runLoggedPipeline systemPipeline protocol >>= print
       PMAutomaton ->
-        print a
+        runLoggedPipeline automatonPipeline protocol >>= print
       PMProbability -> do
           mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
           case mbRStored of 

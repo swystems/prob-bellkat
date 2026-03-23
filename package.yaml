@@ -73,6 +73,7 @@ library:
     - BellKAT.Implementations.QuantumOps
     - BellKAT.Bundles.Core
     - BellKAT.Bundles.OpBased
+    - BellKAT.Bundles.Probabilistic
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty

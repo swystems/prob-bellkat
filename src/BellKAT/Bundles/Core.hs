@@ -19,7 +19,6 @@ stage x = PStage x PLeaf
 PLeaf >>> x = x
 PStage a p >>> x = PStage a (p >>> x)
 
-
 executePipeline :: MonadLogger m => Pipeline a b -> a -> m b
 executePipeline PLeaf x = do
     $(logInfo) "Pipeline finished. Final state:"
@@ -30,3 +29,6 @@ executePipeline (PStage (Stage { stageName = name, stageConfig = c, stageFunctio
     $(logInfoSH) input
     $(logInfoSH) c
     executePipeline next (f c input)
+
+runLoggedPipeline :: Pipeline a b -> a -> IO b
+runLoggedPipeline p input = runStderrLoggingT $ executePipeline p input

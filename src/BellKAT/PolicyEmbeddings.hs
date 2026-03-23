@@ -81,6 +81,7 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test op tag)
 instance ( Show test
          , Show (step tag)
          , DecidableBoolean test
+         , Eq (step tag)
          , OrderedSemigroup (step tag)
          , ParallelSemigroup (step tag)
          , CreatesBellPairs (step tag) op tag

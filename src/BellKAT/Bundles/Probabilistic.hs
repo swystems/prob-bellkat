@@ -44,7 +44,7 @@ probabilisticAutomatonStage
         (OrderedGuardedPolicy (test tag) (CreateBellPairArgs' tag))
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
 probabilisticAutomatonStage = Stage
-    { stageName = "constructing_guarded_automaton"
+    { stageName = "constructing_guarded_automaton_prob"
     , stageConfig = ()
     , stageFunction = \() -> meaning
     }
@@ -57,7 +57,7 @@ guardedAutomatonStage
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
         (CD' (TaggedBellPairs tag))
 guardedAutomatonStage ep initialState = Stage
-    { stageName = "executing_guarded_automaton"
+    { stageName = "executing_guarded_automaton_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         GASQ.execute (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
@@ -72,7 +72,7 @@ guardedAutomatonStage'
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
         (CD p (TaggedBellPairs tag))
 guardedAutomatonStage' ep initialState = Stage
-    { stageName = "executing_guarded_automaton'"
+    { stageName = "executing_guarded_automaton_prob'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         GASQ.execute (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
@@ -87,7 +87,7 @@ guardedToSystemStage'
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
         (GASQ.StateSystem (CD p) (TaggedBellPairs tag))
 guardedToSystemStage' ep initialState = Stage
-    { stageName = "system_stage'"
+    { stageName = "system_stage_prob'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         GASQ.executeSystem (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
@@ -102,7 +102,7 @@ guardedToSystemStage
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
         (GASQ.StateSystem CD' (TaggedBellPairs tag))
 guardedToSystemStage ep initialState = Stage
-    { stageName = "system_stage"
+    { stageName = "system_stage_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         GASQ.executeSystem (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
@@ -117,7 +117,7 @@ guardedToStatesStage
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
         (GASQ.ComputedState CD' (TaggedBellPairs tag))
 guardedToStatesStage ep initialState = Stage
-    { stageName = "guarded_states_stage"
+    { stageName = "guarded_states_stage_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         GASQ.executeState (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa

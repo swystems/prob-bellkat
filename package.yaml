@@ -74,6 +74,7 @@ library:
     - BellKAT.Bundles.Core
     - BellKAT.Bundles.OpBased
     - BellKAT.Bundles.Probabilistic
+    - BellKAT.Bundles.Star
     - BellKAT.Utils.UnorderedTree
     - BellKAT.Utils.Multiset
     - BellKAT.Utils.NonEmpty

@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module BellKAT.Implementations.AutomataStepQuantum 
     ( AutomatonStepQuantum (getNFA)
+    , AutomatonChoice(..)
     , executeE
     , executeWithE
     , executeWith

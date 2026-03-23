@@ -103,6 +103,8 @@ while = OGPWhile
 instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
     showsPrec _ (OGPAtomic x) = shows x
     showsPrec _ OGPOne = showString "one"
+    showsPrec d (OGPWhile t p) = showParen (d > 3) $
+        showString "while " . showsPrec 4 t . showString " do " . showsPrec 4 p
     showsPrec d (OGPSequence x y) = showParen (d > 6) $
         showsPrec 7 x . showString " <> " . showsPrec 7 y
     showsPrec d (OGPParallel x y) = showParen (d > 5) $

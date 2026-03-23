@@ -127,7 +127,7 @@ probStarPolicyAutomatonPipeline (_ :: Proxy output) pac
     = stage (probabilisticOpDesugarStage (Proxy :: Proxy (RTag output)) pac) 
     >>> stage probabilisticOpAutomatonStage
 
-probStarPolicyQPipeline'
+probStarPolicyOpPipeline'
     :: forall p test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p)
     => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
@@ -136,10 +136,10 @@ probStarPolicyQPipeline'
     -> ExecutionParams tag (RTag output) (CTag output)
     -> OutputBellPairs output 
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (CD p (OutputBellPairs output))
-probStarPolicyQPipeline' proxy pac ep initialState = 
+probStarPolicyOpPipeline' proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage' ep initialState)
 
-probStarPolicyQPipeline
+probStarPolicyOpPipeline
     :: forall test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
     => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
     => Show (OutputM output (OutputBellPairs output))
@@ -149,10 +149,10 @@ probStarPolicyQPipeline
     -> ExecutionParams tag (RTag output) (CTag output)
     -> OutputBellPairs output 
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (OutputM output (OutputBellPairs output))
-probStarPolicyQPipeline proxy pac ep initialState = 
+probStarPolicyOpPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage ep initialState)
 
-probStarPolicyQSystemPipeline'
+probStarPolicyOpSystemPipeline'
     :: forall p test tag output. 
         (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
     => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
@@ -161,10 +161,10 @@ probStarPolicyQSystemPipeline'
     -> ExecutionParams tag (RTag output) (CTag output)
     -> OutputBellPairs output
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (GASQ.StateSystem (CD p) (OutputBellPairs output))
-probStarPolicyQSystemPipeline' proxy pac ep initialState = 
+probStarPolicyOpSystemPipeline' proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage' ep initialState)
 
-probStarPolicyQSystemPipeline
+probStarPolicyOpSystemPipeline
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
     => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
@@ -172,10 +172,10 @@ probStarPolicyQSystemPipeline
     -> ExecutionParams tag (RTag output) (CTag output)
     -> OutputBellPairs output
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (GASQ.StateSystem CD' (OutputBellPairs output))
-probStarPolicyQSystemPipeline proxy pac ep initialState = 
+probStarPolicyOpSystemPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage ep initialState)
 
-applyProbStarPolicyQ'
+applyProbStarPolicyOp'
     :: forall p test tag output. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p)
     => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
     => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
@@ -185,6 +185,6 @@ applyProbStarPolicyQ'
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> OutputBellPairs output 
     -> CD p (OutputBellPairs output)
-applyProbStarPolicyQ' proxy pac ep policy initialState = 
-    runIdentity . runNoLoggingT $ executePipeline (probStarPolicyQPipeline' proxy pac ep initialState) policy
+applyProbStarPolicyOp' proxy pac ep policy initialState = 
+    runIdentity . runNoLoggingT $ executePipeline (probStarPolicyOpPipeline' proxy pac ep initialState) policy
 

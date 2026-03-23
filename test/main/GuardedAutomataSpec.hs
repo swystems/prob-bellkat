@@ -144,6 +144,19 @@ whileBePreDoneNotBA = GEFA 0
         , (2, [(true, Step (Left Eps) 0)])
         ])
 
+duplicateLoop :: GuardedFA Test5 TestAction
+duplicateLoop = GFA 0
+    (gtsFromList
+        [ (0, [(notB test5A, Step "a" 1), (test5A, Done)])
+        , (1, [(notB test5A, Step "a" 1), (test5A, Done)])
+        ])
+
+minimizedDuplicateLoop :: GuardedFA Test5 TestAction
+minimizedDuplicateLoop = GFA 0
+    (gtsFromList
+        [ (0, [(notB test5A, Step "a" 0), (test5A, Done)])
+        ])
+
 spec :: Spec
 spec = do
     describe "Guarded Transitions" $ do
@@ -173,3 +186,6 @@ spec = do
             point "a" <||> mempty `shouldBe` (point "a" :: GuardedFA Test5 TestAction)
         it "Correctly computes `mempty <||> a`" $ do
             mempty <||> point "a" `shouldBe` (point "a" :: GuardedFA Test5 TestAction)
+        it "Minimizes guarded states with the same one-step behaviour" $ do
+            (removeUnreachable . minimizeGuardedFA . removeUnreachable $ duplicateLoop)
+                `shouldBe` minimizedDuplicateLoop

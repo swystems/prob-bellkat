@@ -6,6 +6,7 @@ import BellKAT.Definitions.Core
 import BellKAT.Definitions.Structures
 import BellKAT.Definitions.Policy
 import BellKAT.Utils.NonEmpty
+import qualified BellKAT.Implementations.GuardedAutomataStepQuantum as GASQ
 
 class HasMeaning p a where
     meaning :: p -> a
@@ -76,8 +77,15 @@ instance (MonoidStar a, OrderedSemigroup a, TestsOrderedQuantum a test op tag)
     meaning (OSPParallel p q) = meaning p <||> meaning q
     meaning (OSPChoice p q) = meaning p <+> meaning q
 
-instance (OrderedSemigroup a, Monoid a, ParallelSemigroup a, Guarded test a, Quantum a op tag) 
-  => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs op tag)) a where
+instance ( Show test
+         , Show (step tag)
+         , DecidableBoolean test
+         , Eq (step tag)
+         , OrderedSemigroup (step tag)
+         , ParallelSemigroup (step tag)
+         , CreatesBellPairs (step tag) op tag
+         )
+  => HasMeaning (OrderedGuardedPolicy test (CreateBellPairArgs op tag)) (GASQ.GuardedAutomatonStepQuantum test (step tag)) where
     meaning OGPOne = mempty
     meaning (OGPAtomic ta) = meaning ta
     meaning (OGPOrdered p q) = meaning p <.> meaning q

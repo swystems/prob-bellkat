@@ -31,7 +31,6 @@ module BellKAT.QuantumPrelude (
     stimes,
     -- * Re-exports from 'BellKAT.DSL'
     module BellKAT.DSL,
-    while,
     (~),
     -- * Re-exports from 'BellKAT.Definitions.Structures'
     module BellKAT.Definitions.Structures,

@@ -27,7 +27,7 @@ import BellKAT.Implementations.Configuration (ExecutionParams(..))
 import BellKAT.Implementations.QuantumOps (QuantumOutput, isFresh)
 
 -- Output type and EP equivalent to QBKATOutput of QuantumPrelude
-type TestOutput = ListOutput QuantumOutput MaxClock QBKATTag
+type TestOutput = ListOutput QuantumOutput
 
 buildEP :: NetworkBounds QBKATTag -> ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
 buildEP nb = EP { epNetworkCapacity = nbCapacity nb

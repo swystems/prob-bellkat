@@ -102,7 +102,8 @@ instance Show QuantumOutput where
 instance RuntimeTag QuantumTag () where
   staticTag _ = ()
 
-instance Output QuantumOutput () where
+instance Output QuantumOutput where
+    type STag QuantumOutput = ()
     type RTag QuantumOutput = QuantumTag
     type CTag QuantumOutput = MaxClock
     type OutputM QuantumOutput = CD'
@@ -127,7 +128,7 @@ instance Output QuantumOutput () where
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FDistill tCohs d} inClockedBps =
         [distBPs tCohs d inClockedBps outBp]
 
-instance OpOutput QuantumOutput (Op QuantumTag) () where
+instance OpOutput QuantumOutput (Op QuantumTag) where
     fromCBPOutput _ bp op = QuantumOutput { qoOutputBP = bp, qoOperation = op }
 
 -- | Swap two Bell pairs and returns a distribution D' 

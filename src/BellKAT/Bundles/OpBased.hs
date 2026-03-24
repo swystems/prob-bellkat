@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Bundles.OpBased where
 
@@ -14,7 +13,7 @@ import           BellKAT.Utils.Distribution
 
 import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
-import           BellKAT.Implementations.Output (RTag, CTag, OpOutput, staticBellPairs, Output (OutputM), OutputBellPairs)
+import           BellKAT.Implementations.Output
 import           BellKAT.Implementations.Configuration (ExecutionParams)
 import           BellKAT.Bundles.Core
 import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
@@ -23,11 +22,12 @@ import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 
 probabilisticOpAutomatonStage
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
-    => (OpOutput output (Op (RTag output)) tag, Monoid output, Show output)
+    :: (OpOutput output (Op (RTag output)), Monoid output, Show output)
+    => (Default (STag output), DDom (STag output))
+    => (DecidableBoolean (test (STag output)), Show (test (STag output)))
     => Stage ()
-        (OrderedGuardedPolicy (test tag) (CreateBellPairArgs (Op (RTag output)) tag))
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+        (OrderedGuardedPolicy (test (STag output)) (CreateBellPairArgs (Op (RTag output)) (STag output)))
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
 probabilisticOpAutomatonStage = Stage
     { stageName = "constructing_guarded_op_automaton"
     , stageConfig = ()
@@ -35,13 +35,15 @@ probabilisticOpAutomatonStage = Stage
     }
 
 guardedAutomatonStage
-    :: forall test tag output. (Ord tag, DecidableBoolean (test tag), Test test) 
-    => (OpOutput output (Op (RTag output)) tag, Default (RTag output), DDom (RTag output)) 
+    :: OpOutput output (Op (RTag output))
+    => Ord (STag output)
+    => (Default (RTag output), DDom (RTag output)) 
     => (Semigroup (CTag output), Ord (CTag output))
-    => ExecutionParams tag (RTag output) (CTag output)
+    => (Test test, DecidableBoolean (test (STag output)))
+    => ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Stage (ExecutionParams tag (RTag output) (CTag output), OutputBellPairs output)
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+    -> Stage (ExecutionParams (STag output) (RTag output) (CTag output), OutputBellPairs output)
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
         (OutputM output (OutputBellPairs output))
 guardedAutomatonStage ep initialState = Stage
     { stageName = "executing_guarded_op_automaton"
@@ -53,13 +55,13 @@ guardedAutomatonStage ep initialState = Stage
 
 guardedAutomatonStage'
     :: forall p. RationalOrDouble p
-    => forall test tag output. (Ord tag, DecidableBoolean (test tag), Test test) 
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Default (RTag output), DDom (RTag output)) 
-    => Semigroup (CTag output)
-    => ExecutionParams tag (RTag output) (CTag output)
+    => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD')
+    => (Ord (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
+    => forall test. (Test test, DecidableBoolean (test (STag output)))
+    => ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Stage (ExecutionParams tag (RTag output) (CTag output), OutputBellPairs output)
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+    -> Stage (ExecutionParams (STag output) (RTag output) (CTag output), OutputBellPairs output)
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
         (CD p (OutputBellPairs output))
 guardedAutomatonStage' ep initialState = Stage
     { stageName = "guarded_automaton'"
@@ -71,13 +73,13 @@ guardedAutomatonStage' ep initialState = Stage
 
 guardedToSystemStage'
     :: forall p. RationalOrDouble p
-    => forall test tag output. (Ord tag, DecidableBoolean (test tag), Test test) 
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Default (RTag output), DDom (RTag output)) 
-    => Semigroup (CTag output)
-    => ExecutionParams tag (RTag output) (CTag output)
+    => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD')
+    => (Ord (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
+    => forall test. (Test test, DecidableBoolean (test (STag output))) 
+    => ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Stage (ExecutionParams tag (RTag output) (CTag output), OutputBellPairs output)
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+    -> Stage (ExecutionParams (STag output) (RTag output) (CTag output), OutputBellPairs output)
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
         (GASQ.StateSystem (CD p) (OutputBellPairs output))
 guardedToSystemStage' ep initialState = Stage
     { stageName = "system_op_stage'"
@@ -88,13 +90,13 @@ guardedToSystemStage' ep initialState = Stage
     }
 
 guardedToSystemStage
-    :: forall test tag output. (Ord tag, DecidableBoolean (test tag), Test test) 
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Default (RTag output), DDom (RTag output)) 
-    => Semigroup (CTag output)
-    => ExecutionParams tag (RTag output) (CTag output)
+    :: forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD')
+    => (Ord (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
+    => forall test. (Test test, DecidableBoolean (test (STag output))) 
+    => ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Stage (ExecutionParams tag (RTag output) (CTag output), OutputBellPairs output)
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+    -> Stage (ExecutionParams (STag output) (RTag output) (CTag output), OutputBellPairs output)
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
         (GASQ.StateSystem CD' (OutputBellPairs output))
 guardedToSystemStage ep initialState = Stage
     { stageName = "system_op_stage"
@@ -106,76 +108,77 @@ guardedToSystemStage ep initialState = Stage
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 probStarPolicyAutomatonPipeline
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
-    => (OpOutput output (Op (RTag output)) tag, Default (RTag output), Monoid output)
-    => (Show output)
+    :: forall output. (OpOutput output (Op (RTag output)), Monoid output, Show output)
+    => (Default (STag output), DDom (STag output), Default (RTag output))
+    => forall test. (DecidableBoolean (test (STag output)), Show (test (STag output)))
     => Proxy output 
     -> ProbabilisticActionConfiguration
-    -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag)
-        (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy output tag))
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output))
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
 probStarPolicyAutomatonPipeline (_ :: Proxy output) pac
     = stage (probabilisticOpDesugarStage (Proxy :: Proxy (RTag output)) pac) 
     >>> stage probabilisticOpAutomatonStage
 
 probStarPolicyOpPipeline'
     :: forall p. RationalOrDouble p
-    => forall test tag output. (DDom tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
-    => Semigroup (CTag output)
+    => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
+    => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
+    => forall test. (Test test, DecidableBoolean (test (STag output)), Show (test (STag output))) 
     => Proxy output
     -> ProbabilisticActionConfiguration
-    -> ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output 
-    -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (CD p (OutputBellPairs output))
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (CD p (OutputBellPairs output))
 probStarPolicyOpPipeline' proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage' ep initialState)
 
 probStarPolicyOpPipeline
-    :: forall test tag output. (DDom tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
-    => Show (OutputM output (OutputBellPairs output))
+    :: forall output. (OpOutput output (Op (RTag output)), Show (OutputM output (OutputBellPairs output)), Monoid output, Show output)
+    => (DDom (STag output), Default (STag output), DDom (RTag output), Default (RTag output))
     => (Semigroup (CTag output), Ord (CTag output), Show (CTag output))
+    => forall test. (Test test, DecidableBoolean (test (STag output)), Show (test (STag output))) 
     => Proxy output
     -> ProbabilisticActionConfiguration
-    -> ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output 
-    -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (OutputM output (OutputBellPairs output))
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (OutputM output (OutputBellPairs output))
 probStarPolicyOpPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage ep initialState)
 
 probStarPolicyOpSystemPipeline'
     :: forall p. RationalOrDouble p
-    => forall test tag output. 
-        (DDom tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
-    => Semigroup (CTag output)
-    => Proxy output -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
+    => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
+    => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output), Ord (CTag output))
+    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
+    => Proxy output 
+    -> ProbabilisticActionConfiguration 
+    -> ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (GASQ.StateSystem (CD p) (OutputBellPairs output))
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (GASQ.StateSystem (CD p) (OutputBellPairs output))
 probStarPolicyOpSystemPipeline' proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage' ep initialState)
 
 probStarPolicyOpSystemPipeline
-    :: (DDom tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output)) 
+    :: forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
+    => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output)) 
     => Semigroup (CTag output)
+    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
     => Proxy output -> ProbabilisticActionConfiguration 
-    -> ExecutionParams tag (RTag output) (CTag output)
+    -> ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
-    -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag) (GASQ.StateSystem CD' (OutputBellPairs output))
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (GASQ.StateSystem CD' (OutputBellPairs output))
 probStarPolicyOpSystemPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage ep initialState)
 
 applyProbStarPolicyOp'
     :: forall p. RationalOrDouble p
-    => forall test tag output. (DDom tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag))
-    => (OpOutput output (Op (RTag output)) tag, OutputM output ~ CD', Monoid output, Ord output, Show output, Default (RTag output), DDom (RTag output))
-    => Semigroup (CTag output)
+    => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
+    => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
+    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
     => Proxy output
     -> ProbabilisticActionConfiguration
-    -> ExecutionParams tag (RTag output) (CTag output)
-    -> Simple (OrderedGuardedPolicy (test tag)) tag 
+    -> ExecutionParams (STag output) (RTag output) (CTag output)
+    -> Simple (OrderedGuardedPolicy (test (STag output))) (STag output) 
     -> OutputBellPairs output 
     -> CD p (OutputBellPairs output)
 applyProbStarPolicyOp' proxy pac ep policy initialState = 

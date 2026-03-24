@@ -66,7 +66,7 @@ type QBKATAction = TaggedAction QBKATTag
 
 type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 
-type QBKATOutput = ListOutput QuantumOutput MaxClock QBKATTag
+type QBKATOutput = ListOutput QuantumOutput
 
 type NetworkState = LabelledMultiset MaxClock (TaggedBellPair QBKATRuntimeTag)
 
@@ -117,7 +117,7 @@ qbkatMain'
         , Show QBKATTest
         , Show QBKATOutput
         , Ord QBKATOutput
-        , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag 
+        , OpOutput QBKATOutput (Op QBKATRuntimeTag)
     )
     => Proxy p
     -> ProbabilisticActionConfiguration
@@ -162,7 +162,7 @@ qbkatMain
        , Show QBKATTest
        , Show QBKATOutput
        , Ord QBKATOutput
-       , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
+       , OpOutput QBKATOutput (Op QBKATRuntimeTag)
        )
     => ProbabilisticActionConfiguration 
     -> NetworkBounds QBKATTag
@@ -178,7 +178,7 @@ qbkatMainD
        , Show QBKATTest
        , Show QBKATOutput
        , Ord QBKATOutput
-       , OpOutput QBKATOutput (Op QBKATRuntimeTag) QBKATTag
+       , OpOutput QBKATOutput (Op QBKATRuntimeTag)
        )
     => ProbabilisticActionConfiguration 
     -> NetworkBounds QBKATTag

@@ -49,7 +49,7 @@ instance (Monoid output, Ord output, Ord tag) => OrderedSemigroup (ProbAtomicOne
 instance (Monoid output, Ord output, Ord tag) => ParallelSemigroup (ProbAtomicOneStepPolicy output tag) where
     x <||> y = fromList $ (<||>) <$> toList x <*> toList y
 
-instance (OpOutput output op tag, Monoid output, Ord output, Ord tag)
+instance (OpOutput output op, Monoid output, Ord output, STag output ~ tag, Ord tag)
         => CreatesBellPairs (ProbAtomicOneStepPolicy output tag) op tag where
     tryCreateBellPairFrom (CreateBellPairArgs i o p) = ProbAtomicOneStepPolicy $ Set.fromList $
             [ createProbabilitsticAtomicAction
@@ -68,46 +68,46 @@ instance (OpOutput output op tag, Monoid output, Ord output, Ord tag)
 -- Interprets `ProbAtomicOneStepPolicy` as a monadic function from `TaggedBellPairs` to `CD'` of
 -- `TaggedBellPairs`
 execute
-    :: (Output output tag, Ord tag)
+    :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
-    => ProbAtomicOneStepPolicy output tag 
+    => ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
     -> OutputM output (OutputBellPairs output)
 execute (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA id paa bps) xs
 
 execute'
-    :: (Output output tag, OutputM output ~ CD', RationalOrDouble p, Ord tag)
+    :: (Output output, OutputM output ~ CD', RationalOrDouble p, Ord (STag output))
     => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
-    => ProbAtomicOneStepPolicy output tag 
+    => ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output 
     -> CD p (OutputBellPairs output)
 execute' p bps = D.mapProbability fromRational $ execute p bps
 
 executeWith
-    :: (Output output tag, Ord tag)
+    :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
-    => ExecutionParams tag (RTag output) (CTag output)
-    -> ProbAtomicOneStepPolicy output tag
+    => ExecutionParams (STag output) (RTag output) (CTag output)
+    -> ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
     -> OutputM output (OutputBellPairs output)
 executeWith ep (ProbAtomicOneStepPolicy xs) bps =
     foldMap (\paa -> executePAA (applyExecutionParams ep) paa bps) xs
 
 executeWith'
-    :: (Output output tag, OutputM output ~ CD', RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
+    :: (Output output, OutputM output ~ CD', RationalOrDouble p, Ord (STag output))
     => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
-    => ExecutionParams tag (RTag output) (CTag output)
-    -> ProbAtomicOneStepPolicy output tag
+    => ExecutionParams (STag output) (RTag output) (CTag output)
+    -> ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
     -> CD p (OutputBellPairs output)
 executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
-executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
+executePAA :: (Output output, RuntimeTag (RTag output) tag) 
            => Ord tag
            => (DDom (RTag output), Default (RTag output))
            => Semigroup (CTag output)

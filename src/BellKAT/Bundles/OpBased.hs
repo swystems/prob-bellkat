@@ -17,22 +17,12 @@ import           BellKAT.PolicyEmbeddings
 import           BellKAT.Implementations.Output (RTag, CTag, OpOutput, staticBellPairs, Output (OutputM), OutputBellPairs)
 import           BellKAT.Implementations.Configuration (ExecutionParams)
 import           BellKAT.Bundles.Core
+import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
 
 import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 import Control.Monad.Logger (runNoLoggingT)
 import Control.Monad.Identity
-
-probabilisticOpDesugarStage
-    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a)
-    => Proxy rTag
-    -> ProbabilisticActionConfiguration
-    -> Stage ProbabilisticActionConfiguration (f a) (f (Desugared (Op rTag) a))
-probabilisticOpDesugarStage (_ :: Proxy rTag) pac = Stage
-    { stageName = "probabilistic_op_desugaring"
-    , stageConfig = pac
-    , stageFunction = mapDesugarActions @(Op rTag) . probabilisticOpActionMeaning
-    }
 
 probabilisticOpAutomatonStage
     :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))

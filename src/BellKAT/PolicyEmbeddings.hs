@@ -84,3 +84,4 @@ instance (OrderedSemigroup a, Monoid a, ParallelSemigroup a, Guarded test a, Qua
     meaning (OGPSequence p q) = meaning p <> meaning q
     meaning (OGPParallel p q) = meaning p <||> meaning q
     meaning (OGPIfThenElse t p q) = ite t (meaning p) (meaning q)
+    meaning (OGPWhile t p) = while t (meaning p)

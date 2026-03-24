@@ -70,6 +70,18 @@ instance (Show t, DecidableBoolean t) => Guarded t (GuardedEpsFA t a) where
             <> singletonGts 0 (notB t) (Left Eps) nbI
        in GEFA 0 (naT <> nbT <> nabT)
 
+  while t (GEFA bI bT) =
+      let
+        bT' = shiftUp 1 bT -- | shift for the body states of 1 to make room for the new initial state
+        rewired = setDoneToStep (Left Eps) 0 bT' -- | rewire body to loop back to the start (0 is the new initial state and bT' is the shifted body)
+        -- | now, from the new head, transition to the body if the guard holds, and transition to done if the guard doesn't hold
+        headT = gtsFromList 
+            [(0, [ (t, Step (Left Eps) (bI + 1)) 
+                 , (notB t, Done)
+                 ])]
+        loopsEpsFA = GEFA 0 (headT <> rewired)
+        in loopsEpsFA
+
 instance (Show t, DecidableBoolean t) => Pointed (GuardedEpsFA t) where
     point x = GEFA 0 (gtsFromList 
         [ (0, [(true, Step (Right x) 1)])

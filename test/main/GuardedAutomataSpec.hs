@@ -76,6 +76,13 @@ bePre = GEFA 0
         , (1, [(true, Done)])
         ])
 
+bePreDoneNotB :: GuardedEpsFA Test5 TestAction
+bePreDoneNotB = GEFA 0
+    (gtsFromList
+        [ (0,[(test5B, Step (Right "b") 1), (notB test5B, Done)])
+        , (1, [(true, Done)])
+        ])
+
 aePostBePre :: GuardedEpsFA Test5 TestAction
 aePostBePre = GEFA 0 
     (gtsFromList 
@@ -107,6 +114,36 @@ aPostBPre = GFA 0
         , (2, [(true, Done)])
         ])
 
+whileBePreA :: GuardedEpsFA Test5 TestAction
+whileBePreA = GEFA 0
+    (gtsFromList
+        [ (0, [ (test5A, Step (Left Eps) 1)
+                , (notB test5A, Done)
+                ])
+        , (1, [(test5B, Step (Right "b") 2)])
+        , (2, [(true, Step (Left Eps) 0)])
+        ])
+
+whileFalseBePre :: GuardedEpsFA Test5 TestAction
+whileFalseBePre = GEFA 0
+    (gtsFromList
+        [ (0, [ (false, Step (Left Eps) 1)
+                , (true, Done)
+                ])
+        , (1, [(test5B, Step (Right "b") 2)])
+        , (2, [(true, Step (Left Eps) 0)])
+        ])
+
+whileBePreDoneNotBA :: GuardedEpsFA Test5 TestAction
+whileBePreDoneNotBA = GEFA 0
+    (gtsFromList
+        [ (0, [ (test5A, Step (Left Eps) 1)
+                , (notB test5A, Done)
+                ])
+        , (1, [(test5B, Step (Right "b") 2), (notB test5B, Step (Left Eps) 0)])
+        , (2, [(true, Step (Left Eps) 0)])
+        ])
+
 spec :: Spec
 spec = do
     describe "Guarded Transitions" $ do
@@ -121,6 +158,12 @@ spec = do
             (point "a" <> point "b") `shouldBe` ab
         it "Correctly combines with <> with tests" $
             (aePost <> bePre) `shouldBe` aePostBePre
+        it "Correctly computes `while` with a variable guard" $ do
+            while test5A bePre `shouldBe` whileBePreA
+        it "Correctly computes `while` with a false guard" $ do
+            while false bePre `shouldBe` whileFalseBePre
+        it "Correctly computes `while` with a body that can exit early" $ do
+            while test5A bePreDoneNotB `shouldBe` whileBePreDoneNotBA
     describe "GuardedFA"$ do 
         it "Correctly combines with <> with tests" $
             (aPost <> bPre) `shouldBe` aPostBPre

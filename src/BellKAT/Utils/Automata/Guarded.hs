@@ -56,6 +56,7 @@ instance (Show t, DecidableBoolean t) => Pointed (GuardedFA t) where
 
 instance (Show t, DecidableBoolean t) => Guarded t (GuardedFA t a) where
     ite t x y = gefaToGfa $ ite t (gfaToGefa x) (gfaToGefa y)
+    while t x = gefaToGfa $ while t (gfaToGefa x)
 
 computeGuardedClosures
     :: (Show t, DecidableBoolean t)

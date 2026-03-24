@@ -1,5 +1,5 @@
 module BellKAT.Implementations.GuardedAutomataStepQuantum 
-    ( GuardedAutomatonStepQuantum (getGFA)
+    ( GuardedAutomatonStepQuantum (..)
     , execute
     , executeWith
     , executeSystem
@@ -29,6 +29,7 @@ newtype GuardedAutomatonStepQuantum t a = GASQ
 
 instance (Show a, Show t, DecidableBoolean t) => Guarded t (GuardedAutomatonStepQuantum t a) where
     ite t (GASQ a) (GASQ b) = GASQ $ ite t a b
+    while t (GASQ a) = GASQ $ while t a
 
 instance (Show t, DecidableBoolean t, CreatesBellPairs (sq tag) op tag)
   => CreatesBellPairs (GuardedAutomatonStepQuantum t (sq tag)) op tag where

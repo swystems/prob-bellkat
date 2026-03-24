@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module BellKAT.Bundles.Core where
 
+import Control.Monad.Identity (runIdentity)
 import Control.Monad.Logger
 import Data.Text (Text)
 
@@ -32,3 +33,6 @@ executePipeline (PStage (Stage { stageName = name, stageConfig = c, stageFunctio
 
 runLoggedPipeline :: Pipeline a b -> a -> IO b
 runLoggedPipeline p input = runStderrLoggingT $ executePipeline p input
+
+runNonLoggedPipeline :: Pipeline a b -> a -> b
+runNonLoggedPipeline p input = runIdentity . runNoLoggingT $ executePipeline p input

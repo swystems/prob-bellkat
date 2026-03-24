@@ -21,8 +21,6 @@ import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
 
 import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
-import Control.Monad.Logger (runNoLoggingT)
-import Control.Monad.Identity
 
 probabilisticOpAutomatonStage
     :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
@@ -176,5 +174,5 @@ applyProbStarPolicyOp'
     -> OutputBellPairs output 
     -> CD p (OutputBellPairs output)
 applyProbStarPolicyOp' proxy pac ep policy initialState = 
-    runIdentity . runNoLoggingT $ executePipeline (probStarPolicyOpPipeline' proxy pac ep initialState) policy
+    runNonLoggedPipeline (probStarPolicyOpPipeline' proxy pac ep initialState) policy
 

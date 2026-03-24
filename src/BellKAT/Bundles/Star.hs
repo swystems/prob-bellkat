@@ -6,8 +6,6 @@ module BellKAT.Bundles.Star
     , applyStarPolicy'
     ) where
 
-import           Control.Monad.Identity
-import           Control.Monad.Logger
 import           Data.Set                                (Set)
 import           Data.Default
 
@@ -69,14 +67,14 @@ applyStarPolicy
     :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy policy initialState =
-    runIdentity . runNoLoggingT $ executePipeline (starPolicyPipeline initialState) policy
+    runNonLoggedPipeline (starPolicyPipeline initialState) policy
 
 applyStarPolicy'
     :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => ProbabilisticActionConfiguration
     -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy' pac policy initialState =
-    runIdentity . runNoLoggingT $ executePipeline (starPolicyPipeline' pac initialState) policy
+    runNonLoggedPipeline (starPolicyPipeline' pac initialState) policy
 
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity

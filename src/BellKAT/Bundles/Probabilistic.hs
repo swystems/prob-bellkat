@@ -19,8 +19,6 @@ import           BellKAT.Bundles.Desugaring
 import           BellKAT.Implementations.Configuration
 import qualified BellKAT.Implementations.GuardedAutomataStepQuantum    as GASQ
 import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
-import Control.Monad.Identity
-import Control.Monad.Logger
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy 
 -- `OrderedGuardedPolicy` using probabilistic interpretation configured via 
@@ -154,7 +152,7 @@ applyProbStarPolicy'
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> CD p (TaggedBellPairs tag)
 applyProbStarPolicy' pac ep policy initialState = 
-    runIdentity . runNoLoggingT $ executePipeline (probStarPolicyPipeline' pac ep initialState) policy
+    runNonLoggedPipeline (probStarPolicyPipeline' pac ep initialState) policy
 
 applyProbStarPolicySystem
     :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
@@ -163,4 +161,4 @@ applyProbStarPolicySystem
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
     -> TaggedBellPairs tag -> GASQ.StateSystem CD' (TaggedBellPairs tag)
 applyProbStarPolicySystem pac ep policy initialState= 
-    runIdentity . runNoLoggingT $ executePipeline (probStarPolicySystemPipeline' pac ep initialState) policy
+    runNonLoggedPipeline (probStarPolicySystemPipeline' pac ep initialState) policy

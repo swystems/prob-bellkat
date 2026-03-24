@@ -149,7 +149,7 @@ probStarPolicyOpSystemPipeline'
     :: forall p. RationalOrDouble p
     => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
     => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output), Ord (CTag output))
-    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
+    => forall test. (Test test, DecidableBoolean (test (STag output)), Show (test (STag output)))
     => Proxy output 
     -> ProbabilisticActionConfiguration 
     -> ExecutionParams (STag output) (RTag output) (CTag output)
@@ -162,7 +162,7 @@ probStarPolicyOpSystemPipeline
     :: forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
     => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output)) 
     => Semigroup (CTag output)
-    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
+    => forall test. (Test test, DecidableBoolean (test (STag output)), Show (test (STag output)))
     => Proxy output -> ProbabilisticActionConfiguration 
     -> ExecutionParams (STag output) (RTag output) (CTag output)
     -> OutputBellPairs output
@@ -174,7 +174,7 @@ applyProbStarPolicyOp'
     :: forall p. RationalOrDouble p
     => forall output. (OpOutput output (Op (RTag output)), OutputM output ~ CD', Monoid output, Show output)
     => (DDom (STag output), Default (STag output), Default (RTag output), DDom (RTag output), Semigroup (CTag output))
-    => forall test. (DecidableBoolean (test (STag output)), Test test, Show (test (STag output)))
+    => forall test. (Test test, DecidableBoolean (test (STag output)), Show (test (STag output)))
     => Proxy output
     -> ProbabilisticActionConfiguration
     -> ExecutionParams (STag output) (RTag output) (CTag output)

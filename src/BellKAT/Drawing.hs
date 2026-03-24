@@ -35,48 +35,48 @@ treeToDiagram t =
 
 frameDiagram d = let d' = d # frame 0.5 in d' <> boundingRect d'
 
-historyToDiagram :: (Ord t, Show t, Default t) => History t -> Diagram B
+historyToDiagram :: (Tag t, Default t) => History t -> Diagram B
 historyToDiagram (History []) = rect 4 0
 historyToDiagram (History ts) = hsep 0.5 . map treeToDiagram  . toForest $ ts
 
-historiesToDiagram :: (Ord t, Show t, Default t) => [History t] -> Diagram B
+historiesToDiagram :: (Tag t, Default t) => [History t] -> Diagram B
 historiesToDiagram = vsep 1 . fmap (alignL . frameDiagram . historyToDiagram)
 
-drawPolicy :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
+drawPolicy :: (Tag t, Default t) => Simple Policy t -> Diagram B
 drawPolicy p = historiesToDiagram . Set.elems . applyPolicy p $ []
 
-drawPolicyTimely :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
+drawPolicyTimely :: (Tag t, Default t) => Simple Policy t -> Diagram B
 drawPolicyTimely p = historiesToDiagram . Set.elems . applyPolicyTimely p $ []
 
-drawPolicySteps :: (Default t, Ord t, Show t) => Simple Policy t -> Diagram B
+drawPolicySteps :: (Tag t, Default t) => Simple Policy t -> Diagram B
 drawPolicySteps p = historiesToDiagram . Set.elems . applyPolicySteps p $ []
 
 drawOrderedPolicySteps 
-    :: (Ord t, Show t, Default t) => SeqWithTests Policy BellPairsPredicate t -> Diagram B
+    :: (Tag t, Default t) => SeqWithTests Policy BellPairsPredicate t -> Diagram B
 drawOrderedPolicySteps p = historiesToDiagram . Set.elems . applyOrderedPolicy p $ []
 
 drawFullOrderedPolicySteps 
-    :: (Ord t, Show t, Default t) 
+    :: (Tag t, Default t) 
     => SeqWithTests FullPolicy BellPairsPredicate t -> Diagram B
 drawFullOrderedPolicySteps p = historiesToDiagram . Set.elems . applyFullOrderedPolicy p $ []
 
 drawStarPolicySteps 
-    :: (Ord t, Show t, Default t) 
+    :: (Tag t, Default t) 
     => WithTests OrderedStarPolicy FreeTest t -> Diagram B
 drawStarPolicySteps p = historiesToDiagram . Set.elems . applyStarPolicyH p $ []
 
 drawStarPolicyStepsText
-    :: (Ord t, Show t, Default t) 
+    :: (Tag t, Default t) 
     => WithTests OrderedStarPolicy FreeTest t -> String
 drawStarPolicyStepsText p = drawHistoriesText . applyStarPolicyH p $ []
 
 drawStarOrderedPolicySteps 
-    :: (Ord t, Show t, Default t) 
+    :: (Tag t, Default t) 
     => WithTests OrderedStarPolicy BellPairsPredicate t -> Diagram B
 drawStarOrderedPolicySteps p = historiesToDiagram . Set.elems . applyStarOrderedPolicy p $ []
 
 drawStarOrderedPolicyStepsBounded 
-    :: (Ord t, Show t, Default t)
+    :: (Tag t, Default t)
     => WithTests OrderedStarPolicy BellPairsPredicate t -> Diagram B
 drawStarOrderedPolicyStepsBounded p = historiesToDiagram . Set.elems . applyStarOrderedPolicyBounded p $ []
 

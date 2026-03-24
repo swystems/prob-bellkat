@@ -103,7 +103,7 @@ instance (Monoid output, Ord tag) => ParallelSemigroup (ProbabilisticAtomicActio
             (inBps1 <> inBps2)
             (out1 <> out2)
 
-instance (Show output, Show tag, Default tag, Eq tag, Ord tag) => Show (ProbabilisticAtomicAction output tag) where
+instance (Show output, Tag tag, Default tag) => Show (ProbabilisticAtomicAction output tag) where
     showsPrec _ (ProbabilisticAtomicAction t inBPs out) =
             showString "["
             . shows t

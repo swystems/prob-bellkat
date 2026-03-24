@@ -21,7 +21,7 @@ import qualified BellKAT.Implementations.AtomicOneStepQuantum  as AOSQ
 
 -- | A stage that executes a policy automaton on a set of Bell pairs.
 automatonStage
-    :: (Ord tag, Show tag, Default tag)
+    :: (Tag tag, Default tag)
     => TaggedBellPairs tag
     -> Stage
         (TaggedBellPairs tag)
@@ -37,7 +37,7 @@ automatonStage initialState = Stage
 
 -- | A stage that builds an automaton from an ordered star policy.
 policyToAutomatonStage
-    :: (Ord tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => Stage ()
         (OrderedStarPolicy (Atomic CreateBellPairArgs' test tag))
         (ASQ.AutomatonStepQuantum 'ASQ.ACNormal (AOSQ.AtomicOneStepPolicy tag))
@@ -48,14 +48,14 @@ policyToAutomatonStage = Stage
     }
 
 starPolicyPipeline
-    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => TaggedBellPairs tag
     -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
 starPolicyPipeline initialState =
     stage desugarStage >>> stage policyToAutomatonStage >>> stage (automatonStage initialState)
 
 starPolicyPipeline'
-    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => ProbabilisticActionConfiguration
     -> TaggedBellPairs tag
     -> Pipeline (WithTests OrderedStarPolicy test tag) (Set (TaggedBellPairs tag))
@@ -64,13 +64,13 @@ starPolicyPipeline' pac initialState =
 
 -- | Main semantic function (e.g., used in the artifact)
 applyStarPolicy
-    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Default tag, Show (test tag), Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy policy initialState =
     runNonLoggedPipeline (starPolicyPipeline initialState) policy
 
 applyStarPolicy'
-    :: (Ord tag, Show tag, Show (test tag), Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Default tag, Show (test tag), Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => ProbabilisticActionConfiguration
     -> WithTests OrderedStarPolicy test tag -> TaggedBellPairs tag -> Set (TaggedBellPairs tag)
 applyStarPolicy' pac policy initialState =
@@ -78,7 +78,7 @@ applyStarPolicy' pac policy initialState =
 
 -- | Similar to `applyStarPolicy` but returns `Nothing` if an invalid state is ever reached
 applyStarPolicyWithValidity
-    :: (Ord tag, Show tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
+    :: (Tag tag, Default tag, Tests (AOSQ.AtomicOneStepPolicy tag) test tag)
     => (TaggedBellPairs tag -> Bool)
     -> WithTests OrderedStarPolicy test tag
     -> TaggedBellPairs tag

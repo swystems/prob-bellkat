@@ -13,7 +13,7 @@ import           BellKAT.Drawing
 
 
 
-type Tag = Int
+type TestTag = Int
 
 testEquality 
     :: (Show t, Eq t, Default t)
@@ -30,7 +30,7 @@ testEquality apply p q h =
      in counterexample counterexampleText (hsP == hsQ)
 
 
-(~=~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
+(~=~) :: Simple Policy TestTag -> Simple Policy TestTag -> History TestTag -> Property
 (~=~) = testEquality applyPolicy
 
 isAssociative :: (a -> a -> p) -> (a -> a -> a) -> a -> a -> a -> p
@@ -47,7 +47,7 @@ parallelCompositionIsAssociative = isAssociative (~=~) (<||>)
 parallelCompositionIsCommutative = isCommutative (~=~) (<||>)
 sequentialCompositionDistributes = distributesOver (~=~) (<>) (<||>)
 
-(~~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
+(~~) :: Simple Policy TestTag -> Simple Policy TestTag -> History TestTag -> Property
 (~~) = testEquality applyPolicyTimely
 
 timelySequentialCompositionIsAssociative = isAssociative (~~) (<>)
@@ -55,10 +55,10 @@ timelyParallelCompositionIsAssociative = isAssociative (~~) (<||>)
 timelyParallelCompositionIsCommutative = isCommutative (~~) (<||>)
 timelySequentialCompositionDistributes = distributesOver (~~) (<>) (<||>)
 
-(~~~) :: Simple Policy Tag -> Simple Policy Tag -> History Tag -> Property
+(~~~) :: Simple Policy TestTag -> Simple Policy TestTag -> History TestTag -> Property
 (~~~) = testEquality applyPolicySteps
 
-(~*~) :: Simple OneRoundPolicy Tag -> Simple OneRoundPolicy Tag -> History Tag -> Property
+(~*~) :: Simple OneRoundPolicy TestTag -> Simple OneRoundPolicy TestTag -> History TestTag -> Property
 (~*~) = testEquality applyOneStepPolicy
 
 stepsSequentialCompositionIsAssociative = isAssociative (~~~) (<>)

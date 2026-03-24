@@ -28,16 +28,16 @@ import BellKAT.Implementations.QuantumOps (Werner, TimeUnit, SpaceUnit)
 
 -- | Represents structures within which one can desugar `TaggedAction` into "basic actions", i.e., `CreateBellPairArgs`
 class CanDesugarActions op a where
-    type Tag a :: Type
+    type ActionTag a :: Type
     type Desugared op a :: Type
-    desugarActions :: (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> a -> Desugared op a
+    desugarActions :: (TaggedAction (ActionTag a) -> CreateBellPairArgs op (ActionTag a)) -> a -> Desugared op a
 
 type CanDesugarActions' = CanDesugarActions Probability
 type Desugared' a = Desugared Probability a
 
 mapDesugarActions 
     :: forall op f a. (Functor f, CanDesugarActions op a)
-    => (TaggedAction (Tag a) -> CreateBellPairArgs op (Tag a)) -> f a -> f (Desugared op a)
+    => (TaggedAction (ActionTag a) -> CreateBellPairArgs op (ActionTag a)) -> f a -> f (Desugared op a)
 mapDesugarActions = fmap . desugarActions
 
 -- | gives meaning to actions in a simplistic (*BellKAT*) manner, i.e., only `Distill` and
@@ -216,17 +216,17 @@ distanceTriplet pac (l, l1, l2) = (distancePair pac (l, l1), distancePair pac (l
 
     
 instance CanDesugarActions op (TaggedAction tag) where
-    type Tag (TaggedAction tag) = tag
+    type ActionTag (TaggedAction tag) = tag
     type Desugared op (TaggedAction tag) = CreateBellPairArgs op tag
     desugarActions = id
 
 instance CanDesugarActions op a => CanDesugarActions op (NonEmpty a) where
-    type Tag (NonEmpty a) = Tag a
+    type ActionTag (NonEmpty a) = ActionTag a
     type Desugared op (NonEmpty a) = NonEmpty (Desugared op a)
     desugarActions = fmap . desugarActions
 
 instance CanDesugarActions op (Atomic TaggedAction test tag) where 
-    type Tag (Atomic TaggedAction test tag) = tag
+    type ActionTag (Atomic TaggedAction test tag) = tag
     type Desugared op (Atomic TaggedAction test tag) = (Atomic (CreateBellPairArgs op) test tag)
     desugarActions f (AAction x) = AAction (f x)
     desugarActions _ (ATest t) = ATest t

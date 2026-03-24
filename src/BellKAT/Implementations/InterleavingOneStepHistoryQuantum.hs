@@ -91,10 +91,10 @@ instance CreatesBellPairs a op t =>  CreatesBellPairs (InterleavingOneStepPolicy
 instance (Ord t, CreatesBellPairs (FunctionStep test t) op t) 
   => Quantum (InterleavingOneStepPolicy (FunctionStep test t)) op t
 
-instance (Ord tag, Show tag, Tests a test tag) => Tests (InterleavingOneStepPolicy a) test tag where
+instance (Tag tag, Tests a test tag) => Tests (InterleavingOneStepPolicy a) test tag where
   test = Atomic . test
 
-instance (Ord tag, Show tag, Test test, CreatesBellPairs (FunctionStep test tag) op tag) 
+instance (Tag tag, Test test, CreatesBellPairs (FunctionStep test tag) op tag) 
   => TestsQuantum (InterleavingOneStepPolicy (FunctionStep test tag)) test op tag where
 
 instance {-# OVERLAPPING #-} (Show1 f, Show a) => Show (Compose InterleavingOneStepPolicy f a) where
@@ -116,10 +116,10 @@ instance (Ord t, CreatesBellPairs (a t) op t)
 instance (Ord t, CreatesBellPairs (a t) op t) 
         => Quantum (Compose InterleavingOneStepPolicy a t) op t where
 
-instance (Show t, Ord t, Tests (a t) test t) => Tests (Compose InterleavingOneStepPolicy a t) test t where
+instance (Tag t, Tests (a t) test t) => Tests (Compose InterleavingOneStepPolicy a t) test t where
   test = Compose . test
 
-instance (Show t, Ord t, Tests (a t) test t, CreatesBellPairs (a t) op t)
+instance (Tag t, Tests (a t) test t, CreatesBellPairs (a t) op t)
         => TestsQuantum (Compose InterleavingOneStepPolicy a t) test op t where
 
 executeOneStepPolicy :: (Ord tag) => InterleavingOneStepPolicy (FunctionStep test tag) -> FunctionStep test tag

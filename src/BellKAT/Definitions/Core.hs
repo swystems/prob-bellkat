@@ -2,11 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData      #-}
 {-# LANGUAGE DeriveFunctor   #-}
+{-# LANGUAGE ConstraintKinds #-}
 module BellKAT.Definitions.Core (
     -- * Basic definitions
     Location(..),
     BellPair,
     LikeBellPair(..),
+    Tag,
     BellPairs,
     Probability,
     Op(..),
@@ -76,6 +78,8 @@ hasLocation :: Location -> BellPair -> Bool
 hasLocation l (BP (l1, l2)) = l == l1 || l == l2
 
 type BellPairs = Multiset BellPair
+
+type Tag t = (Show t, Ord t, Eq t)
 
 -- | `BellPair` with an optional tag
 data TaggedBellPair t = TaggedBellPair

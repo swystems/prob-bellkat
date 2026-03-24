@@ -50,7 +50,7 @@ instance Default (ExecutionParams tag rTag cTag) where
 
 -- | For each BellPair, keep at most the number allowed
 fixNetworkCapacity
-    :: (RuntimeTag rTag tag, Ord rTag, Ord tag)
+    :: (RuntimeTag rTag tag)
     => NetworkCapacity tag -> LabelledBellPairs cTag rTag -> LabelledBellPairs cTag rTag
 fixNetworkCapacity (NC cap) (Mset.LMS (ms, t)) =
   let capCounts = countByBellPair (toList cap)
@@ -64,12 +64,12 @@ fixNetworkCapacity (NC cap) (Mset.LMS (ms, t)) =
   in Mset.LMS (Mset.fromList clipped, t)
 
 -- | Count BellPairs in a TaggedBellPairs, disregarding tag
-countByBellPair :: Ord tag => [TaggedBellPair tag] -> Map.Map (TaggedBellPair tag) Int
+countByBellPair :: Tag tag => [TaggedBellPair tag] -> Map.Map (TaggedBellPair tag) Int
 countByBellPair xs = Map.fromListWith (+) [ (staticBellPair tbp, 1) | tbp <- xs ]
 
 -- | Apply filter and network capacity sequentially
 applyExecutionParams
-    :: (RuntimeTag rTag tag, Ord rTag, Ord tag)
+    :: (RuntimeTag rTag tag)
     => ExecutionParams tag rTag cTag
     -> LabelledBellPairs cTag rTag
     -> LabelledBellPairs cTag rTag

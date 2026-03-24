@@ -33,31 +33,31 @@ destroy loc = defaultTagged $ Destroy loc
 class DSLTestNeq t tag | t -> tag where
     hasNotSubset :: TaggedBellPairs tag -> t
 
-(/~?) :: (Default tag, Ord tag, DSLTestNeq t tag) => Location -> Location -> t
+(/~?) :: (Default tag, Tag tag, DSLTestNeq t tag) => Location -> Location -> t
 l /~? l' = hasNotSubset [l ~ l']
 
 class DSLTestNeq t tag => DSLTest t tag where
     hasSubset :: TaggedBellPairs tag -> t
 
-(~~?) :: (Ord tag, Default tag, DSLTest t tag) => Location -> Location -> t
+(~~?) :: (Tag tag, Default tag, DSLTest t tag) => Location -> Location -> t
 l ~~? l' = hasSubset [l ~ l']
 
-instance Ord t => DSLTestNeq (BellPairsPredicate t) t where
+instance Tag t => DSLTestNeq (BellPairsPredicate t) t where
     hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf'`))
 
-instance Ord t => DSLTest (BellPairsPredicate t) t where
+instance Tag t => DSLTest (BellPairsPredicate t) t where
     hasSubset x = BPsPredicate (x `Mset.isSubsetOf'`)
 
-instance Ord t => DSLTestNeq (FreeTest t) t where
+instance Tag t => DSLTestNeq (FreeTest t) t where
     hasNotSubset x = FTNot $ FTSubset x
 
-instance Ord t => DSLTest (BoundedTest t) t where
+instance Tag t => DSLTest (BoundedTest t) t where
     hasSubset = boundedTestContains
 
-instance Ord t => DSLTestNeq (BoundedTest t) t where
+instance Tag t => DSLTestNeq (BoundedTest t) t where
     hasNotSubset = boundedTestNotContains
 
-instance Ord t => DSLTest (FreeTest t) t where
+instance Tag t => DSLTest (FreeTest t) t where
     hasSubset = FTSubset
 
 class DSLFunctions p where

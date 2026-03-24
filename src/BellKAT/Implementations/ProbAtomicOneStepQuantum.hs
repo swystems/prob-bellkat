@@ -35,7 +35,7 @@ newtype ProbAtomicOneStepPolicy output tag = ProbAtomicOneStepPolicy (Set (Proba
 
 type ProbAtomicOneStepPolicy' tag = ProbAtomicOneStepPolicy (D' (TaggedBellPairs tag)) tag
 
-instance (Show output, Show tag, Ord tag, Default tag) => Show (ProbAtomicOneStepPolicy output tag) where
+instance (Show output, Tag tag, Default tag) => Show (ProbAtomicOneStepPolicy output tag) where
     show (ProbAtomicOneStepPolicy xs) = "{" <> intercalate "," (show <$> Set.toList xs) <> "}"
 
 instance (Ord output, Ord tag) => GHC.Exts.IsList (ProbAtomicOneStepPolicy output tag) where
@@ -70,7 +70,7 @@ instance (OpOutput output op, Monoid output, Ord output, STag output ~ tag, Ord 
 execute
     :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
-    => (DDom (RTag output), Default (RTag output))
+    => (Tag (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
     -> OutputM output (OutputBellPairs output)
@@ -89,7 +89,7 @@ execute' p bps = D.mapProbability fromRational $ execute p bps
 executeWith
     :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
-    => (DDom (RTag output), Default (RTag output))
+    => (Tag (RTag output), Default (RTag output))
     => ExecutionParams (STag output) (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
@@ -109,7 +109,7 @@ executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
 executePAA :: (Output output, RuntimeTag (RTag output) tag) 
            => Ord tag
-           => (DDom (RTag output), Default (RTag output))
+           => (Tag (RTag output), Default (RTag output))
            => Semigroup (CTag output)
            => (OutputBellPairs output -> OutputBellPairs output)
            -- ^ "fixing" function to apply at the end

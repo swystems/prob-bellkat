@@ -128,16 +128,16 @@ rangeNotGreater k = (0, Just (k + 1))
 -- number of specific `TaggedBellPair`s using `Range`
 newtype BoundedTest tag = BoundedTest [Bounds tag] deriving newtype (Eq)
 
-instance (Show tag, Ord tag, Default tag, Eq tag) => Show (BoundedTest tag) where
+instance (Tag tag, Default tag) => Show (BoundedTest tag) where
     show (BoundedTest xs)
       | BoundedTest xs == true = "⊤"
       | BoundedTest xs == false = "⊥"
       | otherwise = intercalate "∨" $ map showBounds xs
 
-showBounds ::(Show tag, Default tag, Eq tag) => Bounds tag -> String
+showBounds ::(Tag tag, Default tag) => Bounds tag -> String
 showBounds = intercalate "∧" . map showBound . Map.toList
 
-showBound :: (Show tag, Default tag, Eq tag) => (TaggedBellPair tag, Range) -> String
+showBound :: (Tag tag, Default tag) => (TaggedBellPair tag, Range) -> String
 showBound (bp, (lb, ub)) =
     let lbs = case lb of
                 0 -> Nothing

@@ -47,38 +47,38 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "Probabilist Paper Tests" ProbPaperSpec.spec
     describe "Distill" $ do
         it "should drop sometimes" $
-            applyPolicy @Tag (distill ("A", "B")) [node ("A" ~ "B"), node ("A" ~ "B")]
+            applyPolicy @TestTag (distill ("A", "B")) [node ("A" ~ "B"), node ("A" ~ "B")]
                 `historiesShouldSatisfy` any (null . getForest)
     describe "transmit" $ do
         it "should transmit" $
-            applyPolicy @Tag (trans "A" ("A", "R[AB]")) [node ("A" ~ "A")]
+            applyPolicy @TestTag (trans "A" ("A", "R[AB]")) [node ("A" ~ "A")]
                 `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "R[AB]")) . getForest)
         it "should transmit two" $
-            applyPolicy @Tag
+            applyPolicy @TestTag
                     (trans "A" ("A", "R[AB]") <||> trans "B" ("B", "R[AB]"))
                     [node ("A" ~ "A"), node ("B" ~ "B")]
                 `historiesShouldSatisfy` any (any (hasBellPair ("A" ~ "R[AB]")) . getForest)
         it "should transmit both" $
-            applyPolicy @Tag
+            applyPolicy @TestTag
                     (trans "A" ("A", "B") <||> trans "A" ("A", "B"))
                     [node ("A" ~ "A"), node ("A" ~ "A")]
                 `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "B")) . getForest)
         it "should transmit one out of two" $
-            applyPolicy @Tag
+            applyPolicy @TestTag
                    (trans "A" ("A", "R[AB]"))
                     [node ("A" ~ "A"), node ("A" ~ "A")]
                 `historiesShouldSatisfy` all ((== 2) . length . getForest)
         it "should transmit two out of three" $
-            applyPolicy @Tag
+            applyPolicy @TestTag
                    (trans "A" ("A", "R[AB]") <||> trans "A" ("A", "R[AB]"))
                    (fromList . replicate 3 $ node ("A" ~ "A"))
                 `historiesShouldSatisfy` all ((== 3) . length . getForest)
         it "should not transmit if wrong tag" $
-            applyPolicy @Tag (1 ?~ trans "A" ("A", "B"))
+            applyPolicy @TestTag (1 ?~ trans "A" ("A", "B"))
                     [node ("A" ~ "A") .~ 2]
                 `historiesShouldSatisfy` all (all (hasBellPair ("A" ~ "A")) . getForest)
         it "should not transmit if wrong tag but should if the right" $
-            applyPolicy @Tag
+            applyPolicy @TestTag
                 (1 ?~ trans "A" ("A", "B") <||> 1 ?~ trans "A" ("A", "B"))
                 [node ("A" ~ "A") .~ 2, node ("A" ~ "A") .~ 1]
                 `historiesShouldSatisfy` all (any (hasBellPair ("A" ~ "A")) . getForest)
@@ -120,8 +120,8 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
         prop "should be \"commutative\"" $
             let swapTuples = Set.map (\(xs, x3) -> (FV.reverse xs, x3))
              in \x y h ->
-                 chooseKHistories @Tag (mk2 x y) h
-                    === swapTuples  (chooseKHistories @Tag (mk2 y x) h)
+                 chooseKHistories @TestTag (mk2 x y) h
+                    === swapTuples  (chooseKHistories @TestTag (mk2 y x) h)
     describe "findTreeRootsND" $ do
         prop "should return partial" $
             \ps (h :: UForest BellPair) -> all (isPartial h) (findTreeRootsND ps h)

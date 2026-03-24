@@ -14,7 +14,6 @@ module BellKAT.Implementations.Output (
 
 import Data.Kind
 import Data.Default
-import Data.Data
 import Control.Subcategory.Pointed
 import Control.Subcategory.Functor
 import Control.Subcategory.Bind
@@ -27,10 +26,10 @@ import BellKAT.Utils.Choice
 import BellKAT.Utils.Convex
 
 -- | RuntimeTag has at least enough information to recover the static tag
-class RuntimeTag rTag tag where
+class (Tag rTag, Tag tag) => RuntimeTag rTag tag where
     staticTag :: rTag -> tag
 
-instance RuntimeTag tag tag where
+instance Tag tag => RuntimeTag tag tag where
     staticTag = id
 
 -- | Remove runtime tags from a TaggedBellPair, yielding the underlying BellPair
@@ -38,7 +37,7 @@ staticBellPair :: (RuntimeTag rTag tag) => TaggedBellPair rTag -> TaggedBellPair
 staticBellPair = fmap staticTag
 
 -- | Remove runtime tags and MS label from a multiset of tagged Bell pairs
-staticBellPairs :: (RuntimeTag rTag tag, Ord rTag, Ord tag) => LabelledBellPairs cTag rTag -> TaggedBellPairs tag
+staticBellPairs :: RuntimeTag rTag tag => LabelledBellPairs cTag rTag -> TaggedBellPairs tag
 staticBellPairs = Mset.map' staticBellPair
 
 -- ^ Constraints on the monoid structure of `OutputM`
@@ -50,7 +49,8 @@ type OutputBellPairs output = LabelledBellPairs (CTag output) (RTag output)
 -- ^ Shorthand for checking well-formedness of `OutputM` associated type  of `Output`
 type WellFormedOutputM output = OutputDom (OutputM output) (OutputBellPairs output)
 
-class (WellFormedOutputM output, Ord output, RuntimeTag (RTag output) (STag output)) => Output output  where
+class (WellFormedOutputM output, Show output, Ord output, 
+        RuntimeTag (RTag output) (STag output), Tag (CTag output)) => Output output  where
     type STag output :: Type
     type RTag output :: Type
     type CTag output :: Type
@@ -77,8 +77,7 @@ instance IsList (ListOutput output) where
     fromList = ListOutput
 
 -- TODO: fix undecideable instance caused by Ord (RTag) 
-instance (Ord (STag output), DDom (RTag output), Default (RTag output), Output output,
-          Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output))
+instance (Output output, Tag (STag output), Default (STag output), Tag (RTag output), Tag (CTag output), Semigroup (CTag output))
         => Output (ListOutput output) where
     type STag (ListOutput output) = (STag output)
     type RTag (ListOutput output) = (RTag output)
@@ -94,13 +93,12 @@ instance (Ord (STag output), DDom (RTag output), Default (RTag output), Output o
                 , let tl = computeOutputHelper ios (rest partial)
                 ]    
 
-instance (DDom (STag output), Monoid (CTag output), DDom (RTag output), Default (RTag output), OpOutput output op
-         , Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output)) 
+instance (OpOutput output op, Tag (STag output), Default (STag output), Monoid (CTag output), Tag (RTag output), Tag (CTag output))
          => OpOutput (ListOutput output) op where
         fromCBPOutput i@(Mset.LMS (ms, ())) o p =
             fromList [(Mset.LMS (ms, mempty), fromCBPOutput i o p)]
 
-instance (DDom tag, Default tag, Semigroup cTag, Show cTag, Ord cTag, Typeable cTag) 
+instance (DDom tag, Default tag, Semigroup cTag, DDom cTag) 
     => Output (D' (LabelledBellPairs cTag tag)) where
     type STag (D' (LabelledBellPairs cTag tag)) = tag
     type RTag (D' (LabelledBellPairs cTag tag)) = tag

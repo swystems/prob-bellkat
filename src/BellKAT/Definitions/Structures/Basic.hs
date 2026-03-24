@@ -38,6 +38,7 @@ class (ChoiceSemigroup a, Monoid a) => MonoidStar a where
 
 class Guarded t a | a -> t where
     ite :: t -> a -> a -> a
+    while :: t -> a -> a
 
 class Boolean a => DecidableBoolean a where
     isFalse :: a -> Bool

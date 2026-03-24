@@ -24,7 +24,6 @@ module BellKAT.Prelude (
     applyStarPolicy',
     -- * Re-exports from 'BellKAT.DSL'
     module BellKAT.DSL,
-    while,
     (~),
     -- * Re-exports from 'BellKAT.Definitions.Structures'
     module BellKAT.Definitions.Structures,

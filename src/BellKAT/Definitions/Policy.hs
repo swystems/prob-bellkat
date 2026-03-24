@@ -97,9 +97,6 @@ data OrderedGuardedPolicy t a
     | OGPOne
     deriving stock (Functor)
 
-while :: t -> OrderedGuardedPolicy t a -> OrderedGuardedPolicy t a
-while = OGPWhile
-
 instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
     showsPrec _ (OGPAtomic x) = shows x
     showsPrec _ OGPOne = showString "one"
@@ -173,6 +170,7 @@ instance OrderedSemigroup (OrderedGuardedPolicy t a) where
 
 instance Guarded t (OrderedGuardedPolicy t a) where
     ite = OGPIfThenElse
+    while = OGPWhile
 
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)

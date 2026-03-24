@@ -112,13 +112,7 @@ qcoParser = QCO
 
 
 qbkatMain' 
-    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p
-        , DecidableBoolean QBKATTest
-        , Show QBKATTest
-        , Show QBKATOutput
-        , Ord QBKATOutput
-        , OpOutput QBKATOutput (Op QBKATRuntimeTag)
-    )
+    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
     -> ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
@@ -158,13 +152,7 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
 qbkatMain 
-    :: ( DecidableBoolean QBKATTest
-       , Show QBKATTest
-       , Show QBKATOutput
-       , Ord QBKATOutput
-       , OpOutput QBKATOutput (Op QBKATRuntimeTag)
-       )
-    => ProbabilisticActionConfiguration 
+    :: ProbabilisticActionConfiguration 
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
@@ -174,13 +162,7 @@ qbkatMain = qbkatMain' (Proxy :: Proxy Probability)
 
 -- | speicialization of `qbkatMain'` to floating point probability `Double`
 qbkatMainD 
-    :: ( DecidableBoolean QBKATTest
-       , Show QBKATTest
-       , Show QBKATOutput
-       , Ord QBKATOutput
-       , OpOutput QBKATOutput (Op QBKATRuntimeTag)
-       )
-    => ProbabilisticActionConfiguration 
+    :: ProbabilisticActionConfiguration 
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy

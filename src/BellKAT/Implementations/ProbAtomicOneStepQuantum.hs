@@ -10,7 +10,6 @@ module BellKAT.Implementations.ProbAtomicOneStepQuantum
 import qualified GHC.Exts (IsList, Item)
 import GHC.Exts (fromList, toList)
 import Data.List (intercalate)
-import Data.Typeable (Typeable)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Default
@@ -70,7 +69,7 @@ instance (OpOutput output op tag, Monoid output, Ord output, Ord tag)
 -- `TaggedBellPairs`
 execute
     :: (Output output tag, Ord tag)
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+    => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
     -> OutputBellPairs output
@@ -80,7 +79,7 @@ execute (ProbAtomicOneStepPolicy xs) bps =
 
 execute'
     :: (Output output tag, OutputM output ~ CD', RationalOrDouble p, Ord tag)
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+    => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
     => ProbAtomicOneStepPolicy output tag 
     -> OutputBellPairs output 
@@ -89,7 +88,7 @@ execute' p bps = D.mapProbability fromRational $ execute p bps
 
 executeWith
     :: (Output output tag, Ord tag)
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+    => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
     => ExecutionParams tag (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output tag
@@ -100,7 +99,7 @@ executeWith ep (ProbAtomicOneStepPolicy xs) bps =
 
 executeWith'
     :: (Output output tag, OutputM output ~ CD', RuntimeTag (RTag output) tag, RationalOrDouble p, Ord tag)
-    => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+    => Semigroup (CTag output)
     => (DDom (RTag output), Default (RTag output))
     => ExecutionParams tag (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output tag
@@ -109,9 +108,9 @@ executeWith'
 executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
 executePAA :: (Output output tag, RuntimeTag (RTag output) tag) 
-           => (Ord tag)
+           => Ord tag
            => (DDom (RTag output), Default (RTag output))
-           => (Semigroup (CTag output), Show (CTag output), Ord (CTag output), Typeable (CTag output))
+           => Semigroup (CTag output)
            => (OutputBellPairs output -> OutputBellPairs output)
            -- ^ "fixing" function to apply at the end
            -> ProbabilisticAtomicAction output tag 

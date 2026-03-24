@@ -2,7 +2,6 @@
 module BellKAT.Bundles.Probabilistic where
 
 import           Data.Default
-import           Data.Typeable
 
 import           BellKAT.Definitions.Structures
 import           BellKAT.Definitions.Policy
@@ -25,7 +24,8 @@ import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum    as PAOSQ
 -- `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with 
 -- `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 probabilisticAutomatonStage
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (DecidableBoolean (test tag), Show (test tag))
     => Stage ()
         (OrderedGuardedPolicy (test tag) (CreateBellPairArgs' tag))
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
@@ -36,7 +36,8 @@ probabilisticAutomatonStage = Stage
     }
 
 guardedAutomatonStage
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag))
     => ExecutionParams tag tag ()
     -> TaggedBellPairs tag 
     -> Stage (ExecutionParams tag tag (), TaggedBellPairs tag)
@@ -51,7 +52,9 @@ guardedAutomatonStage ep initialState = Stage
     }
 
 guardedAutomatonStage'
-    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    :: forall p. RationalOrDouble p
+    => forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag))
     => ExecutionParams tag tag ()
     -> TaggedBellPairs tag
     -> Stage (ExecutionParams tag tag (), TaggedBellPairs tag)
@@ -66,7 +69,9 @@ guardedAutomatonStage' ep initialState = Stage
     }
 
 guardedToSystemStage'
-    :: forall p test tag. (RationalOrDouble p, Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall p. RationalOrDouble p
+    => forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag))
     => ExecutionParams tag tag ()
     -> TaggedBellPairs tag 
     -> Stage (ExecutionParams tag tag (), TaggedBellPairs tag)
@@ -81,7 +86,8 @@ guardedToSystemStage' ep initialState = Stage
     }
 
 guardedToSystemStage
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag))
     => ExecutionParams tag tag ()
     -> TaggedBellPairs tag 
     -> Stage (ExecutionParams tag tag (), TaggedBellPairs tag)
@@ -96,7 +102,8 @@ guardedToSystemStage ep initialState = Stage
     }
 
 guardedToStatesStage
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag))
     => ExecutionParams tag tag ()
     -> TaggedBellPairs tag
     -> Stage (ExecutionParams tag tag (), TaggedBellPairs tag)
@@ -112,7 +119,8 @@ guardedToStatesStage ep initialState = Stage
 
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 probStarPolicyAutomatonPipeline
-    :: (Default tag, DDom tag, Show (test tag), DecidableBoolean (test tag))
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration
     -> Pipeline (Simple (OrderedGuardedPolicy (test tag)) tag)
         (GASQ.GuardedAutomatonStepQuantum (test tag) (PAOSQ.ProbAtomicOneStepPolicy' tag))
@@ -120,7 +128,9 @@ probStarPolicyAutomatonPipeline pac
     = stage (probabilisticDesugarStage pac) >>> stage probabilisticAutomatonStage
 
 probStarPolicyPipeline'
-    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    :: forall p. RationalOrDouble p
+    => forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration
     -> ExecutionParams tag tag ()
     -> TaggedBellPairs tag 
@@ -129,7 +139,9 @@ probStarPolicyPipeline' pac ep initialState =
     probStarPolicyAutomatonPipeline pac >>> stage (guardedAutomatonStage' ep initialState)
 
 probStarPolicySystemPipeline'
-    :: forall p test tag. (Typeable tag, Ord tag, Show tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), Show p, RationalOrDouble p) 
+    :: forall p. RationalOrDouble p
+    => forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration
     -> ExecutionParams tag tag ()
     -> TaggedBellPairs tag 
@@ -138,7 +150,8 @@ probStarPolicySystemPipeline' pac ep initialState =
     probStarPolicyAutomatonPipeline pac >>> stage (guardedToSystemStage' ep initialState)
 
 applyProbStarPolicy 
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration 
     -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -146,7 +159,9 @@ applyProbStarPolicy
 applyProbStarPolicy = applyProbStarPolicy'
 
 applyProbStarPolicy' 
-    :: forall p test tag. (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag), RationalOrDouble p) 
+    :: forall p. RationalOrDouble p
+    => forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration 
     -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 
@@ -155,7 +170,8 @@ applyProbStarPolicy' pac ep policy initialState =
     runNonLoggedPipeline (probStarPolicyPipeline' pac ep initialState) policy
 
 applyProbStarPolicySystem
-    :: (Ord tag, Show tag, Typeable tag, Default tag, DecidableBoolean (test tag), Test test, Show (test tag)) 
+    :: forall tag. (DDom tag, Default tag)
+    => forall test. (Test test, DecidableBoolean (test tag), Show (test tag))
     => ProbabilisticActionConfiguration 
     -> ExecutionParams tag tag ()
     -> Simple (OrderedGuardedPolicy (test tag)) tag 

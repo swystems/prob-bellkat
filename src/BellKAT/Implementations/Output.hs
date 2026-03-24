@@ -48,7 +48,7 @@ type OutputBellPairs output = LabelledBellPairs (CTag output) (RTag output)
 -- ^ Shorthand for checking well-formedness of `OutputM` associated type  of `Output`
 type WellFormedOutputM output = OutputDom (OutputM output) (OutputBellPairs output)
 
-class (WellFormedOutputM output, RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
+class (WellFormedOutputM output, Ord output, RuntimeTag (RTag output) tag) => Output output tag | output -> tag where
     type RTag output :: Type
     type CTag output :: Type
     type OutputM output :: Type -> Type
@@ -69,7 +69,7 @@ instance IsList (ListOutput output cTag tag) where
     fromList = ListOutput
 
 -- TODO: fix undecideable instance caused by Ord (RTag) 
-instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag,
+instance (Ord tag, Ord cTag, DDom (RTag output), Default (RTag output), Output output tag,
           Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output))
         => Output (ListOutput output cTag tag) tag where
     type RTag (ListOutput output cTag tag) = (RTag output)
@@ -85,7 +85,7 @@ instance (Ord tag, DDom (RTag output), Default (RTag output), Output output tag,
                 , let tl = computeOutputHelper ios (rest partial)
                 ]    
 
-instance (Ord tag, DDom (RTag output), Default (RTag output), OpOutput output op tag
+instance (Ord tag, Ord cTag, DDom (RTag output), Default (RTag output), OpOutput output op tag
          , Monoid cTag
          , Semigroup (CTag output), Ord (CTag output), Typeable (CTag output), Show (CTag output)) 
          => OpOutput (ListOutput output cTag tag) op tag where

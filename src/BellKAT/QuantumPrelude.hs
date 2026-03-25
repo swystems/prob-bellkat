@@ -49,7 +49,7 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.Output (ListOutput, OpOutput, staticBellPairs, OutputBellPairs)
+import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)

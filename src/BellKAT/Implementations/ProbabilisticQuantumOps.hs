@@ -31,7 +31,7 @@ instance Default StateKind where
 instance RuntimeTag StateKind () where
   staticTag _ = ()
 
-data BinaryOutput = BinaryOutput { boOutputBP :: TaggedBellPair (), boOperation :: Op StateKind }
+data BinaryOutput = BinaryOutput { boOutputBP :: TaggedBellPair (), boOperation :: Op }
     deriving stock (Eq, Ord, Show)
 
 instance Output BinaryOutput where

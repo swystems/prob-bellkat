@@ -97,8 +97,6 @@ data OrderedGuardedPolicy t a
     | OGPOne
     deriving stock (Functor)
 
-while :: t -> OrderedGuardedPolicy t a -> OrderedGuardedPolicy t a
-while = OGPWhile
 instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
     showsPrec _ (OGPAtomic x) = shows x
     showsPrec _ OGPOne = showString "one"

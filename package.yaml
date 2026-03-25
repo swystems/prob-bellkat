@@ -86,6 +86,7 @@ library:
     - BellKAT.Utils.Convex
     - BellKAT.Utils.Convex.Constraint
     - BellKAT.Utils.Convex.DConvexHull
+    - BellKAT.Utils.Cost
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA
     - BellKAT.Utils.Automata.EpsNFA

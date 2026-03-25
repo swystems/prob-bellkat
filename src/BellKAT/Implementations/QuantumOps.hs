@@ -27,16 +27,20 @@ import GHC.Exts (fromList, toList)
 import qualified Data.Foldable as F
 import qualified BellKAT.Utils.Multiset              as Mset
 import Control.Subcategory.Pointed
+import Control.Subcategory.Functor -- Added
+import Data.Semigroup (Semigroup(..)) -- Corrected from ()
+import Data.Monoid (Monoid(..)) -- Added
 import Data.Default
 
 import BellKAT.Utils.Distribution as D hiding (Probability)
 import BellKAT.Definitions.Core
 import BellKAT.Implementations.Output
 import BellKAT.Utils.Multiset (labelledMempty)
-import BellKAT.Utils.Convex (CD')
-import Data.Semigroup ()
+import BellKAT.Utils.Convex
+import BellKAT.Utils.Cost
 import qualified Data.Aeson as A
 import           Data.Aeson ((.=), (.:))
+-- Removed: import Control.Monad.Writer.Strict
 
 type SpaceUnit = Int     -- discrete and fixed (L) space unit
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
@@ -130,6 +134,29 @@ instance Output QuantumOutput where
 
 instance OpOutput QuantumOutput (Op QuantumTag) where
     fromCBPOutput _ bp op = QuantumOutput { qoOutputBP = bp, qoOperation = op }
+
+data StateKind = Pure | Mixed
+    deriving stock (Eq, Ord)
+
+instance Show StateKind where
+    show Pure  = "1"
+    show Mixed = "0"
+
+instance Default StateKind where
+    def = Mixed
+
+instance RuntimeTag StateKind () where
+  staticTag _ = ()
+
+data BinaryOutput = BinaryOutput { boOutputBP :: TaggedBellPair (), boOperation :: Op StateKind }
+    deriving stock (Eq, Ord, Show)
+
+instance Output BinaryOutput where
+    type STag BinaryOutput = ()
+    type RTag BinaryOutput = StateKind -- TODO: why again does RTag must have a deafult?
+    type CTag BinaryOutput = ()
+    type OutputM BinaryOutput = CostCD'
+    computeOutput _ inputBellPairs = cpure inputBellPairs
 
 -- | Swap two Bell pairs and returns a distribution D' 
 -- | with probability p (the success probability) the output is a new tagged Bell pair connecting the two end nodes, 

@@ -70,7 +70,7 @@ instance (OpOutput output op, Monoid output, Ord output, STag output ~ tag, Ord 
 execute
     :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
-    => (Tag (RTag output), Default (RTag output))
+    => Tag (RTag output)
     => ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
     -> OutputM output (OutputBellPairs output)
@@ -80,7 +80,7 @@ execute (ProbAtomicOneStepPolicy xs) bps =
 execute'
     :: (Output output, OutputM output ~ CD', RationalOrDouble p, Ord (STag output))
     => Semigroup (CTag output)
-    => (DDom (RTag output), Default (RTag output))
+    => DDom (RTag output)
     => ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output 
     -> CD p (OutputBellPairs output)
@@ -89,7 +89,7 @@ execute' p bps = D.mapProbability fromRational $ execute p bps
 executeWith
     :: (Output output, Ord (STag output))
     => Semigroup (CTag output)
-    => (Tag (RTag output), Default (RTag output))
+    => Tag (RTag output)
     => ExecutionParams (STag output) (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
@@ -100,7 +100,7 @@ executeWith ep (ProbAtomicOneStepPolicy xs) bps =
 executeWith'
     :: (Output output, OutputM output ~ CD', RationalOrDouble p, Ord (STag output))
     => Semigroup (CTag output)
-    => (DDom (RTag output), Default (RTag output))
+    => DDom (RTag output)
     => ExecutionParams (STag output) (RTag output) (CTag output)
     -> ProbAtomicOneStepPolicy output (STag output)
     -> OutputBellPairs output
@@ -109,7 +109,7 @@ executeWith' ep p bps = D.mapProbability fromRational $ executeWith ep p bps
 
 executePAA :: (Output output, RuntimeTag (RTag output) tag) 
            => Ord tag
-           => (Tag (RTag output), Default (RTag output))
+           => Tag (RTag output)
            => Semigroup (CTag output)
            => (OutputBellPairs output -> OutputBellPairs output)
            -- ^ "fixing" function to apply at the end

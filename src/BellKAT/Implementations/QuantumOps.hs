@@ -93,7 +93,7 @@ instance A.FromJSON QuantumTag where
     parseJSON = A.withObject "QuantumTag" $ \o ->
         QuantumTag <$> o .: "time" <*> o .: "werner"
 
-data QuantumOutput = QuantumOutput { qoOutputBP :: TaggedBellPair (), qoOperation :: Op QuantumTag }
+data QuantumOutput = QuantumOutput { qoOutputBP :: TaggedBellPair (), qoOperation :: Op }
     deriving stock (Eq, Ord)
 
 instance Show QuantumOutput where
@@ -110,10 +110,10 @@ instance Output QuantumOutput where
     computeOutput QuantumOutput{qoOperation = FSkip} (Mset.LMS (_, clock)) =
         cpure (labelledMempty clock)
 
-    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FCreate p w _} inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FCreate p w} inClockedBps =
         [createBP p inClockedBps (bellPair outBp @ QuantumTag 0 w)]
 
-    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FGenerate p w d _} inClockedBps =
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FGenerate p w d} inClockedBps =
         [generateBP p d inClockedBps $ bellPair outBp @ QuantumTag 1 w]
 
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FTransmit p tCohs d} inClockedBps =
@@ -128,7 +128,7 @@ instance Output QuantumOutput where
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FDistill tCohs d} inClockedBps =
         [distBPs tCohs d inClockedBps outBp]
 
-instance OpOutput QuantumOutput (Op QuantumTag) where
+instance OpOutput QuantumOutput Op where
     fromCBPOutput _ bp op = QuantumOutput { qoOutputBP = bp, qoOperation = op }
 
 -- | Swap two Bell pairs and returns a distribution D' 

@@ -6,7 +6,6 @@ module BellKAT.Bundles.Desugaring
     , probabilisticOpDesugarStage
     ) where
 
-import           Data.Default (Default)
 import           Data.Proxy (Proxy)
 
 import           BellKAT.ActionEmbeddings
@@ -38,12 +37,12 @@ probabilisticDesugarStage pac = Stage
     }
 
 probabilisticOpDesugarStage
-    :: (Functor f, Default rTag, CanDesugarActions (Op rTag) a)
+    :: (Functor f, CanDesugarActions Op a)
     => Proxy rTag
     -> ProbabilisticActionConfiguration
-    -> Stage ProbabilisticActionConfiguration (f a) (f (Desugared (Op rTag) a))
+    -> Stage ProbabilisticActionConfiguration (f a) (f (Desugared Op a))
 probabilisticOpDesugarStage (_ :: Proxy rTag) pac = Stage
     { stageName = "probabilistic_op_desugaring"
     , stageConfig = pac
-    , stageFunction = mapDesugarActions @(Op rTag) . probabilisticOpActionMeaning
+    , stageFunction = mapDesugarActions @Op . probabilisticOpActionMeaning
     }

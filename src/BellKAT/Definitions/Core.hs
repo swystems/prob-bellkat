@@ -115,11 +115,11 @@ type Distance = Int
 
 -- ^ Describes the hardware details of a quantum operation irrespective of input and output
 -- `BellPair`s, which are handled by `CreateBellPairArgs`
-data Op tag =
+data Op =
     FSkip
     -- ^ yiels mempty
-    | FCreate Probability StateQuality tag
-    | FGenerate Probability StateQuality Distance tag
+    | FCreate Probability StateQuality
+    | FGenerate Probability StateQuality Distance
     | FTransmit Probability (CoherenceTime, CoherenceTime) Distance
     -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
     -- | TODO: the tag here is redundant

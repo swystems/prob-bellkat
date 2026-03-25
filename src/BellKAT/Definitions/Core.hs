@@ -120,7 +120,7 @@ data Op tag =
     -- ^ yiels mempty
     | FCreate Probability StateQuality tag
     | FGenerate Probability StateQuality Distance tag
-    | FTransmit Probability (CoherenceTime, CoherenceTime) Distance tag
+    | FTransmit Probability (CoherenceTime, CoherenceTime) Distance
     -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
     -- | TODO: the tag here is redundant
     | FDestroy

@@ -67,7 +67,7 @@ simpleOpActionMeaning ta = case taAction ta of
         (FSwap 1.0 (1, 1, 1) (1, 1))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
-        (FTransmit 1.0 (1, 1) 1 def)
+        (FTransmit 1.0 (1, 1) 1)
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
         (FCreate 1.0 1.0 def)
@@ -133,7 +133,7 @@ probabilisticOpActionMeaning pac ta = case taAction ta of
         (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2)) (distanceTriplet pac (l, l1, l2)))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
-        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)) def)
+        (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)))
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
         (FCreate (createProbability pac l) (createWerner pac l) def)

@@ -116,8 +116,8 @@ instance Output QuantumOutput where
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FGenerate p w d _} inClockedBps =
         [generateBP p d inClockedBps $ bellPair outBp @ QuantumTag 1 w]
 
-    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FTransmit p tCohs d t} inClockedBps =
-        [transmitBP p tCohs d inClockedBps $ bellPair outBp @ t]
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FTransmit p tCohs d} inClockedBps =
+        [transmitBP p tCohs d inClockedBps $ bellPair outBp]
 
     computeOutput QuantumOutput{qoOperation = FDestroy} (Mset.LMS (_, clock)) =
         [cpure (labelledMempty clock)]
@@ -237,9 +237,9 @@ transmitBP :: Rational
            -> (TimeUnit, TimeUnit)
            -> SpaceUnit
            -> LabelledBellPairs MaxClock QuantumTag
-           -> TaggedBellPair QuantumTag
+           -> BellPair
            -> D' (LabelledBellPairs MaxClock QuantumTag)
-transmitBP p (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
+transmitBP p (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) outBp =
     case toList inBps of
         [TaggedBellPair _ (QuantumTag t w)] ->
                                      {- ^ pass on the Werner parameter -}

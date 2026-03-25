@@ -77,7 +77,7 @@ spec = do
           Mset.LMS (createdBps, _) = afterCreate
           [TaggedBellPair _ (QuantumTag tC wC)] = toList createdBps
           -- transmit
-          outB = TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)
+          outB = "A" ~ "B"
           afterTx = expectSingleton (transmitBP p (10, 10) 1 afterCreate outB)
           Mset.LMS (transmittedBps, _) = afterTx
           [TaggedBellPair _ (QuantumTag tT wT)] = toList transmittedBps
@@ -92,7 +92,7 @@ spec = do
           outA = TaggedBellPair ("A" ~ "A") (QuantumTag 0 0)
           initialClock = MaxClock 6
           afterCreate = expectSingleton (createBP p (labelledMempty initialClock) outA) -- create (but at time clock)
-          outB = TaggedBellPair ("A" ~ "B") (QuantumTag 0 0)
+          outB = "A" ~ "B"
           d = 5 :: SpaceUnit -- distance to transmit
           afterTx = expectSingleton (transmitBP p (10, 10) d afterCreate outB) -- transmit
           Mset.LMS (transmittedBps, newClock) = afterTx

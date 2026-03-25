@@ -137,7 +137,7 @@ sdjoin =  SD . djoin . cmap (maybe (cpure Nothing) fromSubdistribution) . fromSu
 toSubdistribution :: (Fractional p, Ord p, Ord a) => D p a -> SD p a
 toSubdistribution = SD . cmap Just
 
-class (Typeable p, Show p, RealFrac p) => RationalOrDouble p where
+class (Typeable p, Show p, Ord p, RealFrac p) => RationalOrDouble p where
     toDouble :: p -> Double
 
 instance RationalOrDouble Rational where

@@ -27,7 +27,7 @@ newtype GuardedAutomatonStepQuantum t a = GASQ
     { getGFA :: GuardedFA t a
     } deriving newtype (Show, Semigroup, Monoid, ParallelSemigroup, OrderedSemigroup, Pointed)
 
-instance (Show a, Show t, DecidableBoolean t) => Guarded t (GuardedAutomatonStepQuantum t a) where
+instance (Show a, Show t, DecidableBoolean t, Eq a) => Guarded t (GuardedAutomatonStepQuantum t a) where
     ite t (GASQ a) (GASQ b) = GASQ $ ite t a b
     while t (GASQ a) = GASQ $ while t a
 
@@ -35,7 +35,7 @@ instance (Show t, DecidableBoolean t, CreatesBellPairs (sq tag) op tag)
   => CreatesBellPairs (GuardedAutomatonStepQuantum t (sq tag)) op tag where
     tryCreateBellPairFrom = point . tryCreateBellPairFrom
 
-instance (Show t, Show (sq tag), DecidableBoolean t, ParallelSemigroup (sq tag), CreatesBellPairs (sq tag) op tag) 
+instance (Show t, Show (sq tag), DecidableBoolean t, Eq (sq tag), ParallelSemigroup (sq tag), CreatesBellPairs (sq tag) op tag) 
   => Quantum (GuardedAutomatonStepQuantum t (sq tag)) op tag where
 
 -- | "executes" `GuardedAutomatonStepQuantum` using respective interpretation functions

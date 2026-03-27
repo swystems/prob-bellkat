@@ -105,7 +105,7 @@ library:
     - BellKAT.Utils.Automata.GuardedEps
     - BellKAT.DSL
     - BellKAT.Parser
-    - BellKAT.Parser.Policy
+    - BellKAT.Parser.SurfacePolicy
     - BellKAT.Test
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude

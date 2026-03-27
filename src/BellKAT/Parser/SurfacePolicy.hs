@@ -1,7 +1,7 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module BellKAT.Parser.Policy
+module BellKAT.Parser.SurfacePolicy
     ( SurfacePolicy(..)
     , desugarSurfacePolicy
     ) where

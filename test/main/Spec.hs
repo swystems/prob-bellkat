@@ -35,6 +35,7 @@ import qualified GuardedAutomataSpec
 import qualified TestsSpec
 import qualified ConvexSpec
 import qualified ProtocolSnapSpec
+import qualified ParserSpec
 
 main :: IO ()
 main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
@@ -44,7 +45,8 @@ main = hspec . modifyMaxSize (const 4) . modifyMaxSuccess (const 100) $ do
     describe "BellKAT.Utils.Automata.Guarded" GuardedAutomataSpec.spec
     describe "BellKAT.Utils.Convex" ConvexSpec.spec    
     describe "Paper Tests" PaperSpec.spec
-    describe "Probabilist Paper Tests" ProbPaperSpec.spec
+    describe "Probabilistic Paper Tests" ProbPaperSpec.spec
+    describe "BellKAT.Parser" ParserSpec.spec
     describe "Distill" $ do
         it "should drop sometimes" $
             applyPolicy @TestTag (distill ("A", "B")) [node ("A" ~ "B"), node ("A" ~ "B")]

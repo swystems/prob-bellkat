@@ -125,7 +125,6 @@ pPolicyTerm :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
 pPolicyTerm =
         parens pSurfacePolicy
     <|> pAtomicActionTerm
-    <|> (Recurse <$> pOrderedGuardedPolicyExpr)
     <|> (Recurse OGPOne <$ reserved "one")
     <|> (PolicyVariable <$> pVar)
     <?> "policy term"
@@ -138,7 +137,7 @@ pSurfacePolicy =
     <|> pWhileN
     <|> Recurse <$> pIfThenElse
     <|> Recurse <$> pWhile
-    <|> pPolicyTerm
+    <|> Recurse <$> pOrderedGuardedPolicyExpr
     <?> "policy"
 
 -- | Parses a let binding: 'let x = p1 in p2'.
@@ -151,7 +150,7 @@ pLet =
 
 -- | Parses a bounded repetition: 'n * p'.
 pRepeat :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
-pRepeat = Repeat <$> (integer <* symbol "*") <*> pSurfacePolicy
+pRepeat = Repeat <$> integer <*> pSurfacePolicy
 
 -- | Parses a finite 'whileN' loop: 'whileN n test do p'.
 pWhileN :: (Default t, Tag t) => Parser (SurfacePolicy t Action)

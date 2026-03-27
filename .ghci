@@ -1,3 +1,3 @@
 :set -isrc -itest/main
 :set -XNoPolyKinds -XFlexibleContexts -XDerivingStrategies -XFlexibleInstances -XScopedTypeVariables -XTypeFamilies -XGeneralizedNewtypeDeriving -XFunctionalDependencies 
-:load BellKAT.QuantumPrelude BellKAT.Test BellKAT.Drawing BellKAT.DSL BellKAT.Utils.Automata.Guarded BellKAT.Definitions Spec QuantumSpec
+:load BellKAT.QuantumPrelude BellKAT.Test BellKAT.Drawing BellKAT.DSL BellKAT.Utils.Automata.Guarded BellKAT.Definitions BellKAT.Parser Spec QuantumSpec

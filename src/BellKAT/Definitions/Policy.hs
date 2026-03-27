@@ -172,6 +172,26 @@ instance Guarded t (OrderedGuardedPolicy t a) where
     ite = OGPIfThenElse
     while = OGPWhile
 
+instance Applicative (OrderedGuardedPolicy t) where
+    pure = OGPAtomic
+
+    OGPAtomic f <*> p = fmap f p
+    OGPSequence pf1 pf2 <*> px = OGPSequence (pf1 <*> px) (pf2 <*> px)
+    OGPParallel pf1 pf2 <*> px = OGPParallel (pf1 <*> px) (pf2 <*> px)
+    OGPOrdered pf1 pf2 <*> px = OGPOrdered (pf1 <*> px) (pf2 <*> px)
+    OGPIfThenElse t' pf1 pf2 <*> px = OGPIfThenElse t' (pf1 <*> px) (pf2 <*> px)
+    OGPWhile t' pf <*> px = OGPWhile t' (pf <*> px)
+    OGPOne <*> _ = OGPOne
+
+instance Monad (OrderedGuardedPolicy t) where
+    OGPAtomic x >>= f = f x
+    OGPSequence p1 p2 >>= f = OGPSequence (p1 >>= f) (p2 >>= f)
+    OGPParallel p1 p2 >>= f = OGPParallel (p1 >>= f) (p2 >>= f)
+    OGPOrdered p1 p2 >>= f = OGPOrdered (p1 >>= f) (p2 >>= f)
+    OGPIfThenElse t' p1 p2 >>= f = OGPIfThenElse t' (p1 >>= f) (p2 >>= f)
+    OGPWhile t' p >>= f = OGPWhile t' (p >>= f)
+    OGPOne >>= _ = OGPOne
+
 data Atomic act test tag = AAction (act tag) | ATest (test tag)
     deriving stock (Show)
 

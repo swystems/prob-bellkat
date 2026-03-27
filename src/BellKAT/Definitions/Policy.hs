@@ -21,13 +21,13 @@ data Action
     | Create Location
     | Destroy (Location, Location)
     | UnstableCreate (Location, Location)
-    deriving stock (Show)
+    deriving stock (Show, Eq)
 
 data TaggedAction t = TaggedAction
     { taTagIn  :: t
     , taAction :: Action
     , taTagOut :: t
-    }
+    } deriving stock (Eq)
 
 instance Show t => Show (TaggedAction t) where
     show ta = "_:" <> show (taAction ta) <> ":" <> show (taTagOut ta)
@@ -95,7 +95,7 @@ data OrderedGuardedPolicy t a
     | OGPIfThenElse t (OrderedGuardedPolicy t a) (OrderedGuardedPolicy t a)
     | OGPWhile t (OrderedGuardedPolicy t a)
     | OGPOne
-    deriving stock (Functor)
+    deriving stock (Functor, Eq)
 
 instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
     showsPrec _ (OGPAtomic x) = shows x

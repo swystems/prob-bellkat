@@ -150,7 +150,7 @@ pLet =
 
 -- | Parses a bounded repetition: 'n * p'.
 pRepeat :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
-pRepeat = Repeat <$> integer <*> pSurfacePolicy
+pRepeat = Repeat <$> (reserved "repeat" *> integer) <*> pSurfacePolicy
 
 -- | Parses a finite 'whileN' loop: 'whileN n test do p'.
 pWhileN :: (Default t, Tag t) => Parser (SurfacePolicy t Action)

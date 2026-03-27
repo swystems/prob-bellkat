@@ -42,6 +42,8 @@ dependencies:
   - optparse-applicative
   - aeson
   - monad-logger
+  - megaparsec
+  - parser-combinators
 
 library:
   source-dirs: src

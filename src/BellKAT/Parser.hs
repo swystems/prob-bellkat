@@ -16,7 +16,7 @@ import qualified Text.Megaparsec.Char.Lexer     as L
 import           Control.Monad.Combinators.Expr (makeExprParser, Operator (..))
 
 import           BellKAT.Definitions.Core
-import           BellKAT.Definitions.Structures.Basic (true, false)
+import           BellKAT.Definitions.Structures.Basic
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Tests
 
@@ -66,20 +66,33 @@ reserved w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 pLocation :: Parser Location
 pLocation = Location <$> lexeme ((:) <$> letterChar <*> many alphaNumChar) <?> "location"
 
+-- | Parses a pair of locations separated by a given symbol string, combining them with a provided function.
+pBellPairSep :: (Location -> Location -> b) -> Text -> Parser b
+pBellPairSep f separator = f <$> pLocation <* symbol separator <*> pLocation
+
 -- | Parses a 'BellPair', e.g., 'A ~ B'.
 pBellPair :: Parser (Location, Location)
-pBellPair = do
-    loc1 <- pLocation
-    void $ symbol "~"
-    loc2 <- pLocation
-    pure (loc1, loc2)
+pBellPair = pBellPairSep (,) "~"
 
--- | Parses a BoundedTest guard. For simplicity, currently only 'true' and 'false' literals are supported.
-pBoundedTestGuard :: (Default t, Tag t) => Parser (BoundedTest t)
-pBoundedTestGuard =
+-- | Parses an atomic BoundedTest guard term, which can be 'true', 'false',
+-- an 'X /~ Y' expression, or a parenthesized BoundedTest.
+pBoundedTestTerm :: (Default t, Tag t) => Parser (BoundedTest t)
+pBoundedTestTerm =
         (true <$ reserved "true")
     <|> (false <$ reserved "false")
-    <?> "bound test guard"
+    <|> parens pBoundedTestGuard
+    <|> boundedTestSingleton <$> pBellPairSep (~) "/~" <*> pure (rangeNotGreater 0)
+    <?> "bound test term"
+
+-- | Operator precedence table for 'BoundedTest'.
+boundedTestOperatorTable :: (Default t, Tag t) => [[Operator Parser (BoundedTest t)]]
+boundedTestOperatorTable =
+    [ [ InfixL (symbol "||" $> (||*)) ] -- Logical OR (left-associative)
+    ]
+
+-- | Parses a 'BoundedTest' guard using an operator precedence table.
+pBoundedTestGuard :: (Default t, Tag t) => Parser (BoundedTest t)
+pBoundedTestGuard = makeExprParser pBoundedTestTerm boundedTestOperatorTable
 
 -- * Action parsers
 

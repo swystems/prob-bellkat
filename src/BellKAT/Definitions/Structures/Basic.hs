@@ -10,7 +10,7 @@ module BellKAT.Definitions.Structures.Basic
     , DecidableBoolean(..)
     ) where
 
-import Data.Boolean
+import Data.Boolean hiding ((<*))
 import Relude.Extra.Map
 
 -- parallel composition is left-associative and has lower precedence than `<>`

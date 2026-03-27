@@ -20,22 +20,25 @@ import           BellKAT.Definitions.Structures.Basic
 -- | A type representing an augmented 'Action' for 'OrderedGuardedPolicy',
 -- embedding additional policy structures like bounded repetition, finite loops,
 -- and let bindings.
-data SurfacePolicy t =
+data SurfacePolicy t a =
+    -- | Atomic action
+    Atomic a
     -- | Embedded policy
-    Primitive (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t))
+    | Recurse (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t a))
     -- | Bounded repetition: @repeat n p@.
-    | Repeat Int (SurfacePolicy t)
+    | Repeat Int (SurfacePolicy t a)
     -- | Finite loop: @while n test p@.
-    | WhileN Int (BoundedTest t) (SurfacePolicy t)
+    | WhileN Int (BoundedTest t) (SurfacePolicy t a)
     -- | Let binding: @let x = p1 in p2@.
     | Let Text
-        (SurfacePolicy t) -- ^ Policy bound to 'x'
-        (SurfacePolicy t) -- ^ Policy where 'x' can be used
+        (SurfacePolicy t a) -- ^ Policy bound to 'x'
+        (SurfacePolicy t a) -- ^ Policy where 'x' can be used
     -- | A variable reference, to be used in 'Let' bindings.
     | PolicyVariable Text
 
-instance (Show t, Show (BoundedTest t)) => Show (SurfacePolicy t) where
-    showsPrec _ (Primitive action) = shows action
+instance (Show t, Show (BoundedTest t), Show a) => Show (SurfacePolicy t a) where
+    showsPrec _ (Atomic action) = shows action
+    showsPrec _ (Recurse action) = shows action
     showsPrec _ (PolicyVariable x) = shows x
     showsPrec d (Repeat n p) = showParen (d > 7) $
         showsPrec 8 n . showString " * " . showsPrec 7 p
@@ -48,17 +51,18 @@ instance (Show t, Show (BoundedTest t)) => Show (SurfacePolicy t) where
 -- This function resolves 'Repeat', 'WhileN', and 'Let' constructs.
 desugarSurfacePolicy
     :: (Default t, Tag t)
-    => SurfacePolicy t
-    -> OrderedGuardedPolicy (BoundedTest t) Action
+    => SurfacePolicy t a
+    -> OrderedGuardedPolicy (BoundedTest t) a
 desugarSurfacePolicy = desugarSurfacePolicyWithEnv Map.empty
 
 -- | Helper function for 'desugarSurfacePolicy' that carries an environment of policy bindings.
 desugarSurfacePolicyWithEnv
     :: (Default t, Tag t)
-    => Map Text (OrderedGuardedPolicy (BoundedTest t) Action)
-    -> SurfacePolicy t
-    -> OrderedGuardedPolicy (BoundedTest t) Action
-desugarSurfacePolicyWithEnv env (Primitive p) = desugarSurfacePolicyWithEnv env =<< p
+    => Map Text (OrderedGuardedPolicy (BoundedTest t) a)
+    -> SurfacePolicy t a
+    -> OrderedGuardedPolicy (BoundedTest t) a
+desugarSurfacePolicyWithEnv _   (Atomic a) = OGPAtomic a
+desugarSurfacePolicyWithEnv env (Recurse p) = desugarSurfacePolicyWithEnv env =<< p
 desugarSurfacePolicyWithEnv env (Repeat n p) = stimes n (desugarSurfacePolicyWithEnv env p)
 desugarSurfacePolicyWithEnv env (WhileN n test p) = desugarWhileN n test (desugarSurfacePolicyWithEnv env p)
 desugarSurfacePolicyWithEnv env (Let var p1 p2) =
@@ -72,7 +76,7 @@ desugarWhileN
     :: (Default t, Tag t)
     => Int
     -> BoundedTest t
-    -> OrderedGuardedPolicy (BoundedTest t) Action
-    -> OrderedGuardedPolicy (BoundedTest t) Action
+    -> OrderedGuardedPolicy (BoundedTest t) a
+    -> OrderedGuardedPolicy (BoundedTest t) a
 desugarWhileN 0 _ _ = mempty -- If n is 0, the loop does nothing
 desugarWhileN n test policy = ite test (policy <> desugarWhileN (n-1) test policy) mempty

@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 module BellKAT.Parser (
-    parseOrderedGuardedPolicy,
+    parseSurfacePolicy,
     Parser
 ) where
 
@@ -19,20 +19,21 @@ import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Structures.Basic
 import           BellKAT.Definitions.Policy
 import           BellKAT.Definitions.Tests
+import           BellKAT.Parser.SurfacePolicy
 
 -- | Parser type for policies, using 'Text' as input
 type Parser = Parsec Void Text
 
--- | Main entry point for parsing an 'OrderedGuardedPolicy Char Action' from a 'String'.
--- It consumes all input, including leading/trailing whitespace.
-parseOrderedGuardedPolicy
+-- | Main entry point for parsing a 'SurfacePolicy' from a 'String'.
+-- It consumes all input, including leading/trailing whitespace, and then desugars it.
+parseSurfacePolicy
     :: (Default t, Tag t)
     => String
     -> Either (ParseErrorBundle Text Void) (OrderedGuardedPolicy (BoundedTest t) Action)
-parseOrderedGuardedPolicy = parse policyParser "" . pack
+parseSurfacePolicy = fmap desugarSurfacePolicy . parse policyParser "" . pack
   where
     -- Helper to consume leading/trailing spaces and ensure full input consumption
-    policyParser = spaceConsumer *> pOrderedGuardedPolicy <* eof
+    policyParser = spaceConsumer *> pSurfacePolicy <* eof
 
 -- * Lexer definitions
 -- A set of common lexer functions for parsing expressions.
@@ -61,6 +62,14 @@ reserved :: Text -> Parser ()
 reserved w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 -- * Primitive parsers
+
+-- | Parses an integer literal.
+integer :: Parser Int
+integer = lexeme L.decimal
+
+-- | Parses a variable name (Text identifier).
+pVar :: Parser Text
+pVar = lexeme ((pack .) . (:) <$> letterChar <*> many alphaNumChar) <?> "variable"
 
 -- | Parses a 'Location', which is represented as a string literal.
 pLocation :: Parser Location
@@ -94,53 +103,97 @@ boundedTestOperatorTable =
 pBoundedTestGuard :: (Default t, Tag t) => Parser (BoundedTest t)
 pBoundedTestGuard = makeExprParser pBoundedTestTerm boundedTestOperatorTable
 
--- * Action parsers
-
--- | Parses an 'Action'.
-pAction :: Parser Action
-pAction =
-        (reserved "swap" >> parens (Swap <$> pLocation <* symbol "@" <*> pBellPair))
-    <|> (reserved "trans" >> parens (Transmit <$> pLocation <* symbol "->" <*> pBellPair))
-    <|> (reserved "distill" >> parens (Distill <$> pBellPair))
-    <|> (reserved "create" >> parens (Create <$> pLocation))
-    <|> (reserved "destroy" >> parens (Destroy <$> pBellPair))
-    <|> (reserved "gen" >> parens (UnstableCreate <$> pBellPair))
+-- | Parses an atomic 'Action' and wraps it into a 'SurfacePolicy' term.
+pAtomicActionTerm :: Parser (SurfacePolicy t Action)
+pAtomicActionTerm =
+    Atomic <$> (
+            (reserved "swap" >> parens (Swap <$> pLocation <* symbol "@" <*> pBellPair))
+        <|> (reserved "trans" >> parens (Transmit <$> pLocation <* symbol "->" <*> pBellPair))
+        <|> (reserved "distill" >> parens (Distill <$> pBellPair))
+        <|> (reserved "create" >> parens (Create <$> pLocation))
+        <|> (reserved "destroy" >> parens (Destroy <$> pBellPair))
+        <|> (reserved "gen" >> parens (UnstableCreate <$> pBellPair))
+    )
+    <?> "atomic action"
 
 -- * Policy parsers
 
 -- | Parses a basic policy term, which can be an atomic action, 'one', a parenthesized policy,
--- an if-then-else statement, or a while loop.
-pPolicyTerm :: (Default t, Tag t) => Parser (OrderedGuardedPolicy (BoundedTest t) Action)
+-- an if-then-else statement, a while loop, bounded repetition, finite loop, let binding,
+-- or a policy variable.
+pPolicyTerm :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
 pPolicyTerm =
-        (OGPAtomic <$> pAction)
-    <|> (OGPOne <$ reserved "one")
-    <|> parens pOrderedGuardedPolicy
-    <|> pIfThenElse
-    <|> pWhile
+        parens pSurfacePolicy
+    <|> pAtomicActionTerm
+    <|> (Recurse <$> pOrderedGuardedPolicyExpr)
+    <|> (Recurse OGPOne <$ reserved "one")
+    <|> (PolicyVariable <$> pVar)
+    <?> "policy term"
+--
+-- | Parses a basic policy 
+pSurfacePolicy :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
+pSurfacePolicy =
+        pLet
+    <|> pRepeat
+    <|> pWhileN
+    <|> Recurse <$> pIfThenElse
+    <|> Recurse <$> pWhile
+    <|> pPolicyTerm
+    <?> "policy"
+
+-- | Parses a let binding: 'let x = p1 in p2'.
+pLet :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
+pLet =
+    Let
+        <$> (reserved "let" *> pVar <* symbol "=")
+        <*> (pSurfacePolicy <* reserved "in")
+        <*> pSurfacePolicy
+
+-- | Parses a bounded repetition: 'n * p'.
+pRepeat :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
+pRepeat = Repeat <$> (integer <* symbol "*") <*> pSurfacePolicy
+
+-- | Parses a finite 'whileN' loop: 'whileN n test do p'.
+pWhileN :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
+pWhileN =
+    WhileN
+        <$> (reserved "whileN" *> integer)
+        <*> (spaceConsumer *> pBoundedTestGuard <* reserved "do")
+        <*> pSurfacePolicy
 
 -- | Parses an if-then-else policy: 'if <tag> then <policy1> else <policy2>'.
-pIfThenElse :: (Default t, Tag t) => Parser (OrderedGuardedPolicy (BoundedTest t) Action)
+pIfThenElse :: (Default t, Tag t)
+            => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
 pIfThenElse =
     OGPIfThenElse
         <$> (reserved "if" *> pBoundedTestGuard <* reserved "then")
-        <*> (pOrderedGuardedPolicy <* reserved "else")
+        <*> pOrderedGuardedPolicy <* reserved "else"
         <*> pOrderedGuardedPolicy
 
 -- | Parses a while loop policy: 'while <tag> do <policy>'.
-pWhile :: (Default t, Tag t) => Parser (OrderedGuardedPolicy (BoundedTest t) Action)
+pWhile :: (Default t, Tag t)
+       => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
 pWhile =
     OGPWhile
         <$> (reserved "while" *> pBoundedTestGuard <* reserved "do")
         <*> pOrderedGuardedPolicy
 
--- | Parses an 'OrderedGuardedPolicy Char Action' using an operator precedence table.
-pOrderedGuardedPolicy :: (Default t, Tag t) => Parser (OrderedGuardedPolicy (BoundedTest t) Action)
-pOrderedGuardedPolicy = makeExprParser pPolicyTerm operatorTable
+-- | Parses a 'SurfacePolicy' using an operator precedence table.
+pOrderedGuardedPolicyExpr :: (Default t, Tag t) 
+                          => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
+pOrderedGuardedPolicyExpr = makeExprParser (OGPAtomic <$> pPolicyTerm) operatorTable
+--
+-- | Parses a 'OrderedGuardedPolicy' from 'SurfacePolicy'
+pOrderedGuardedPolicy
+    :: (Default t, Tag t)
+    => Parser (OrderedGuardedPolicy (BoundedTest a) (SurfacePolicy t Action))
+pOrderedGuardedPolicy = OGPAtomic <$> pSurfacePolicy
 
--- | Operator precedence table for 'OrderedGuardedPolicy'.
+-- | Operator precedence table for 'SurfacePolicy'.
 -- The order of lists in the table defines precedence (lower index = lower precedence).
 -- Operators within a list have the same precedence.
-operatorTable :: (Default t, Tag t) => [[Operator Parser (OrderedGuardedPolicy (BoundedTest t) Action)]]
+operatorTable :: (Default t, Tag t)
+              => [[Operator Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))]]
 operatorTable =
     [ [ InfixN (symbol "<.>" $> OGPOrdered)   ] -- Ordered composition (non-associative)
     , [ InfixL (symbol "<||>" $> OGPParallel) ] -- Parallel composition (left-associative)

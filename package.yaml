@@ -104,6 +104,8 @@ library:
     - BellKAT.Utils.Automata.HyperAction
     - BellKAT.Utils.Automata.GuardedEps
     - BellKAT.DSL
+    - BellKAT.Parser
+    - BellKAT.Parser.Policy
     - BellKAT.Test
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude

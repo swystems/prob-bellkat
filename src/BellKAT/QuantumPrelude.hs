@@ -39,7 +39,6 @@ module BellKAT.QuantumPrelude (
 import Data.Typeable
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
-import qualified Options.Applicative as OA
 import Data.Semigroup (stimes)
 import Data.Default
 
@@ -52,6 +51,7 @@ import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(.
 import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
+import BellKAT.Prelude.Common
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
@@ -86,32 +86,8 @@ instance Default (NetworkBounds tag) where
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
 createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
-data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton
 
-data QbkatCLIOpts = QCO 
-    { qcoJSON :: Bool
-    , qcoMode :: QbkatMode
-    }
-
-qcoParser :: OA.Parser QbkatCLIOpts
-qcoParser = QCO 
-    <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON") 
-    <*> OA.subparser (
-            OA.command "run" 
-                (OA.info (pure QMRun) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "execution-trace"
-                (OA.info (pure QMTrace) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "automaton"
-                (OA.info (pure QMAutomaton) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "probability" 
-                (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
-        )
-
-
-qbkatMain' 
+qbkatMain'
     :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
     -> ProbabilisticActionConfiguration
@@ -120,32 +96,32 @@ qbkatMain'
     -> QBKATPolicy
     -> NetworkState
     -> IO ()
-qbkatMain' (_ :: Proxy p) pac nb ev protocol ns = 
-                                          {- ^ initial network state -}  
+qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
+                                          {- ^ initial network state -}
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
         runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
-        opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
-        case qcoMode opts of
-          QMRun -> do
+        opts <- runKatParser "QBKAT tool"
+        case kcoMode opts of
+          KMRun -> do
               r <- runLoggedPipeline runPipeline protocol
-              if qcoJSON opts
+              if kcoJSON opts
                  then BS.putStr $ A.encode r
                  else print r
-          QMTrace -> 
+          KMTrace ->
               runLoggedPipeline systemPipeline protocol >>= print
-          QMAutomaton ->
+          KMAutomaton ->
               runLoggedPipeline automatonPipeline protocol >>= print
-          QMProbability -> do
+          KMProbability -> do
               mbRStored :: Maybe (CD p (OutputBellPairs QBKATOutput)) <- A.decode <$> BS.getContents
-              case mbRStored of 
+              case mbRStored of
                 Nothing -> error "Couldn't parse input"
-                Just rStored -> 
+                Just rStored ->
                     let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
-                     in if qcoJSON opts
+                     in if kcoJSON opts
                            then BS.putStr $ A.encode probRange
                            else print probRange
 

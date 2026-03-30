@@ -26,7 +26,6 @@ module BellKAT.ProbabilisticPrelude (
 import Data.Typeable
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BS
-import qualified Options.Applicative as OA
 import Data.Semigroup (stimes)
 
 import BellKAT.Prelude
@@ -37,6 +36,7 @@ import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, fromNetworkCapacity)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
+import BellKAT.Prelude.Common
 import BellKAT.Bundles.Probabilistic
 import BellKAT.Bundles.Core
 
@@ -45,63 +45,38 @@ type ProbBellKATAction = TaggedAction BellKATTag
 
 type ProbBellKATPolicy = OrderedGuardedPolicy ProbBellKATTest ProbBellKATAction
 
-data PbkatMode = PMRun | PMTrace | PMProbability | PMAutomaton
 
-data PbkatCLIOpts = PCO 
-    { pcoJSON :: Bool
-    , pcoMode :: PbkatMode
-    }
-
-
-pcoParser :: OA.Parser PbkatCLIOpts
-pcoParser = PCO 
-    <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON") 
-    <*> OA.subparser (
-            OA.command "run" 
-                (OA.info (pure PMRun) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "execution-trace"
-                (OA.info (pure PMTrace) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "automaton"
-                (OA.info (pure PMAutomaton) (OA.progDesc "Run the procotol")) 
-                <>
-            OA.command "probability" 
-                (OA.info (pure PMProbability) (OA.progDesc "Compute event probability"))
-        )
-
-
-pbkatMain' 
-    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p) 
+pbkatMain'
+    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
-    -> ProbabilisticActionConfiguration 
+    -> ProbabilisticActionConfiguration
     -> Maybe (NetworkCapacity BellKATTag)
     -> ProbBellKATTest
     -> ProbBellKATPolicy
     -> IO ()
-pbkatMain' (_ :: Proxy p) pac mbNC ev protocol = 
+pbkatMain' (_ :: Proxy p) pac mbNC ev protocol =
     let ep = fromNetworkCapacity mbNC
         runPipeline = probStarPolicyPipeline' @p pac ep mempty
         systemPipeline = probStarPolicySystemPipeline' @p pac ep mempty
         automatonPipeline = probStarPolicyAutomatonPipeline pac in do
-    opts <- OA.execParser $ OA.info (pcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "PBKAT tool")
-    case pcoMode opts of
-      PMRun -> do
+    opts <- runKatParser "PBKAT tool"
+    case kcoMode opts of
+      KMRun -> do
         r <- runLoggedPipeline runPipeline protocol
-        if pcoJSON opts
+        if kcoJSON opts
            then BS.putStr $ A.encode r
            else print r
-      PMTrace -> 
+      KMTrace ->
         runLoggedPipeline systemPipeline protocol >>= print
-      PMAutomaton ->
+      KMAutomaton ->
         runLoggedPipeline automatonPipeline protocol >>= print
-      PMProbability -> do
+      KMProbability -> do
           mbRStored :: Maybe (CD p (TaggedBellPairs tag)) <- A.decode <$> BS.getContents
-          case mbRStored of 
+          case mbRStored of
             Nothing -> error "Couldn't parse input"
-            Just rStored -> 
+            Just rStored ->
                 let probRange = computeEventProbabilityRange (getBPsPredicate . toBPsPredicate  $ ev) rStored
-                 in if pcoJSON opts
+                 in if kcoJSON opts
                        then BS.putStr $ A.encode probRange
                        else print probRange
 

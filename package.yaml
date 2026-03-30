@@ -110,6 +110,7 @@ library:
     - BellKAT.Test.QuickCheck
     - BellKAT.Prelude
     - BellKAT.ProbabilisticPrelude
+    - BellKAT.Prelude.Common
     - BellKAT.QuantumPrelude
 
 executables:

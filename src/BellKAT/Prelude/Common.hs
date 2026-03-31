@@ -1,12 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Prelude.Common (
-    KatMode(..),
-    KatCLIOpts(..),
-    katCLIOptsParser,
-    runKatParser,
+    RunPipelines(..),
+    main
 ) where
 
 import qualified Options.Applicative as OA
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.Aeson as A
+
+
+import BellKAT.Utils.Convex
+import BellKAT.Bundles.Core
+import BellKAT.Utils.Distribution
 
 -- | Common mode for KAT tools
 data KatMode = KMRun | KMTrace | KMProbability | KMAutomaton
@@ -41,3 +46,37 @@ katCLIOptsParser = KCO
 runKatParser :: String -> IO KatCLIOpts
 runKatParser progDesc =
     OA.execParser $ OA.info (katCLIOptsParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc progDesc)
+
+data RunPipelines p policy system automaton o = RunPipelines 
+    { runPipeline :: Pipeline policy (CD p o)
+    , systemPipeline :: Pipeline policy system
+    , automatonPipeline :: Pipeline policy automaton
+    }
+
+main 
+    :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
+    => forall o. (DDom o, A.FromJSON o, A.ToJSON o)
+    => forall automaton system. (Show automaton, Show system)
+    => forall policy. RunPipelines p policy system automaton o 
+    -> String -> policy -> (o -> Bool) -> IO ()
+main rp progDesc protocol ev = do
+    opts <- runKatParser progDesc
+    case kcoMode opts of
+      KMRun -> do
+          r <- runLoggedPipeline (runPipeline rp) protocol
+          if kcoJSON opts
+             then BS.putStr $ A.encode r
+             else print r
+      KMTrace ->
+          runLoggedPipeline (systemPipeline rp) protocol >>= print
+      KMAutomaton ->
+          runLoggedPipeline (automatonPipeline rp) protocol >>= print
+      KMProbability -> do
+          mbRStored :: Maybe (CD p o) <- A.decode <$> BS.getContents
+          case mbRStored of
+            Nothing -> error "Couldn't parse input"
+            Just rStored ->
+                let probRange = computeEventProbabilityRange ev rStored
+                 in if kcoJSON opts
+                       then BS.putStr $ A.encode probRange
+                       else print probRange

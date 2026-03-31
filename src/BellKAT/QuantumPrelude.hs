@@ -38,7 +38,6 @@ module BellKAT.QuantumPrelude (
 
 import Data.Typeable
 import qualified Data.Aeson as A
-import qualified Data.ByteString.Lazy as BS
 import Data.Semigroup (stimes)
 import Data.Default
 
@@ -48,15 +47,13 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
+import BellKAT.Implementations.Output (ListOutput, staticBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
-import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Prelude.Common
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Bundles.OpBased
-import BellKAT.Bundles.Core
 
 type QBKATTag = ()
 type QBKATRuntimeTag = QuantumTag
@@ -86,9 +83,8 @@ instance Default (NetworkBounds tag) where
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
 createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
-
 qbkatMain'
-    :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
+    :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
     -> ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
@@ -96,35 +92,17 @@ qbkatMain'
     -> QBKATPolicy
     -> NetworkState
     -> IO ()
-qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
+qbkatMain' _ pac nb ev protocol ns =
                                           {- ^ initial network state -}
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
-        runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-        systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-        automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
-        opts <- runKatParser "QBKAT tool"
-        case kcoMode opts of
-          KMRun -> do
-              r <- runLoggedPipeline runPipeline protocol
-              if kcoJSON opts
-                 then BS.putStr $ A.encode r
-                 else print r
-          KMTrace ->
-              runLoggedPipeline systemPipeline protocol >>= print
-          KMAutomaton ->
-              runLoggedPipeline automatonPipeline protocol >>= print
-          KMProbability -> do
-              mbRStored :: Maybe (CD p (OutputBellPairs QBKATOutput)) <- A.decode <$> BS.getContents
-              case mbRStored of
-                Nothing -> error "Couldn't parse input"
-                Just rStored ->
-                    let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
-                     in if kcoJSON opts
-                           then BS.putStr $ A.encode probRange
-                           else print probRange
-
+        rp = RunPipelines 
+            { runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+            , systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+            , automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac
+            } 
+        in main rp "QBKAT tool" protocol ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev)
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
 qbkatMain 

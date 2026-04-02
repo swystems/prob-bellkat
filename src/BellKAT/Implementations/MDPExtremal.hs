@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 module BellKAT.Implementations.MDPExtremal
     ( ConcreteMDPState
     , ExtremalQuery(..)
@@ -16,11 +17,10 @@ import           Data.Monoid                 (Sum (..))
 import qualified Data.IntMap.Strict          as IM
 import qualified Data.Map.Strict             as Map
 import qualified Data.Set                    as Set
-import           GHC.Exts                    (toList)
+import           GHC.Exts                    (IsList, Item, toList)
 
-import           BellKAT.Implementations.MDPQuantum
+import           BellKAT.Implementations.MDPProbability
     ( MDP(..)
-    , StaticBellPairs
     , StepCost(..)
     )
 import           BellKAT.Utils.Automata.Transitions.Functorial (StateSystem(..))
@@ -28,9 +28,9 @@ import           BellKAT.Utils.Convex        (getGenerators)
 import           BellKAT.Utils.Distribution  (D, RationalOrDouble, toDouble)
 import qualified BellKAT.Utils.Distribution  as D
 
-type ConcreteMDPState = (Int, StaticBellPairs)
+type ConcreteMDPState s = (Int, s)
 
-type ExtremalTable p = Map.Map ConcreteMDPState (IM.IntMap p)
+type ExtremalTable s p = Map.Map (ConcreteMDPState s) (IM.IntMap p)
 
 data ExtremalQuery
     = ExtremalBudget Int
@@ -50,13 +50,13 @@ data CoverageStatus p
         }
     deriving stock (Eq, Show)
 
-data ExtremalResult p = ExtremalResult
-    { erInitialState :: ConcreteMDPState
-    , erStates :: [ConcreteMDPState]
-    , erGoalStates :: [ConcreteMDPState]
+data ExtremalResult s p = ExtremalResult
+    { erInitialState :: ConcreteMDPState s
+    , erStates :: [ConcreteMDPState s]
+    , erGoalStates :: [ConcreteMDPState s]
     , erResolvedBudget :: Int
-    , erMinTable :: ExtremalTable p
-    , erMaxTable :: ExtremalTable p
+    , erMinTable :: ExtremalTable s p
+    , erMaxTable :: ExtremalTable s p
     , erCoverageStatus :: Maybe (CoverageStatus p)
     }
     deriving stock (Eq, Show)
@@ -79,7 +79,7 @@ instance (Show p, RationalOrDouble p) => A.ToJSON (CoverageStatus p) where
                 , "value_exact" A..= show value
                 ]
 
-instance (Show p, RationalOrDouble p) => A.ToJSON (ExtremalResult p) where
+instance (Ord s, Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) => A.ToJSON (ExtremalResult s p) where
     toJSON result =
         let (cdfMin, cdfMax) = initialStateCDFSeries result
          in A.object
@@ -100,7 +100,7 @@ instance (Show p, RationalOrDouble p) => A.ToJSON (ExtremalResult p) where
                         ]
                 ]
 
-stateToJSON :: ConcreteMDPState -> A.Value
+stateToJSON :: (Show s, IsList s, Show (Item s)) => ConcreteMDPState s -> A.Value
 stateToJSON st@(pc, bps) =
     A.object
         [ "pc" A..= pc
@@ -109,11 +109,11 @@ stateToJSON st@(pc, bps) =
         ]
 
 computeExtremalReachability
-    :: RationalOrDouble p
-    => (StaticBellPairs -> Bool)
+    :: (Ord s, Show s, RationalOrDouble p)
+    => (s -> Bool)
     -> ExtremalQuery
-    -> StateSystem (MDP p) StaticBellPairs
-    -> Either String (ExtremalResult p)
+    -> StateSystem (MDP p) s
+    -> Either String (ExtremalResult s p)
 computeExtremalReachability isGoal query ss = do
     validateExtremalQuery query
     let states = collectConcreteStates ss
@@ -139,7 +139,7 @@ computeExtremalReachability isGoal query ss = do
             , erCoverageStatus = coverageStatus
             }
 
-renderExtremalResult :: (Num p, Show p) => ExtremalResult p -> String
+renderExtremalResult :: (Ord s, Num p, Show p, Show s) => ExtremalResult s p -> String
 renderExtremalResult result =
     unlines $
         [ "Extremal cost-bounded reachability"
@@ -161,7 +161,7 @@ renderExtremalResult result =
                 ]
            ]
 
-renderStateList :: [ConcreteMDPState] -> String
+renderStateList :: Show s => [ConcreteMDPState s] -> String
 renderStateList [] = "none"
 renderStateList xs = intercalate ", " (show <$> xs)
 
@@ -187,23 +187,23 @@ renderTable headers rows =
 
     padRight width s = s <> replicate (max 0 (width - length s)) ' '
 
-initialStateTimeSeries :: ExtremalResult p -> [Int]
+initialStateTimeSeries :: ExtremalResult s p -> [Int]
 initialStateTimeSeries result = [0 .. erResolvedBudget result]
 
-initialStateCDFSeries :: Num p => ExtremalResult p -> ([p], [p])
+initialStateCDFSeries :: (Ord s, Num p) => ExtremalResult s p -> ([p], [p])
 initialStateCDFSeries result =
     (cdfMin, cdfMax)
   where
     cdfMin = cdfRow (erMinTable result) (erInitialState result) (erResolvedBudget result)
     cdfMax = cdfRow (erMaxTable result) (erInitialState result) (erResolvedBudget result)
 
-initialStatePMFSeries :: Num p => ExtremalResult p -> ([p], [p])
+initialStatePMFSeries :: (Ord s, Num p) => ExtremalResult s p -> ([p], [p])
 initialStatePMFSeries result =
     (pmfFromCDF cdfMin, pmfFromCDF cdfMax)
   where
     (cdfMin, cdfMax) = initialStateCDFSeries result
 
-initialStateRows :: Num p => ExtremalResult p -> [(Int, p, p, p, p)]
+initialStateRows :: (Ord s, Num p) => ExtremalResult s p -> [(Int, p, p, p, p)]
 initialStateRows result =
     zipWith5 rows ts pmfMin pmfMax cdfMin cdfMax
   where
@@ -212,7 +212,7 @@ initialStateRows result =
     (pmfMin, pmfMax) = initialStatePMFSeries result
     rows t pmfMin' pmfMax' cdfMin' cdfMax' = (t, pmfMin', pmfMax', cdfMin', cdfMax')
 
-cdfRow :: Num p => ExtremalTable p -> ConcreteMDPState -> Int -> [p]
+cdfRow :: Ord s => Num p => ExtremalTable s p -> ConcreteMDPState s -> Int -> [p]
 cdfRow table st budget =
     [ tableValue table st t
     | t <- [0 .. budget]
@@ -222,7 +222,7 @@ pmfFromCDF :: Num p => [p] -> [p]
 pmfFromCDF [] = []
 pmfFromCDF (x : xs) = x : zipWith (-) xs (x : xs)
 
-collectConcreteStates :: StateSystem (MDP p) StaticBellPairs -> [ConcreteMDPState]
+collectConcreteStates :: Ord s => StateSystem (MDP p) s -> [ConcreteMDPState s]
 collectConcreteStates ss =
     Set.toAscList $
         Set.singleton (ssInitial ss)
@@ -240,9 +240,10 @@ collectConcreteStates ss =
                 ]
 
 buildActionMap
-    :: StateSystem (MDP p) StaticBellPairs
-    -> [ConcreteMDPState]
-    -> Map.Map ConcreteMDPState [D p (ConcreteMDPState, StepCost)]
+    :: Ord s
+    => StateSystem (MDP p) s
+    -> [ConcreteMDPState s]
+    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
 buildActionMap ss states =
     Map.fromList
         [ (st, actionGenerators st)
@@ -266,8 +267,9 @@ validateExtremalQuery (ExtremalCoverage target)
         Right ()
 
 validatePositiveCosts
-    :: Set.Set ConcreteMDPState
-    -> Map.Map ConcreteMDPState [D p (ConcreteMDPState, StepCost)]
+    :: (Ord s, Show s)
+    => Set.Set (ConcreteMDPState s)
+    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
     -> Either String ()
 validatePositiveCosts goalStates actions =
     case
@@ -287,14 +289,14 @@ validatePositiveCosts goalStates actions =
                     <> "encountered cost " <> show cost <> " in state " <> show st
 
 computeExtremalTable
-    :: RationalOrDouble p
+    :: (Ord s, RationalOrDouble p)
     => ([p] -> p)
     -> ExtremalQuery
-    -> [ConcreteMDPState]
-    -> Set.Set ConcreteMDPState
-    -> Map.Map ConcreteMDPState [D p (ConcreteMDPState, StepCost)]
-    -> ConcreteMDPState
-    -> (ExtremalTable p, Int, Maybe (CoverageStatus p))
+    -> [ConcreteMDPState s]
+    -> Set.Set (ConcreteMDPState s)
+    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
+    -> ConcreteMDPState s
+    -> (ExtremalTable s p, Int, Maybe (CoverageStatus p))
 computeExtremalTable selectValue query states goalStates actions initialState =
     go 0 0 initialTable
   where
@@ -364,13 +366,13 @@ selectMin = minimum
 selectMax :: Ord p => [p] -> p
 selectMax = maximum
 
-tableValue :: Num p => ExtremalTable p -> ConcreteMDPState -> Int -> p
+tableValue :: Ord s => Num p => ExtremalTable s p -> ConcreteMDPState s -> Int -> p
 tableValue _ _ budget | budget < 0 = 0
 tableValue table st budget =
     fromMaybe 0 $
         Map.lookup st table >>= IM.lookup budget
 
-columnsApproxEqual :: RationalOrDouble p => ExtremalTable p -> Int -> Int -> Bool
+columnsApproxEqual :: (Ord s, RationalOrDouble p) => ExtremalTable s p -> Int -> Int -> Bool
 columnsApproxEqual table left right =
     all approxEntry (Map.keys table)
   where

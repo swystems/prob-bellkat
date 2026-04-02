@@ -40,3 +40,6 @@ instance Output BinaryOutput where
     type CTag BinaryOutput = ()
     type OutputM BinaryOutput = CostCD'
     computeOutput _ inputBellPairs = cpure inputBellPairs
+
+instance OpOutput BinaryOutput Op where
+    fromCBPOutput _ bp op = BinaryOutput { boOutputBP = bp, boOperation = op }

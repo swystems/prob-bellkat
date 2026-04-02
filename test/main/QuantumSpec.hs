@@ -7,6 +7,7 @@ module QuantumSpec where
 import Test.Hspec
 import qualified Data.Aeson as A
 import qualified Data.Aeson.KeyMap as AKM
+import Data.Monoid (Sum(..))
 import Data.Ratio ((%))
 import Data.List (isInfixOf)
 import qualified Data.IntMap.Strict as IM
@@ -14,10 +15,15 @@ import qualified Data.Map.Strict as Map
 import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Definitions.Core
 import BellKAT.Bundles.Core (runNonLoggedPipeline)
-import BellKAT.Bundles.OpBased (probStarPolicyQMDPPipeline')
-import BellKAT.Implementations.MDPQuantum
-  ( holdsStaticTest
+import BellKAT.Bundles.OpBased (probStarPolicyQMDPPipeline', probStarPolicyWMDPPipeline')
+import BellKAT.Implementations.MDPProbability
+  ( MDP(..)
+  , StepCost(..)
+  , holdsStaticTest
   , toStaticBellPairs
+  )
+import BellKAT.Implementations.MDPWerner
+  ( WernerBellPairs
   )
 import BellKAT.Implementations.MDPExtremal
   ( CoverageStatus(..)
@@ -31,15 +37,18 @@ import BellKAT.Implementations.MDPExtremal
   , renderExtremalResult
   )
 import BellKAT.Implementations.QuantumOps
+import BellKAT.Implementations.ProbabilisticQuantumOps (StateKind(..))
+import BellKAT.Utils.Convex (getGenerators)
 import BellKAT.Utils.Distribution as D
 import GHC.Exts (toList)
 import BellKAT.Utils.Multiset (labelledMempty)
 import BellKAT.Implementations.Configuration (ExecutionParams (..), NetworkCapacity, applyExecutionParams)
+import BellKAT.Utils.Automata.Transitions.Functorial (StateSystem(..))
 import BellKAT.QuantumPrelude
   ( ProbabilisticActionConfiguration(..)
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag, QBKATTest
   , NetworkState
-  , create, trans, swap, while, (/~?), (~~?), (<||>)
+  , create, distill, trans, swap, ucreate, while, (/~?), (~~?), (<||>)
   )
 
 -- | Helper to build a labelled multiset of tagged bell pairs with a given clock
@@ -50,6 +59,28 @@ expectSingleton :: (Show a, Eq a) => D.D' a -> a
 expectSingleton d = case D.toListD d of
   [(x,p)] | p == 1 -> x
   xs -> error $ "expected singleton distribution with prob 1, got " <> show xs
+
+expectInitialGenerator :: (Ord s, Show s, Show p, Eq p) => StateSystem (MDP p) s -> s -> D p ((Int, s), StepCost)
+expectInitialGenerator ss st =
+  case IM.lookup (fst (ssInitial ss)) (ssTransitions ss) >>= Map.lookup st of
+    Nothing -> error $ "expected initial state in system, got " <> show st
+    Just mdp ->
+      case getGenerators (unMDP mdp) of
+        [gen] -> gen
+        gens -> error $ "expected exactly one generator, got " <> show (length gens)
+
+expectOutcome :: (Eq s, Show s) => s -> D Double ((Int, s), StepCost) -> (Double, Int)
+expectOutcome target gen =
+  case [ (prob, getSum (getStepCost cost))
+       | (((_, st), cost), prob) <- D.toListD gen
+       , st == target
+       ] of
+    [result] -> result
+    xs -> error $ "expected one outcome for " <> show target <> ", got " <> show xs
+
+shouldApproxBe :: Double -> Double -> Expectation
+shouldApproxBe actual expected =
+  abs (actual - expected) `shouldSatisfy` (< 1e-12)
 
 spec :: Spec
 spec = do
@@ -312,6 +343,120 @@ spec = do
       cMin25 `shouldSatisfy` (>= 9 % 10)
       erCoverageStatus resultCoverage `shouldBe`
         Just (CoverageReached { coverageTarget = 0.9, coverageBudget = 25, coverageValue = cMin25 })
+
+  describe "Werner MDP" $ do
+    it "splits parallel creation into pure and mixed Bell-pair states" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = [("C", 9/10)]
+            , pacSwapProbability     = []
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = [("C", 9/10)]
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("C",100)]
+            , pacDistances           = []
+            }
+          ep :: ExecutionParams () () ()
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = create "C" <||> create "C"
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyWMDPPipeline' @Double pac ep (mempty :: WernerBellPairs))
+              pol
+          gen = expectInitialGenerator ss (mempty :: WernerBellPairs)
+          purePair = [TaggedBellPair ("C" ~ "C") Pure] :: WernerBellPairs
+          mixedPair = [TaggedBellPair ("C" ~ "C") Mixed] :: WernerBellPairs
+          twoPure = [TaggedBellPair ("C" ~ "C") Pure, TaggedBellPair ("C" ~ "C") Pure] :: WernerBellPairs
+          pureMixed = [TaggedBellPair ("C" ~ "C") Pure, TaggedBellPair ("C" ~ "C") Mixed] :: WernerBellPairs
+          twoMixed = [TaggedBellPair ("C" ~ "C") Mixed, TaggedBellPair ("C" ~ "C") Mixed] :: WernerBellPairs
+          (pEmpty, cEmpty) = expectOutcome (mempty :: WernerBellPairs) gen
+          (pPure, cPure) = expectOutcome purePair gen
+          (pMixed, cMixed) = expectOutcome mixedPair gen
+          (pTwoPure, cTwoPure) = expectOutcome twoPure gen
+          (pPureMixed, cPureMixed) = expectOutcome pureMixed gen
+          (pTwoMixed, cTwoMixed) = expectOutcome twoMixed gen
+
+      pEmpty `shouldApproxBe` 0.01
+      pPure `shouldApproxBe` 0.162
+      pMixed `shouldApproxBe` 0.018
+      pTwoPure `shouldApproxBe` 0.6561
+      pPureMixed `shouldApproxBe` 0.1458
+      pTwoMixed `shouldApproxBe` 0.0081
+      all (== 1) ([cEmpty, cPure, cMixed, cTwoPure, cPureMixed, cTwoMixed] :: [Int]) `shouldBe` True
+
+    it "uses the whole round cost for combined Pd-style actions" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = []
+            , pacSwapProbability     = [("C", 1/2)]
+            , pacUCreateProbability  = [(("A", "B"), 1/10000)]
+            , pacCreateWerner        = []
+            , pacUCreateWerner       = [(("A", "B"), 9/10)]
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100),("D",100)]
+            , pacDistances           = [(("A", "B"), 2), (("B", "C"), 1), (("C", "D"), 3)]
+            }
+          ep :: ExecutionParams () () ()
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = ucreate ("A", "B") <||> swap "C" ("B", "D")
+          initial = [TaggedBellPair ("B" ~ "C") Pure, TaggedBellPair ("C" ~ "D") Pure] :: WernerBellPairs
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyWMDPPipeline' @Double pac ep initial)
+              pol
+          gen = expectInitialGenerator ss initial
+          onlyABPure = [TaggedBellPair ("A" ~ "B") Pure] :: WernerBellPairs
+          onlyABMixed = [TaggedBellPair ("A" ~ "B") Mixed] :: WernerBellPairs
+          onlyBDPure = [TaggedBellPair ("B" ~ "D") Pure] :: WernerBellPairs
+          (pABPure, cABPure) = expectOutcome onlyABPure gen
+          (pABMixed, cABMixed) = expectOutcome onlyABMixed gen
+          (pBDPure, cBDPure) = expectOutcome onlyBDPure gen
+          pGe = 1 / 10000 :: Double
+          qGe = 1 - pGe
+          pSw = 1 / 2 :: Double
+          qSw = 1 - pSw
+          w0 = 9 / 10 :: Double
+          cAB1 = exp (-1 / 100 - 1 / 100)
+          cBD3 = exp (-3 / 100 - 3 / 100)
+
+      pABPure `shouldApproxBe` (pGe * w0 * cAB1 * qSw)
+      pABMixed `shouldApproxBe` (pGe * ((1 - w0) + w0 * (1 - cAB1)) * qSw)
+      pBDPure `shouldApproxBe` (qGe * pSw * cBD3)
+      all (== 3) ([cABPure, cABMixed, cBDPure] :: [Int]) `shouldBe` True
+      all (\((_, cost), _) -> getSum (getStepCost cost) == 3) (D.toListD gen) `shouldBe` True
+
+    it "applies the mixed-plus-pure distillation table" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = []
+            , pacSwapProbability     = []
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = []
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100)]
+            , pacDistances           = [(("A", "B"), 1)]
+            }
+          ep :: ExecutionParams () () ()
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = distill ("A", "B")
+          initial = [TaggedBellPair ("A" ~ "B") Mixed, TaggedBellPair ("A" ~ "B") Pure] :: WernerBellPairs
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyWMDPPipeline' @Double pac ep initial)
+              pol
+          gen = expectInitialGenerator ss initial
+          pureAB = [TaggedBellPair ("A" ~ "B") Pure] :: WernerBellPairs
+          mixedAB = [TaggedBellPair ("A" ~ "B") Mixed] :: WernerBellPairs
+          (pEmpty, cEmpty) = expectOutcome (mempty :: WernerBellPairs) gen
+          (pPure, cPure) = expectOutcome pureAB gen
+          (pMixed, cMixed) = expectOutcome mixedAB gen
+
+      pEmpty `shouldApproxBe` 0.5
+      pPure `shouldApproxBe` (1 / 6)
+      pMixed `shouldApproxBe` (1 / 3)
+      all (== 1) ([cEmpty, cPure, cMixed] :: [Int]) `shouldBe` True
 
 main :: IO ()
 main = hspec spec

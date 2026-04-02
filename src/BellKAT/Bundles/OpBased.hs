@@ -16,8 +16,11 @@ import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Implementations.Output
 import           BellKAT.Implementations.Configuration (ExecutionParams)
-import           BellKAT.Implementations.MDPQuantum (MDP, StaticBellPairs)
-import qualified BellKAT.Implementations.MDPQuantum as MDPQ
+import           BellKAT.Implementations.MDPProbability (MDP, StaticBellPairs)
+import qualified BellKAT.Implementations.MDPProbability as MDPP
+import           BellKAT.Implementations.MDPWerner (WernerBellPairs)
+import qualified BellKAT.Implementations.MDPWerner as MDPW
+import           BellKAT.Implementations.ProbabilisticQuantumOps (BinaryOutput)
 import           BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag, MaxClock)
 import           BellKAT.Bundles.Core
 import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
@@ -120,8 +123,26 @@ guardedToMDPStage' ep initialState = Stage
     { stageName = "system_mdp_stage'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        MDPQ.minimizeStateSystem $
-        GASQ.executeSystem MDPQ.holdsStaticTest (MDPQ.executeWith' ep') gfa
+        MDPP.minimizeStateSystem $
+        GASQ.executeSystem MDPP.holdsStaticTest (MDPP.executeWith' ep') gfa
+        initialState'
+    }
+
+guardedToWernerMDPStage'
+    :: forall p rTag cTag test. RationalOrDouble p
+    => (Test test, DecidableBoolean (test ()), Show (test ()))
+    => ProbabilisticActionConfiguration
+    -> ExecutionParams () rTag cTag
+    -> WernerBellPairs
+    -> Stage (ExecutionParams () rTag cTag, WernerBellPairs)
+        (GASQ.GuardedAutomatonStepQuantum (test ()) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()))
+        (GASQ.StateSystem (MDP p) WernerBellPairs)
+guardedToWernerMDPStage' pac ep initialState = Stage
+    { stageName = "system_werner_mdp_stage'"
+    , stageConfig = (ep, initialState)
+    , stageFunction = \(ep', initialState') gfa ->
+        MDPW.minimizeStateSystem $
+        GASQ.executeSystem MDPW.holdsWernerTest (MDPW.executeWith' pac ep') gfa
         initialState'
     }
 
@@ -201,6 +222,18 @@ probStarPolicyQMDPPipeline' pac ep initialState =
     probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput QuantumOutput)) pac
         >>> stage (guardedToMDPStage' @p ep initialState)
 
+probStarPolicyWMDPPipeline'
+    :: forall p rTag cTag test. RationalOrDouble p
+    => (Test test, DecidableBoolean (test ()), Show (test ()))
+    => ProbabilisticActionConfiguration
+    -> ExecutionParams () rTag cTag
+    -> WernerBellPairs
+    -> Pipeline (Simple (OrderedGuardedPolicy (test ())) ())
+        (GASQ.StateSystem (MDP p) WernerBellPairs)
+probStarPolicyWMDPPipeline' pac ep initialState =
+    probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput BinaryOutput)) pac
+        >>> stage (guardedToWernerMDPStage' @p pac ep initialState)
+
 applyProbStarPolicyOp'
     :: forall p. RationalOrDouble p
     => forall output. (OpOutput output Op, OutputM output ~ CD', Monoid output, Show output)
@@ -214,4 +247,3 @@ applyProbStarPolicyOp'
     -> CD p (OutputBellPairs output)
 applyProbStarPolicyOp' proxy pac ep policy initialState = 
     runNonLoggedPipeline (probStarPolicyOpPipeline' proxy pac ep initialState) policy
-

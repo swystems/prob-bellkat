@@ -42,6 +42,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Options.Applicative as OA
 import Data.Semigroup (stimes)
 import Data.Default
+import           GHC.Exts (toList)
 
 import BellKAT.DSL
 import BellKAT.Definitions
@@ -49,9 +50,17 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.MDPQuantum
+import BellKAT.Implementations.MDPProbability
     ( holdsStaticTest
     , toStaticBellPairs
+    )
+import BellKAT.Implementations.MDPWerner
+    ( WernerBellPairs
+    , toWernerBellPairs
+    , holdsWernerTest
+    )
+import BellKAT.Implementations.ProbabilisticQuantumOps
+    ( StateKind(..)
     )
 import BellKAT.Implementations.MDPExtremal
     ( ExtremalQuery(..)
@@ -101,7 +110,7 @@ data MDPCLIOpts = MDPCLIOpts
     , mcoBudget :: Maybe Int
     }
 
-data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton | QMMDP MDPCLIOpts
+data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton | QMMDP MDPCLIOpts | QMQMDP MDPCLIOpts
 
 data QbkatCLIOpts = QCO
     { qcoJSON :: Bool
@@ -164,7 +173,10 @@ qcoParser = QCO
                 (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
                 <>
             OA.command "mdp"
-                (OA.info (QMMDP <$> mdpCLIParser) (OA.progDesc "Run the protocol"))
+                (OA.info (QMMDP <$> mdpCLIParser) (OA.progDesc "Build or solve the time-only MDP"))
+                <>
+            OA.command "qmdp"
+                (OA.info (QMQMDP <$> mdpCLIParser) (OA.progDesc "Build or solve the quality-aware MDP"))
         )
 
 
@@ -182,6 +194,9 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
+        qmdpEp = EP { epNetworkCapacity = nbCapacity nb
+                    , epFilter          = \_ _ -> True
+                    }
         runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
@@ -220,6 +235,35 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                                     putStrLn (show mdp)
                                     putStrLn ""
                                     putStrLn (renderExtremalResult result)
+          QMQMDP mdpOpts -> do
+              initialQState <-
+                  case initialWernerState ns of
+                      Left err -> ioError (userError err)
+                      Right st -> pure st
+              let qmdp = runNonLoggedPipeline (probStarPolicyWMDPPipeline' @p pac qmdpEp initialQState) protocol
+              case resolveExtremalQuery mdpOpts of
+                Left err ->
+                    ioError (userError err)
+                Right Nothing ->
+                    if qcoJSON opts
+                       then BS.putStr . A.encode $
+                            A.object ["mdp_rendered" A..= show qmdp]
+                       else putStrLn (show qmdp)
+                Right (Just query) ->
+                    case computeExtremalReachability (holdsWernerTest ev) query qmdp of
+                        Left err ->
+                            ioError (userError err)
+                        Right result ->
+                            if qcoJSON opts
+                               then BS.putStr . A.encode $
+                                    A.object
+                                        [ "mdp_rendered" A..= show qmdp
+                                        , "extremal" A..= result
+                                        ]
+                               else do
+                                    putStrLn (show qmdp)
+                                    putStrLn ""
+                                    putStrLn (renderExtremalResult result)
           QMAutomaton ->
               runLoggedPipeline automatonPipeline protocol >>= print
           QMProbability -> do
@@ -231,6 +275,22 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                      in if qcoJSON opts
                            then BS.putStr $ A.encode probRange
                            else print probRange
+
+initialWernerState :: NetworkState -> Either String WernerBellPairs
+initialWernerState (Mset.LMS (bps, _)) =
+    fmap (toWernerBellPairs . (Mset.@ ()) . Mset.fromList) . traverse toKindedPair . toList $ bps
+  where
+    toKindedPair (TaggedBellPair bp (QuantumTag _ w))
+        | approx01 w 1 = Right (TaggedBellPair bp Pure)
+        | approx01 w 0 = Right (TaggedBellPair bp Mixed)
+        | otherwise =
+            Left $
+                "qmdp currently requires an initial state whose Bell pairs are already "
+                <> "deterministically pure (Werner 1) or mixed (Werner 0); "
+                <> "encountered Werner " <> show w <> " for " <> show bp
+
+approx01 :: Double -> Double -> Bool
+approx01 x y = abs (x - y) <= 1e-12
 
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`

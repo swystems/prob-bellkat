@@ -70,7 +70,8 @@ library:
     - BellKAT.Implementations.AtomicOneStepQuantum
     - BellKAT.Implementations.ProbAtomicOneStepQuantum
     - BellKAT.Implementations.ProbabilisticQuantumOps
-    - BellKAT.Implementations.MDPQuantum
+    - BellKAT.Implementations.MDPProbability
+    - BellKAT.Implementations.MDPWerner
     - BellKAT.Implementations.Output
     - BellKAT.Implementations.QuantumOps
     - BellKAT.Implementations.MDPExtremal

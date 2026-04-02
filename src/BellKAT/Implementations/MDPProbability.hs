@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-module BellKAT.Implementations.MDPQuantum
+module BellKAT.Implementations.MDPProbability
     ( StaticBellPairs(..)
     , toStaticBellPairs
     , holdsStaticTest

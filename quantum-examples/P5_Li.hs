@@ -1,8 +1,8 @@
 import BellKAT.QuantumPrelude
 
-p :: Int -> QBKATPolicy
-p n =
-    whileN n ("A" /~? "C")
+p :: QBKATPolicy
+p =
+    while ("A" /~? "C")
     (
         (
             -- generations in parallel
@@ -53,8 +53,8 @@ actionConfig pGen w0 pSwap tCoh =
 main :: IO ()
 main =
     let ev     = "A" ~~? "C"
-        pGen  = 1/4
+        pGen  = 1/40000
         pSwap = 1/2
         w0     = 95/100
         tCoh   = 100
-    in qbkatMainD (actionConfig pGen w0 pSwap tCoh) nb ev (p 108) mempty
+    in qbkatMainD (actionConfig pGen w0 pSwap tCoh) nb ev p mempty

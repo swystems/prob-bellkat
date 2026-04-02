@@ -2,6 +2,9 @@ results.pdf
 results.tex
 README.pdf
 output/
+.vscode
+.DS_Store
+
 # Created by https://www.toptal.com/developers/gitignore/api/haskell,direnv,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=haskell,direnv,python
 

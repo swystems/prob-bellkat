@@ -49,6 +49,7 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
+import BellKAT.Implementations.MDPQuantum (toStaticBellPairs)
 import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
@@ -86,7 +87,7 @@ instance Default (NetworkBounds tag) where
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
 createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
-data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton
+data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton | QMMDP
 
 data QbkatCLIOpts = QCO 
     { qcoJSON :: Bool
@@ -108,6 +109,10 @@ qcoParser = QCO
                 <>
             OA.command "probability" 
                 (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
+<>
+            OA.command "mdp"
+                (OA.info (pure QMMDP) (OA.progDesc "Print the static-state MDP"))
+
         )
 
 
@@ -127,6 +132,7 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                 }
         runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
         automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of
@@ -135,6 +141,8 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
               if qcoJSON opts
                  then BS.putStr $ A.encode r
                  else print r
+QMMDP ->
+              print $ runNonLoggedPipeline mdpPipeline protocol
           QMTrace -> 
               runLoggedPipeline systemPipeline protocol >>= print
           QMAutomaton ->

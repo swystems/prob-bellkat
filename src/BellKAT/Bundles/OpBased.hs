@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 module BellKAT.Bundles.OpBased where
 
 import           Data.Default
@@ -15,6 +16,9 @@ import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Implementations.Output
 import           BellKAT.Implementations.Configuration (ExecutionParams)
+import           BellKAT.Implementations.MDPQuantum (MDP, StaticBellPairs)
+import qualified BellKAT.Implementations.MDPQuantum as MDPQ
+import           BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag, MaxClock)
 import           BellKAT.Bundles.Core
 import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
 
@@ -104,6 +108,23 @@ guardedToSystemStage ep initialState = Stage
         initialState'
     }
 
+guardedToMDPStage'
+    :: forall p. RationalOrDouble p
+    => forall test. (Test test, DecidableBoolean (test ()), Show (test ()))
+    => ExecutionParams () QuantumTag MaxClock
+    -> StaticBellPairs
+    -> Stage (ExecutionParams () QuantumTag MaxClock, StaticBellPairs)
+        (GASQ.GuardedAutomatonStepQuantum (test ()) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput QuantumOutput) ()))
+        (GASQ.StateSystem (MDP p) StaticBellPairs)
+guardedToMDPStage' ep initialState = Stage
+    { stageName = "system_mdp_stage'"
+    , stageConfig = (ep, initialState)
+    , stageFunction = \(ep', initialState') gfa ->
+        MDPQ.minimizeStateSystem $
+        GASQ.executeSystem MDPQ.holdsStaticTest (MDPQ.executeWith' ep') gfa
+        initialState'
+    }
+
 -- | builds an automaton t`BellKAT.Utils.Automata.Guarded.GuardedFA` from a guarded policy `OrderedGuardedPolicy` using probabilistic interpretation configured via `ProbabilisticActionConfiguration` guided by `GASQ.GuardedAutomatonStepQuantum` with `PAOSQ.ProbAtomicOneStepPolicy` as an action.
 probStarPolicyAutomatonPipeline
     :: forall output. (OpOutput output Op, Monoid output, Show output)
@@ -167,6 +188,18 @@ probStarPolicyOpSystemPipeline
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (GASQ.StateSystem CD' (OutputBellPairs output))
 probStarPolicyOpSystemPipeline proxy pac ep initialState = 
     probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage ep initialState)
+
+probStarPolicyQMDPPipeline'
+    :: forall p. RationalOrDouble p
+    => forall test. (Test test, DecidableBoolean (test ()), Show (test ()))
+    => ProbabilisticActionConfiguration
+    -> ExecutionParams () QuantumTag MaxClock
+    -> StaticBellPairs
+    -> Pipeline (Simple (OrderedGuardedPolicy (test ())) ())
+        (GASQ.StateSystem (MDP p) StaticBellPairs)
+probStarPolicyQMDPPipeline' pac ep initialState =
+    probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput QuantumOutput)) pac
+        >>> stage (guardedToMDPStage' @p ep initialState)
 
 applyProbStarPolicyOp'
     :: forall p. RationalOrDouble p

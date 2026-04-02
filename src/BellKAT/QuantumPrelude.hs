@@ -109,7 +109,7 @@ qcoParser = QCO
                 <>
             OA.command "probability" 
                 (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
-<>
+                <>
             OA.command "mdp"
                 (OA.info (pure QMMDP) (OA.progDesc "Print the static-state MDP"))
 
@@ -132,7 +132,7 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                 }
         runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
+        mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
         automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of
@@ -141,7 +141,7 @@ mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
               if qcoJSON opts
                  then BS.putStr $ A.encode r
                  else print r
-QMMDP ->
+          QMMDP ->
               print $ runNonLoggedPipeline mdpPipeline protocol
           QMTrace -> 
               runLoggedPipeline systemPipeline protocol >>= print

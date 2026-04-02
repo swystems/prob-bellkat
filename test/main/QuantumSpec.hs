@@ -1,16 +1,46 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module QuantumSpec where
 
 import Test.Hspec
+import qualified Data.Aeson as A
+import qualified Data.Aeson.KeyMap as AKM
+import Data.Ratio ((%))
+import Data.List (isInfixOf)
+import qualified Data.IntMap.Strict as IM
+import qualified Data.Map.Strict as Map
 import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Definitions.Core
+import BellKAT.Bundles.Core (runNonLoggedPipeline)
+import BellKAT.Bundles.OpBased (probStarPolicyQMDPPipeline')
+import BellKAT.Implementations.MDPQuantum
+  ( holdsStaticTest
+  , toStaticBellPairs
+  )
+import BellKAT.Implementations.MDPExtremal
+  ( CoverageStatus(..)
+  , ExtremalQuery(..)
+  , computeExtremalReachability
+  , erCoverageStatus
+  , erInitialState
+  , erMaxTable
+  , erMinTable
+  , erResolvedBudget
+  , renderExtremalResult
+  )
 import BellKAT.Implementations.QuantumOps
 import BellKAT.Utils.Distribution as D
 import GHC.Exts (toList)
 import BellKAT.Utils.Multiset (labelledMempty)
-import BellKAT.Implementations.Configuration (ExecutionParams (..), applyExecutionParams)
+import BellKAT.Implementations.Configuration (ExecutionParams (..), NetworkCapacity, applyExecutionParams)
+import BellKAT.QuantumPrelude
+  ( ProbabilisticActionConfiguration(..)
+  , QBKATPolicy, QBKATTag, QBKATRuntimeTag, QBKATTest
+  , NetworkState
+  , create, trans, swap, while, (/~?), (~~?), (<||>)
+  )
 
 -- | Helper to build a labelled multiset of tagged bell pairs with a given clock
 buildState :: [TaggedBellPair QuantumTag] -> MaxClock -> Mset.LabelledMultiset MaxClock (TaggedBellPair QuantumTag)
@@ -180,6 +210,108 @@ spec = do
       wernerParams `shouldBe` replicate 2 freshW
       -- (redundant equality check emphasizing uniformity)
       all (== freshW) wernerParams `shouldBe` True
+
+  describe "static MDP" $ do
+    it "builds a finite Pa MDP with per-distribution costs and elides empty labels" $ do
+      let pac = PAC
+            { pacTransmitProbability = [(("C","A"), 8/10), (("C","B"), 7/10)]
+            , pacCreateProbability   = [("C", 9/10)]
+            , pacSwapProbability     = [("C", 6/10)]
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = [("C", 958/1000)]
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100)]
+            , pacDistances           = [(("A","C"),1), (("B","C"),2), (("A","B"),3)]
+            }
+          capacity :: NetworkCapacity QBKATTag
+          capacity = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C", "A" ~ "B"]
+          ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
+          ep = EP { epNetworkCapacity = Just capacity
+                  , epFilter = \_ _ -> True
+                  }
+          pol :: QBKATPolicy
+          pol = while ("A" /~? "B")
+                ( (create "C" <||> create "C")
+                  <>
+                  (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
+                  <>
+                  swap "C" ("A", "B")
+                )
+          rendered = show $
+            runNonLoggedPipeline
+              (probStarPolicyQMDPPipeline' @Rational pac ep (toStaticBellPairs (mempty :: NetworkState)))
+              pol
+
+      rendered `shouldSatisfy` not . ("@()" `isInfixOf`)
+      rendered `shouldSatisfy`
+        isInfixOf "^0:\n  ^⦃⦄: ⦅ (0,⦃⦄)×《1 % 100, 1》+(1,⦃C~C⦄)×《9 % 50, 1》+(1,⦃C~C,C~C⦄)×《81 % 100, 1》 ⦆"
+      rendered `shouldSatisfy`
+        isInfixOf "  ⦃C~C,C~C⦄: ⦅ (0,⦃⦄)×《3 % 50, 2》+(0,⦃A~C⦄)×《6 % 25, 2》+(0,⦃B~C⦄)×《7 % 50, 2》+(2,⦃A~C,B~C⦄)×《14 % 25, 2》 ⦆"
+      rendered `shouldSatisfy`
+        isInfixOf "  ⦃A~C,B~C⦄: ⦅ (0,⦃⦄)×《2 % 5, 2》+(0,⦃A~B⦄)×《3 % 5, 2》 ⦆"
+
+    it "computes extremal CDFs for the Pa MDP" $ do
+      let pac = PAC
+            { pacTransmitProbability = [(("C","A"), 8/10), (("C","B"), 7/10)]
+            , pacCreateProbability   = [("C", 9/10)]
+            , pacSwapProbability     = [("C", 6/10)]
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = [("C", 958/1000)]
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100)]
+            , pacDistances           = [(("A","C"),1), (("B","C"),2), (("A","B"),3)]
+            }
+          capacity :: NetworkCapacity QBKATTag
+          capacity = ["C" ~ "C", "C" ~ "C", "A" ~ "C", "B" ~ "C", "A" ~ "B"]
+          ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
+          ep = EP { epNetworkCapacity = Just capacity
+                  , epFilter = \_ _ -> True
+                  }
+          pol :: QBKATPolicy
+          pol = while ("A" /~? "B")
+                ( (create "C" <||> create "C")
+                  <>
+                  (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
+                  <>
+                  swap "C" ("A", "B")
+                )
+          ev :: QBKATTest
+          ev = "A" ~~? "B"
+          mdp =
+            runNonLoggedPipeline
+              (probStarPolicyQMDPPipeline' @Rational pac ep (toStaticBellPairs (mempty :: NetworkState)))
+              pol
+          Right resultBudget =
+            computeExtremalReachability (holdsStaticTest ev) (ExtremalBudget 10) mdp
+          Just cMin10 =
+            Map.lookup (erInitialState resultBudget) (erMinTable resultBudget) >>= IM.lookup 10
+          Just cMax10 =
+            Map.lookup (erInitialState resultBudget) (erMaxTable resultBudget) >>= IM.lookup 10
+          Right resultCoverage =
+            computeExtremalReachability (holdsStaticTest ev) (ExtremalCoverage 0.9) mdp
+          Just cMin24 =
+            Map.lookup (erInitialState resultCoverage) (erMinTable resultCoverage) >>= IM.lookup 24
+          Just cMin25 =
+            Map.lookup (erInitialState resultCoverage) (erMinTable resultCoverage) >>= IM.lookup 25
+          renderedExtremal = renderExtremalResult resultBudget
+          Just (A.Object jsonExtremal) = A.decode (A.encode resultBudget)
+          Just (A.Object jsonSeries) = AKM.lookup "series" jsonExtremal
+
+      erResolvedBudget resultBudget `shouldBe` 10
+      cMin10 `shouldBe` 32945609380761 % 62500000000000
+      cMax10 `shouldBe` 36225649041561 % 62500000000000
+      renderedExtremal `shouldSatisfy` isInfixOf "t   pmf_min[t]"
+      jsonExtremal `shouldSatisfy` AKM.member "series"
+      jsonSeries `shouldSatisfy` AKM.member "cdf_min"
+      jsonSeries `shouldSatisfy` AKM.member "cdf_max"
+      jsonSeries `shouldSatisfy` not . AKM.member "pmf_min"
+      jsonSeries `shouldSatisfy` not . AKM.member "t"
+
+      erResolvedBudget resultCoverage `shouldBe` 25
+      cMin24 `shouldSatisfy` (< 9 % 10)
+      cMin25 `shouldSatisfy` (>= 9 % 10)
+      erCoverageStatus resultCoverage `shouldBe`
+        Just (CoverageReached { coverageTarget = 0.9, coverageBudget = 25, coverageValue = cMin25 })
 
 main :: IO ()
 main = hspec spec

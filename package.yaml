@@ -73,6 +73,7 @@ library:
     - BellKAT.Implementations.MDPQuantum
     - BellKAT.Implementations.Output
     - BellKAT.Implementations.QuantumOps
+    - BellKAT.Implementations.MDPExtremal
     - BellKAT.Bundles.Core
     - BellKAT.Bundles.Desugaring
     - BellKAT.Bundles.OpBased

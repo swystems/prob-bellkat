@@ -45,11 +45,19 @@ import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
-import BellKAT.Definitions.Atomic ()  
+import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.MDPQuantum (toStaticBellPairs)
+import BellKAT.Implementations.MDPQuantum
+    ( holdsStaticTest
+    , toStaticBellPairs
+    )
+import BellKAT.Implementations.MDPExtremal
+    ( ExtremalQuery(..)
+    , computeExtremalReachability
+    , renderExtremalResult
+    )
 import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
@@ -87,36 +95,80 @@ instance Default (NetworkBounds tag) where
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
 createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
-data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton | QMMDP
+data MDPCLIOpts = MDPCLIOpts
+    { mcoComputeExtremal :: Bool
+    , mcoCoverage :: Maybe Double
+    , mcoBudget :: Maybe Int
+    }
 
-data QbkatCLIOpts = QCO 
+data QbkatMode = QMRun | QMTrace | QMProbability | QMAutomaton | QMMDP MDPCLIOpts
+
+data QbkatCLIOpts = QCO
     { qcoJSON :: Bool
     , qcoMode :: QbkatMode
     }
 
+mdpCLIParser :: OA.Parser MDPCLIOpts
+mdpCLIParser =
+    MDPCLIOpts
+        <$> OA.flag False True
+            ( OA.long "compute-extremal"
+                <> OA.help "Compute extremal cost-bounded reachability from the derived MDP"
+            )
+        <*> OA.optional
+            ( OA.option OA.auto
+                ( OA.long "coverage"
+                    <> OA.metavar "P"
+                    <> OA.help "Stop when the worst-scheduler CDF at the initial state reaches probability P"
+                )
+            )
+        <*> OA.optional
+            ( OA.option OA.auto
+                ( OA.long "truncation"
+                    <> OA.metavar "R"
+                    <> OA.help "Compute the extremal CDFs up to budget R"
+                )
+            )
+
+resolveExtremalQuery :: MDPCLIOpts -> Either String (Maybe ExtremalQuery)
+resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoCoverage, mcoBudget}
+    | hasCoverage && hasBudget =
+        Left "Use either --coverage or --truncation, not both."
+    | not wantsExtremal =
+        Right Nothing
+    | otherwise =
+        case (mcoCoverage, mcoBudget) of
+            (Just coverage, Nothing) -> Right . Just $ ExtremalCoverage coverage
+            (Nothing, Just budget) -> Right . Just $ ExtremalBudget budget
+            _ ->
+                Left "Pass either --coverage or --truncation when requesting --compute-extremal."
+  where
+    hasCoverage = maybe False (const True) mcoCoverage
+    hasBudget = maybe False (const True) mcoBudget
+    wantsExtremal = mcoComputeExtremal || hasCoverage || hasBudget
+
 qcoParser :: OA.Parser QbkatCLIOpts
-qcoParser = QCO 
-    <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON") 
+qcoParser = QCO
+    <$> OA.flag False True (OA.long "json" <> OA.help "Generate JSON")
     <*> OA.subparser (
-            OA.command "run" 
-                (OA.info (pure QMRun) (OA.progDesc "Run the procotol")) 
+            OA.command "run"
+                (OA.info (pure QMRun) (OA.progDesc "Run the procotol"))
                 <>
             OA.command "execution-trace"
-                (OA.info (pure QMTrace) (OA.progDesc "Run the procotol")) 
+                (OA.info (pure QMTrace) (OA.progDesc "Run the procotol"))
                 <>
             OA.command "automaton"
-                (OA.info (pure QMAutomaton) (OA.progDesc "Run the procotol")) 
+                (OA.info (pure QMAutomaton) (OA.progDesc "Run the procotol"))
                 <>
-            OA.command "probability" 
+            OA.command "probability"
                 (OA.info (pure QMProbability) (OA.progDesc "Compute event probability"))
                 <>
             OA.command "mdp"
-                (OA.info (pure QMMDP) (OA.progDesc "Print the static-state MDP"))
-
+                (OA.info (QMMDP <$> mdpCLIParser) (OA.progDesc "Run the protocol"))
         )
 
 
-qbkatMain' 
+qbkatMain'
     :: (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
     -> ProbabilisticActionConfiguration
@@ -125,8 +177,8 @@ qbkatMain'
     -> QBKATPolicy
     -> NetworkState
     -> IO ()
-qbkatMain' (_ :: Proxy p) pac nb ev protocol ns = 
-                                          {- ^ initial network state -}  
+qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
+                                          {- ^ initial network state -}
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
                 }
@@ -141,17 +193,40 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
               if qcoJSON opts
                  then BS.putStr $ A.encode r
                  else print r
-          QMMDP ->
-              print $ runNonLoggedPipeline mdpPipeline protocol
-          QMTrace -> 
+          QMTrace ->
               runLoggedPipeline systemPipeline protocol >>= print
+          QMMDP mdpOpts -> do
+              let mdp = runNonLoggedPipeline mdpPipeline protocol
+              case resolveExtremalQuery mdpOpts of
+                Left err ->
+                    ioError (userError err)
+                Right Nothing ->
+                    if qcoJSON opts
+                       then BS.putStr . A.encode $
+                            A.object ["mdp_rendered" A..= show mdp]
+                       else putStrLn (show mdp)
+                Right (Just query) ->
+                    case computeExtremalReachability (holdsStaticTest ev) query mdp of
+                        Left err ->
+                            ioError (userError err)
+                        Right result ->
+                            if qcoJSON opts
+                               then BS.putStr . A.encode $
+                                    A.object
+                                        [ "mdp_rendered" A..= show mdp
+                                        , "extremal" A..= result
+                                        ]
+                               else do
+                                    putStrLn (show mdp)
+                                    putStrLn ""
+                                    putStrLn (renderExtremalResult result)
           QMAutomaton ->
               runLoggedPipeline automatonPipeline protocol >>= print
           QMProbability -> do
               mbRStored :: Maybe (CD p (OutputBellPairs QBKATOutput)) <- A.decode <$> BS.getContents
-              case mbRStored of 
+              case mbRStored of
                 Nothing -> error "Couldn't parse input"
-                Just rStored -> 
+                Just rStored ->
                     let probRange = computeEventProbabilityRange ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev) rStored
                      in if qcoJSON opts
                            then BS.putStr $ A.encode probRange
@@ -159,8 +234,8 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
 
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
-qbkatMain 
-    :: ProbabilisticActionConfiguration 
+qbkatMain
+    :: ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
@@ -169,8 +244,8 @@ qbkatMain
 qbkatMain = qbkatMain' (Proxy :: Proxy Probability)
 
 -- | speicialization of `qbkatMain'` to floating point probability `Double`
-qbkatMainD 
-    :: ProbabilisticActionConfiguration 
+qbkatMainD
+    :: ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy

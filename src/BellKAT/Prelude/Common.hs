@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Prelude.Common (
     RunPipelines(..),
-    main
+    main,
+    mainWithOpts
 ) where
 
 import qualified Options.Applicative as OA
@@ -61,6 +62,15 @@ main
     -> String -> policy -> (o -> Bool) -> IO ()
 main rp progDesc protocol ev = do
     opts <- runKatParser progDesc
+    mainWithOpts rp opts protocol ev
+
+mainWithOpts
+    :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
+    => forall o. (DDom o, A.FromJSON o, A.ToJSON o)
+    => forall automaton system. (Show automaton, Show system)
+    => forall policy. RunPipelines p policy system automaton o 
+    -> KatCLIOpts -> policy -> (o -> Bool) -> IO ()
+mainWithOpts rp opts protocol ev =
     case kcoMode opts of
       KMRun -> do
           r <- runLoggedPipeline (runPipeline rp) protocol

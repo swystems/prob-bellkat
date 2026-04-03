@@ -13,7 +13,7 @@ module BellKAT.QuantumPrelude (
     QBKATPolicy,
     -- * Helpers
     createNetworkState,
-    -- * Re-exports 
+    -- * Re-exports
     QuantumTag(..),
     TaggedBellPair(..),
     ProbabilisticActionConfiguration(..),
@@ -43,7 +43,7 @@ import Data.Default
 
 import BellKAT.DSL
 import BellKAT.Definitions
-import BellKAT.Definitions.Atomic ()  
+import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
@@ -83,6 +83,31 @@ instance Default (NetworkBounds tag) where
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
 createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
+-- | Build an 'ExecutionParams' from 'NetworkBounds'
+executionParamsFromNetworkBounds :: NetworkBounds t -> ExecutionParams t QuantumTag MaxClock
+executionParamsFromNetworkBounds nb = EP
+    { epNetworkCapacity = nbCapacity nb
+    , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
+    }
+
+type QBKATSystem p = GASQ.StateSystem (CD p) (OutputBellPairs QBKATOutput)
+type QBKATAutomaton = GASQ.GuardedAutomatonStepQuantum QBKATTest (PAOSQ.ProbAtomicOneStepPolicy QBKATOutput QBKATTag)
+
+createQuantumPipelines
+    :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
+    => Proxy p
+    -> ProbabilisticActionConfiguration
+    -> NetworkBounds QBKATTag
+    -> NetworkState
+    -> RunPipelines p QBKATPolicy (QBKATSystem p) QBKATAutomaton NetworkState
+createQuantumPipelines _ pac nb ns =
+    let ep = executionParamsFromNetworkBounds nb
+     in RunPipelines
+        { runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        , systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
+        , automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac
+        }
+
 qbkatMain'
     :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
@@ -92,21 +117,13 @@ qbkatMain'
     -> QBKATPolicy
     -> NetworkState
     -> IO ()
-qbkatMain' _ pac nb ev protocol ns =
-                                          {- ^ initial network state -}
-    let ep = EP { epNetworkCapacity = nbCapacity nb
-                , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
-                }
-        rp = RunPipelines 
-            { runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-            , systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
-            , automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac
-            } 
-        in main rp "QBKAT tool" protocol ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev)
+qbkatMain' p pac nb ev protocol ns =
+    let rp = createQuantumPipelines p pac nb ns
+    in main rp "QBKAT tool" protocol ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev)
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
-qbkatMain 
-    :: ProbabilisticActionConfiguration 
+qbkatMain
+    :: ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy
@@ -115,8 +132,8 @@ qbkatMain
 qbkatMain = qbkatMain' (Proxy :: Proxy Probability)
 
 -- | speicialization of `qbkatMain'` to floating point probability `Double`
-qbkatMainD 
-    :: ProbabilisticActionConfiguration 
+qbkatMainD
+    :: ProbabilisticActionConfiguration
     -> NetworkBounds QBKATTag
     -> QBKATTest
     -> QBKATPolicy

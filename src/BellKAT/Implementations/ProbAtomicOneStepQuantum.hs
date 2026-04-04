@@ -117,7 +117,7 @@ executePAA :: (Output output, RuntimeTag (RTag output) tag)
            -> OutputBellPairs output
            -> OutputM output (OutputBellPairs output)
 executePAA fix act bps =
-    let testHolds = (getBPsPredicate . toBPsPredicate . paaTest) act (staticBellPairs bps)
+    let testHolds = (testBellPairs . paaTest) act (staticBellPairs bps)
      in if testHolds
         then mconcat
          [ cmap (fix . (<> rest)) (computeOutput (paaOutput act) chosen)

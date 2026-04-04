@@ -47,7 +47,7 @@ guardedAutomatonStage ep initialState = Stage
     { stageName = "executing_guarded_automaton_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.execute (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
+        GASQ.execute testBellPairs (PAOSQ.executeWith ep') gfa
         initialState'
     }
 
@@ -64,7 +64,7 @@ guardedAutomatonStage' ep initialState = Stage
     { stageName = "executing_guarded_automaton_prob'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.execute (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
+        GASQ.execute testBellPairs (PAOSQ.executeWith' ep') gfa
         initialState'
     }
 
@@ -81,7 +81,7 @@ guardedToSystemStage' ep initialState = Stage
     { stageName = "system_stage_prob'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.executeSystem (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
+        GASQ.executeSystem testBellPairs (PAOSQ.executeWith' ep') gfa
         initialState'
     }
 
@@ -97,7 +97,7 @@ guardedToSystemStage ep initialState = Stage
     { stageName = "system_stage_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.executeSystem (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
+        GASQ.executeSystem testBellPairs (PAOSQ.executeWith ep') gfa
         initialState'
     }
 
@@ -113,7 +113,7 @@ guardedToStatesStage ep initialState = Stage
     { stageName = "guarded_states_stage_prob"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.executeState (getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
+        GASQ.executeState testBellPairs (PAOSQ.executeWith ep') gfa
         initialState'
     }
 

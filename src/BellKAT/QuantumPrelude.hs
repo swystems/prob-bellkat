@@ -47,13 +47,16 @@ import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
 import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
-import BellKAT.Implementations.Output (ListOutput, staticBellPairs)
+import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
 import BellKAT.Prelude.Common
 import BellKAT.Utils.Distribution (RationalOrDouble)
-import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Bundles.OpBased
+import BellKAT.Utils.Automata.Transitions.Functorial
+import BellKAT.Utils.Convex
+import qualified BellKAT.Implementations.GuardedAutomataStepQuantum as GASQ
+import qualified BellKAT.Implementations.ProbAtomicOneStepQuantum as PAOSQ
 
 type QBKATTag = ()
 type QBKATRuntimeTag = QuantumTag
@@ -65,7 +68,7 @@ type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction
 
 type QBKATOutput = ListOutput QuantumOutput
 
-type NetworkState = LabelledMultiset MaxClock (TaggedBellPair QBKATRuntimeTag)
+type NetworkState = OutputBellPairs QuantumOutput
 
 -- | Cutoff specification (time units for now, possibly extended with fidelity later)
 type CutoffSpec = TimeUnit
@@ -90,9 +93,10 @@ executionParamsFromNetworkBounds nb = EP
     , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
     }
 
-type QBKATSystem p = GASQ.StateSystem (CD p) (OutputBellPairs QBKATOutput)
+type QBKATSystem p = StateSystem (CD p) (OutputBellPairs QBKATOutput)
 type QBKATAutomaton = GASQ.GuardedAutomatonStepQuantum QBKATTest (PAOSQ.ProbAtomicOneStepPolicy QBKATOutput QBKATTag)
 
+-- | Prepares 'RunPipelines' for QBKAT.
 createQuantumPipelines
     :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
     => Proxy p
@@ -119,7 +123,7 @@ qbkatMain'
     -> IO ()
 qbkatMain' p pac nb ev protocol ns =
     let rp = createQuantumPipelines p pac nb ns
-    in main rp "QBKAT tool" protocol ((. staticBellPairs) . getBPsPredicate . toBPsPredicate  $ ev)
+    in main rp "QBKAT tool" protocol ((. staticBellPairs) . testBellPairs  $ ev)
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
 qbkatMain

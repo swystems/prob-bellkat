@@ -48,7 +48,7 @@ guardedAutomatonStage ep initialState = Stage
     { stageName = "executing_guarded_op_automaton"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith ep') gfa
+        GASQ.execute ((. staticBellPairs) . testBellPairs) (PAOSQ.executeWith ep') gfa
         initialState'
     }
 
@@ -66,7 +66,7 @@ guardedAutomatonStage' ep initialState = Stage
     { stageName = "guarded_automaton'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.execute ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
+        GASQ.execute ((. staticBellPairs) . testBellPairs) (PAOSQ.executeWith' ep') gfa
         initialState'
     }
 
@@ -84,7 +84,7 @@ guardedToSystemStage' ep initialState = Stage
     { stageName = "system_op_stage'"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.executeSystem ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
+        GASQ.executeSystem ((. staticBellPairs) . testBellPairs) (PAOSQ.executeWith' ep') gfa
         initialState'
     }
 
@@ -101,7 +101,7 @@ guardedToSystemStage ep initialState = Stage
     { stageName = "system_op_stage"
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
-        GASQ.executeSystem ((. staticBellPairs) . getBPsPredicate . toBPsPredicate) (PAOSQ.executeWith' ep') gfa
+        GASQ.executeSystem ((. staticBellPairs) . testBellPairs) (PAOSQ.executeWith' ep') gfa
         initialState'
     }
 

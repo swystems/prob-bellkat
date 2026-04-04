@@ -27,7 +27,7 @@ execute
     -> TaggedBellPairs tag
     -> Set (TaggedBellPairs tag)
 execute (AtomicOneStepPolicy act) bps =
-    if getBPsPredicate (toBPsPredicate . aaTest $ act) bps
+    if (testBellPairs . aaTest $ act) bps
     then Set.fromList 
     [ aaOutputBPs act <> rest partial
     | partial <- findElemsND'' id (toList . Mset.bellPairs . aaInputBPs $ act) bps]

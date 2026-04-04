@@ -57,7 +57,7 @@ pbkatMain' (_ :: Proxy p) pac mbNC ev protocol =
             , systemPipeline = probStarPolicySystemPipeline' @p pac ep mempty
             , automatonPipeline = probStarPolicyAutomatonPipeline pac
             }
-    in main rp "PBKAT tool" protocol (getBPsPredicate . toBPsPredicate  $ ev)
+    in main rp "PBKAT tool" protocol (testBellPairs ev)
 
 -- | speicialization of `pbkatMain'` to rational probability `Probability`
 pbkatMain 

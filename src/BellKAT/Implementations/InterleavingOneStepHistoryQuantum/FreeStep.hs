@@ -15,7 +15,7 @@ runFreeStep
     :: (Test test, Ord tag, Tests a BellPairsPredicate tag, CreatesBellPairs a op tag)
     => FreeStep test op tag -> a
 runFreeStep (FSCreate args) = tryCreateBellPairFrom args
-runFreeStep (FSTest args) = test . toBPsPredicate $ args
+runFreeStep (FSTest args) = test . BPsPredicate . testBellPairs $ args
 
 instance Show1 test => Show1 (FreeStep test Probability) where
   liftShowsPrec _ _ _ (FSCreate ca)

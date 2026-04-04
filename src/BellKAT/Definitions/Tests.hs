@@ -59,14 +59,14 @@ newtype BellPairsPredicate t = BPsPredicate { getBPsPredicate :: TaggedBellPairs
 
 -- | Class of that can serve as `BellPairsPredicate`
 class Test test where
-    toBPsPredicate :: Ord tag => test tag -> BellPairsPredicate tag
+    testBellPairs :: Ord tag => test tag -> TaggedBellPairs tag -> Bool
 
 instance Test FreeTest where
-    toBPsPredicate (FTNot t) = BPsPredicate $ not . getBPsPredicate (toBPsPredicate t)
-    toBPsPredicate (FTSubset bps) = BPsPredicate (bps `Mset.isSubsetOf'`)
+    testBellPairs (FTNot t) = not . testBellPairs t
+    testBellPairs (FTSubset bps) = (bps `Mset.isSubsetOf'`)
 
 instance Test BellPairsPredicate where
-    toBPsPredicate = id
+    testBellPairs = getBPsPredicate
 
 instance Show (BellPairsPredicate t) where
   showsPrec _ _ = shows "test"
@@ -111,7 +111,7 @@ instance (Show tag, Default tag, Eq tag) => Show (RestrictedTest tag) where
     createRestrictedTest (bpss <> bpss')
 
 instance Test RestrictedTest where
-    toBPsPredicate (RestrictedTest s) = BPsPredicate $ \bps -> not (any (`Mset.isSubsetOf'` bps) s)
+    testBellPairs (RestrictedTest s) bps = not (any (`Mset.isSubsetOf'` bps) s)
 
 -- | Bound for the number of things from below and above, the upper bound may be absent
 -- essentially meaning "infinity"
@@ -201,7 +201,7 @@ instance Ord tag => DecidableBoolean (BoundedTest tag) where
     isFalse = (== false)
 
 instance Test BoundedTest where
-    toBPsPredicate (BoundedTest xs) = BPsPredicate $ \x -> any (`testBounds` x) xs
+    testBellPairs (BoundedTest xs) x = any (`testBounds` x) xs
 
 testBounds :: Ord tag => Bounds tag -> TaggedBellPairs tag -> Bool
 testBounds bs bps = Map.foldlWithKey (\acc bp rg -> acc && testRange bp rg bps) True bs

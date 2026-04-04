@@ -41,6 +41,7 @@ dependencies:
   - comfort-glpk
   - optparse-applicative
   - aeson
+  - aeson-casing
   - monad-logger
   - megaparsec
   - parser-combinators

@@ -58,7 +58,8 @@ import           BellKAT.Utils.UnorderedTree
 --
 -- * Type definitions
 
-newtype Location = Location { name :: String } deriving newtype (Eq, Show, Ord, IsString)
+newtype Location = Location { name :: String } 
+    deriving newtype (Eq, Show, Ord, IsString, A.FromJSON, A.ToJSON, A.FromJSONKey)
 
 -- | `:~:` is our symbol for entangled pair
 newtype BellPair = BP (Location, Location) deriving newtype (Eq, Ord)
@@ -191,12 +192,6 @@ instance Arbitrary BellPair where
 
 instance (Arbitrary t) => Arbitrary (TaggedBellPair t) where
     arbitrary = TaggedBellPair <$> arbitrary <*> arbitrary
-
-instance A.ToJSON Location where
-    toJSON = A.toJSON . name
-
-instance A.FromJSON Location where
-    parseJSON = fmap Location . A.parseJSON
 
 instance A.ToJSON t => A.ToJSON (TaggedBellPair t) where
     toJSON (TaggedBellPair bp t) =

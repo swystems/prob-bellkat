@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 module BellKAT.ActionEmbeddings 
     ( -- * Interpreting individual actions
 
@@ -20,6 +21,9 @@ import Data.Kind
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import Data.Default
+import Data.Aeson
+import Data.Aeson.Casing
+import GHC.Generics
 import qualified Data.Map.Strict as Map
 
 import BellKAT.Definitions.Policy
@@ -100,7 +104,7 @@ data ProbabilisticActionConfiguration = PAC
     , pacCoherenceTime :: Map Location TimeUnit
     -- | holds distances between locations
     , pacDistances :: Map (Location, Location) SpaceUnit
-    } deriving stock (Show)
+    } deriving stock (Show, Generic)
 
 -- | gives meaning to actions while taking into account success probabilities
 -- represented as a ProbabilisticActionConfiguration`
@@ -230,3 +234,6 @@ instance CanDesugarActions op (Atomic TaggedAction test tag) where
     type Desugared op (Atomic TaggedAction test tag) = (Atomic (CreateBellPairArgs op) test tag)
     desugarActions f (AAction x) = AAction (f x)
     desugarActions _ (ATest t) = ATest t
+
+instance FromJSON ProbabilisticActionConfiguration where
+    parseJSON = genericParseJSON $ aesonPrefix snakeCase

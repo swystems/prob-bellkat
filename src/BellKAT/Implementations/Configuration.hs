@@ -9,6 +9,7 @@ module BellKAT.Implementations.Configuration
 import qualified GHC.Exts (IsList, Item)
 import GHC.Exts (fromList, toList)
 import Data.Default (Default(..))
+import Data.Aeson
 import qualified Data.Map as Map
 import qualified BellKAT.Utils.Multiset as Mset
 
@@ -19,7 +20,7 @@ import BellKAT.Implementations.Output
 -- a `TaggedBellPairs`
 newtype NetworkCapacity tag = NC
     { unNC :: TaggedBellPairs tag
-    } deriving newtype (Monoid, Semigroup, Show)
+    } deriving newtype (Monoid, Semigroup, Show, FromJSON)
 
 instance Ord tag => GHC.Exts.IsList (NetworkCapacity tag) where
     type Item (NetworkCapacity tag) = TaggedBellPair tag

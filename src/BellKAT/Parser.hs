@@ -2,7 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module BellKAT.Parser (
     parseSurfacePolicy,
-    Parser
+    Parser,
+    policyParser
 ) where
 
 import           Data.Functor
@@ -28,12 +29,14 @@ type Parser = Parsec Void Text
 -- It consumes all input, including leading/trailing whitespace, and then desugars it.
 parseSurfacePolicy
     :: (Default t, Tag t)
-    => String
-    -> Either (ParseErrorBundle Text Void) (OrderedGuardedPolicy (BoundedTest t) Action)
-parseSurfacePolicy = fmap desugarSurfacePolicy . parse policyParser "" . pack
-  where
-    -- Helper to consume leading/trailing spaces and ensure full input consumption
-    policyParser = spaceConsumer *> pSurfacePolicy <* eof
+    => FilePath  -- File name
+    -> String     -- Input string
+    -> Either (ParseErrorBundle Text Void) (SurfacePolicy t Action)
+parseSurfacePolicy file = parse policyParser file . pack
+
+-- | Top-level parser for policies, using 'Text' as input
+policyParser :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
+policyParser = spaceConsumer *> pSurfacePolicy <* eof
 
 -- * Lexer definitions
 -- A set of common lexer functions for parsing expressions.
@@ -129,7 +132,7 @@ pPolicyTerm =
     <|> (PolicyVariable <$> pVar)
     <?> "policy term"
 --
--- | Parses a basic policy 
+-- | Parses a basic policy
 pSurfacePolicy :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
 pSurfacePolicy =
         pLet
@@ -178,7 +181,7 @@ pWhile =
         <*> pOrderedGuardedPolicy
 
 -- | Parses a 'SurfacePolicy' using an operator precedence table.
-pOrderedGuardedPolicyExpr :: (Default t, Tag t) 
+pOrderedGuardedPolicyExpr :: (Default t, Tag t)
                           => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
 pOrderedGuardedPolicyExpr = makeExprParser (OGPAtomic <$> pPolicyTerm) operatorTable
 --

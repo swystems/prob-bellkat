@@ -21,6 +21,8 @@ module BellKAT.Definitions.Tests
     boundedTestNotContains,
     rangeGreater,
     rangeNotGreater,
+    BooleanTest(..),
+    evaluateBooleanTest
     ) where
 
 import           Data.Maybe
@@ -70,7 +72,6 @@ instance Test BellPairsPredicate where
 
 instance Show (BellPairsPredicate t) where
   showsPrec _ _ = shows "test"
-
 
 -- | Test representing a conjunction of tests for absences of `TaggedBellPair`s. Most notably used
 -- when defining atomic actions (see `BellKAT.Definitions.Atomic.AtomicAction` and
@@ -156,7 +157,7 @@ boundedTestContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
 boundedTestContains bps = BoundedTest [Map.fromSet (\k -> rangeGreater (Mset.count' k bps - 1)) $ Mset.toSet' bps]
 
 boundedTestNotContains :: Ord tag => TaggedBellPairs tag -> BoundedTest tag
-boundedTestNotContains bps = BoundedTest $ 
+boundedTestNotContains bps = BoundedTest $
     [Map.singleton k $ rangeNotGreater (v - 1) | (k, v) <- Map.toList . Mset.toCountMap' $ bps]
 
 andRange :: Range -> Range -> Range
@@ -211,3 +212,36 @@ testRange bp (lb, ub) bps =
     let c = Mset.count' bp bps
      in c >= lb && maybe True (c <) ub
 
+-- | A test representing a syntactic expression involving `BoundedTests`
+data BooleanTest tag
+    = BTTrue
+    | BTFalse
+    | BTNot (BooleanTest tag)
+    | BTAnd (BooleanTest tag) (BooleanTest tag)
+    | BTOr (BooleanTest tag) (BooleanTest tag)
+    | BTAtomic (TaggedBellPair tag) Range
+    deriving stock (Eq, Show)
+
+instance Functor BooleanTest where
+    fmap _ BTTrue = BTTrue
+    fmap _ BTFalse = BTFalse
+    fmap f (BTNot t) = BTNot (fmap f t)
+    fmap f (BTAnd t1 t2) = BTAnd (fmap f t1) (fmap f t2)
+    fmap f (BTOr t1 t2) = BTOr (fmap f t1) (fmap f t2)
+    fmap f (BTAtomic bp r) = BTAtomic (fmap f bp) r
+
+instance Ord tag => Boolean (BooleanTest tag) where
+    true = BTTrue
+    false = BTFalse
+    notB = BTNot
+    (||*) = BTOr
+    (&&*) = BTAnd
+
+-- | Evaluates a `BooleanTest` to a `BoundedTest`
+evaluateBooleanTest :: Ord tag => BooleanTest tag -> BoundedTest tag
+evaluateBooleanTest BTTrue = true
+evaluateBooleanTest BTFalse = false
+evaluateBooleanTest (BTNot t) = notB (evaluateBooleanTest t)
+evaluateBooleanTest (BTAnd t1 t2) = evaluateBooleanTest t1 &&* evaluateBooleanTest t2
+evaluateBooleanTest (BTOr t1 t2) = evaluateBooleanTest t1 ||* evaluateBooleanTest t2
+evaluateBooleanTest (BTAtomic bp r) = boundedTestSingleton bp r

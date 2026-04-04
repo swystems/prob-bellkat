@@ -88,23 +88,23 @@ pBellPair = pBellPairSep (,) "~"
 
 -- | Parses an atomic BoundedTest guard term, which can be 'true', 'false',
 -- an 'X /~ Y' expression, or a parenthesized BoundedTest.
-pBoundedTestTerm :: (Default t, Tag t) => Parser (BoundedTest t)
-pBoundedTestTerm =
-        (true <$ reserved "true")
-    <|> (false <$ reserved "false")
-    <|> parens pBoundedTestGuard
-    <|> boundedTestSingleton <$> pBellPairSep (~) "/~" <*> pure (rangeNotGreater 0)
-    <?> "bound test term"
+pTestTerm :: (Default t, Tag t) => Parser (BooleanTest t)
+pTestTerm =
+        (BTTrue <$ reserved "true")
+    <|> (BTFalse <$ reserved "false")
+    <|> parens pTestGuard
+    <|> BTAtomic <$> pBellPairSep (~) "/~" <*> pure (rangeNotGreater 0)
+    <?> "test term"
 
 -- | Operator precedence table for 'BoundedTest'.
-boundedTestOperatorTable :: (Default t, Tag t) => [[Operator Parser (BoundedTest t)]]
-boundedTestOperatorTable =
+testOperatorTable :: (Default t, Tag t) => [[Operator Parser (BooleanTest t)]]
+testOperatorTable =
     [ [ InfixL (symbol "||" $> (||*)) ] -- Logical OR (left-associative)
     ]
 
 -- | Parses a 'BoundedTest' guard using an operator precedence table.
-pBoundedTestGuard :: (Default t, Tag t) => Parser (BoundedTest t)
-pBoundedTestGuard = makeExprParser pBoundedTestTerm boundedTestOperatorTable
+pTestGuard :: (Default t, Tag t) => Parser (BooleanTest t)
+pTestGuard = makeExprParser pTestTerm testOperatorTable
 
 -- | Parses an atomic 'Action' and wraps it into a 'SurfacePolicy' term.
 pAtomicActionTerm :: Parser (SurfacePolicy t Action)
@@ -160,42 +160,42 @@ pWhileN :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
 pWhileN =
     WhileN
         <$> (reserved "whileN" *> integer)
-        <*> (spaceConsumer *> pBoundedTestGuard <* reserved "do")
+        <*> (spaceConsumer *> pTestGuard <* reserved "do")
         <*> pSurfacePolicy
 
 -- | Parses an if-then-else policy: 'if <tag> then <policy1> else <policy2>'.
 pIfThenElse :: (Default t, Tag t)
-            => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
+            => Parser (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t Action))
 pIfThenElse =
     OGPIfThenElse
-        <$> (reserved "if" *> pBoundedTestGuard <* reserved "then")
+        <$> (reserved "if" *> pTestGuard <* reserved "then")
         <*> pOrderedGuardedPolicy <* reserved "else"
         <*> pOrderedGuardedPolicy
 
 -- | Parses a while loop policy: 'while <tag> do <policy>'.
 pWhile :: (Default t, Tag t)
-       => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
+       => Parser (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t Action))
 pWhile =
     OGPWhile
-        <$> (reserved "while" *> pBoundedTestGuard <* reserved "do")
+        <$> (reserved "while" *> pTestGuard <* reserved "do")
         <*> pOrderedGuardedPolicy
 
 -- | Parses a 'SurfacePolicy' using an operator precedence table.
 pOrderedGuardedPolicyExpr :: (Default t, Tag t)
-                          => Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))
+                          => Parser (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t Action))
 pOrderedGuardedPolicyExpr = makeExprParser (OGPAtomic <$> pPolicyTerm) operatorTable
 --
 -- | Parses a 'OrderedGuardedPolicy' from 'SurfacePolicy'
 pOrderedGuardedPolicy
     :: (Default t, Tag t)
-    => Parser (OrderedGuardedPolicy (BoundedTest a) (SurfacePolicy t Action))
+    => Parser (OrderedGuardedPolicy (BooleanTest a) (SurfacePolicy t Action))
 pOrderedGuardedPolicy = OGPAtomic <$> pSurfacePolicy
 
 -- | Operator precedence table for 'SurfacePolicy'.
 -- The order of lists in the table defines precedence (lower index = lower precedence).
 -- Operators within a list have the same precedence.
 operatorTable :: (Default t, Tag t)
-              => [[Operator Parser (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t Action))]]
+              => [[Operator Parser (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t Action))]]
 operatorTable =
     [ [ InfixN (symbol "<.>" $> OGPOrdered)   ] -- Ordered composition (non-associative)
     , [ InfixL (symbol "<||>" $> OGPParallel) ] -- Parallel composition (left-associative)

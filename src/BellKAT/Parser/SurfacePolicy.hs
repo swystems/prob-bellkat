@@ -24,11 +24,11 @@ data SurfacePolicy t a =
     -- | Atomic action
     Atomic a
     -- | Embedded policy
-    | Recurse (OrderedGuardedPolicy (BoundedTest t) (SurfacePolicy t a))
+    | Recurse (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t a))
     -- | Bounded repetition: @repeat n p@.
     | Repeat Int (SurfacePolicy t a)
     -- | Finite loop: @while n test p@.
-    | WhileN Int (BoundedTest t) (SurfacePolicy t a)
+    | WhileN Int (BooleanTest t) (SurfacePolicy t a)
     -- | Let binding: @let x = p1 in p2@.
     | Let Text
         (SurfacePolicy t a) -- ^ Policy bound to 'x'
@@ -36,7 +36,7 @@ data SurfacePolicy t a =
     -- | A variable reference, to be used in 'Let' bindings.
     | PolicyVariable Text
 
-instance (Show t, Show (BoundedTest t), Show a) => Show (SurfacePolicy t a) where
+instance (Show t, Show (BooleanTest t), Show a) => Show (SurfacePolicy t a) where
     showsPrec _ (Atomic action) = shows action
     showsPrec _ (Recurse action) = shows action
     showsPrec _ (PolicyVariable x) = shows x
@@ -52,15 +52,15 @@ instance (Show t, Show (BoundedTest t), Show a) => Show (SurfacePolicy t a) wher
 desugarSurfacePolicy
     :: (Default t, Tag t)
     => SurfacePolicy t a
-    -> OrderedGuardedPolicy (BoundedTest t) a
+    -> OrderedGuardedPolicy (BooleanTest t) a
 desugarSurfacePolicy = desugarSurfacePolicyWithEnv Map.empty
 
 -- | Helper function for 'desugarSurfacePolicy' that carries an environment of policy bindings.
 desugarSurfacePolicyWithEnv
     :: (Default t, Tag t)
-    => Map Text (OrderedGuardedPolicy (BoundedTest t) a)
+    => Map Text (OrderedGuardedPolicy (BooleanTest t) a)
     -> SurfacePolicy t a
-    -> OrderedGuardedPolicy (BoundedTest t) a
+    -> OrderedGuardedPolicy (BooleanTest t) a
 desugarSurfacePolicyWithEnv _   (Atomic a) = OGPAtomic a
 desugarSurfacePolicyWithEnv env (Recurse p) = desugarSurfacePolicyWithEnv env =<< p
 desugarSurfacePolicyWithEnv env (Repeat n p) = stimes n (desugarSurfacePolicyWithEnv env p)
@@ -75,8 +75,8 @@ desugarSurfacePolicyWithEnv env (PolicyVariable x) =
 desugarWhileN
     :: (Default t, Tag t)
     => Int
-    -> BoundedTest t
-    -> OrderedGuardedPolicy (BoundedTest t) a
-    -> OrderedGuardedPolicy (BoundedTest t) a
+    -> BooleanTest t
+    -> OrderedGuardedPolicy (BooleanTest t) a
+    -> OrderedGuardedPolicy (BooleanTest t) a
 desugarWhileN 0 _ _ = mempty -- If n is 0, the loop does nothing
 desugarWhileN n test policy = ite test (policy <> desugarWhileN (n-1) test policy) mempty

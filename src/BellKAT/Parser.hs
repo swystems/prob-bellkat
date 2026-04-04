@@ -2,8 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module BellKAT.Parser (
     parseSurfacePolicy,
+    parseTest,
     Parser,
-    policyParser
 ) where
 
 import           Data.Functor
@@ -11,7 +11,7 @@ import           Data.Text                      (Text, pack)
 import           Data.Void                      (Void)
 
 import           Data.Default
-import           Text.Megaparsec
+import           Text.Megaparsec hiding (parseTest)
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer     as L
 import           Control.Monad.Combinators.Expr (makeExprParser, Operator (..))
@@ -25,14 +25,21 @@ import           BellKAT.Parser.SurfacePolicy
 -- | Parser type for policies, using 'Text' as input
 type Parser = Parsec Void Text
 
--- | Main entry point for parsing a 'SurfacePolicy' from a 'String'.
+-- | Main entry point for parsing a 'SurfacePolicy' from a 'String' coming from 'FilePath'.
 -- It consumes all input, including leading/trailing whitespace, and then desugars it.
 parseSurfacePolicy
     :: (Default t, Tag t)
     => FilePath  -- File name
-    -> String     -- Input string
+    -> String    -- Input string
     -> Either (ParseErrorBundle Text Void) (SurfacePolicy t Action)
 parseSurfacePolicy file = parse policyParser file . pack
+
+parseTest
+    :: (Default t, Tag t)
+    => FilePath  -- File name
+    -> String    -- Input string
+    -> Either (ParseErrorBundle Text Void) (BooleanTest t)
+parseTest file = parse pTestTerm file . pack 
 
 -- | Top-level parser for policies, using 'Text' as input
 policyParser :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
@@ -131,7 +138,7 @@ pPolicyTerm =
     <|> (Recurse OGPOne <$ reserved "one")
     <|> (PolicyVariable <$> pVar)
     <?> "policy term"
---
+
 -- | Parses a basic policy
 pSurfacePolicy :: (Default t, Tag t) => Parser (SurfacePolicy t Action)
 pSurfacePolicy =

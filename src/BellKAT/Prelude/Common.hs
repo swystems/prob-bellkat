@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Prelude.Common (
-    RunPipelines(..),
     KatCLIOpts,
+    katCLIOptsParser,
+    RunPipelines(..),
+    runKatParser,
     main,
     mainWithOpts
 ) where
@@ -45,9 +47,9 @@ katCLIOptsParser = KCO
         )
 
 -- | Runs the CLI parser with a given program description
-runKatParser :: String -> IO KatCLIOpts
-runKatParser progDesc =
-    OA.execParser $ OA.info (katCLIOptsParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc progDesc)
+runKatParser :: String -> OA.Parser a -> IO a
+runKatParser progDesc p =
+    OA.execParser $ OA.info (p OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc progDesc)
 
 data RunPipelines p policy system automaton o = RunPipelines 
     { runPipeline :: Pipeline policy (CD p o)
@@ -62,7 +64,7 @@ main
     => forall policy. RunPipelines p policy system automaton o 
     -> String -> policy -> (o -> Bool) -> IO ()
 main rp progDesc protocol ev = do
-    opts <- runKatParser progDesc
+    opts <- runKatParser progDesc katCLIOptsParser
     mainWithOpts rp opts protocol ev
 
 mainWithOpts

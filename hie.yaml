@@ -6,6 +6,8 @@ cradle:
           component: "test:spec"
         - path: "test/small"
           component: "test:small"
+        - path: "app"
+          component: "exe:qkat"
         - path: "probabilistic-examples/P4.hs"
           component: "exe:probP4"
         - path: "examples/P3.hs"

@@ -4,6 +4,7 @@
 module BellKAT.Definitions.Policy where
 
 import           Test.QuickCheck            hiding (choose)
+import           Data.Bifunctor
 import           Data.List.NonEmpty         (NonEmpty)
 
 import           BellKAT.Definitions.Core
@@ -96,6 +97,15 @@ data OrderedGuardedPolicy t a
     | OGPWhile t (OrderedGuardedPolicy t a)
     | OGPOne
     deriving stock (Functor, Eq)
+
+instance Bifunctor OrderedGuardedPolicy where
+    bimap _ g (OGPAtomic x) = OGPAtomic (g x)
+    bimap f g (OGPSequence x y) = OGPSequence (bimap f g x) (bimap f g y)
+    bimap f g (OGPParallel x y) = OGPParallel (bimap f g x) (bimap f g y)
+    bimap f g (OGPOrdered x y) = OGPOrdered (bimap f g x) (bimap f g y)
+    bimap f g (OGPIfThenElse t x y) = OGPIfThenElse (f t) (bimap f g x) (bimap f g y)
+    bimap f g (OGPWhile t x) = OGPWhile (f t) (bimap f g x)
+    bimap _ _ OGPOne = OGPOne
 
 instance (Show t, Show a) => Show (OrderedGuardedPolicy t a) where
     showsPrec _ (OGPAtomic x) = shows x

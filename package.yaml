@@ -115,6 +115,10 @@ library:
     - BellKAT.QuantumPrelude
 
 executables:
+  qkat:
+    dependencies:
+      - bellkat
+    main: app/Main.hs
   p1:
     dependencies: 
       - bellkat

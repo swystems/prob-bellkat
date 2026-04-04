@@ -33,6 +33,7 @@ import           Data.List                  (intercalate)
 import           Data.Foldable              (toList)
 import           Data.Set                   (Set)
 import           Data.Map.Strict            (Map)
+import           Data.Default               (Default(..))
 import qualified Data.Multiset              as MsetOrig
 import qualified Data.Aeson as A
 import           Data.Aeson ((.=), (.:))
@@ -53,9 +54,9 @@ newtype LabelledMultiset t a = LMS { unLMS :: (Multiset a, t) }
     deriving newtype (Eq, Ord, Semigroup, Monoid)
 
 
-instance Ord a => GHC.Exts.IsList (LabelledMultiset () a) where
-    type Item (LabelledMultiset () a) = a
-    fromList xs = fromList xs @ ()
+instance (Default b, Ord a) => GHC.Exts.IsList (LabelledMultiset b a) where
+    type Item (LabelledMultiset b a) = a
+    fromList xs = fromList xs @ def
     toList lms  = GHC.Exts.toList (bellPairs lms)
 
 instance (Show t, Show a) => Show (LabelledMultiset t a) where

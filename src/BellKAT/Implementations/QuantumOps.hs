@@ -53,7 +53,7 @@ instantaneousOps = True
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }
-    deriving stock (Eq, Ord)
+    deriving newtype (Eq, Ord, Default, A.ToJSON, A.FromJSON)
 
 instance Semigroup MaxClock where
     MaxClock a <> MaxClock b = MaxClock (max a b)
@@ -65,12 +65,6 @@ instance Monoid MaxClock where
 
 instance Show MaxClock where
     show (MaxClock t) = "(" ++ show t ++ ")"
-
-instance A.ToJSON MaxClock where
-    toJSON (MaxClock t) = A.toJSON t
-
-instance A.FromJSON MaxClock where
-    parseJSON v = MaxClock <$> A.parseJSON v
 
 -- | A quantum tag for Bell pairs
 data QuantumTag = QuantumTag

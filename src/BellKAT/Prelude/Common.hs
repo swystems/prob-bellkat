@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module BellKAT.Prelude.Common (
     RunPipelines(..),
+    KatCLIOpts,
     main,
     mainWithOpts
 ) where

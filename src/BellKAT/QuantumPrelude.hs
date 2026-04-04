@@ -27,6 +27,8 @@ module BellKAT.QuantumPrelude (
     -- * Entry points
     qbkatMain,
     qbkatMainD,
+    qbkatMainWithOpts,
+    qbkatMainWithOptsD,
     -- * Auxiliary expression generation exports
     stimes,
     -- * Re-exports from 'BellKAT.DSL'
@@ -144,3 +146,37 @@ qbkatMainD
     -> NetworkState
     -> IO ()
 qbkatMainD = qbkatMain' (Proxy :: Proxy Double)
+
+qbkatMainWithOpts'
+    :: forall p. (RationalOrDouble p, A.ToJSON p, A.FromJSON p)
+    => Proxy p
+    -> KatCLIOpts
+    -> ProbabilisticActionConfiguration
+    -> NetworkBounds QBKATTag
+    -> QBKATTest
+    -> QBKATPolicy
+    -> NetworkState
+    -> IO ()
+qbkatMainWithOpts' p opts pac nb ev protocol ns =
+    let rp = createQuantumPipelines p pac nb ns
+    in mainWithOpts rp opts protocol ((. staticBellPairs) . testBellPairs  $ ev)
+
+qbkatMainWithOpts
+    :: KatCLIOpts
+    -> ProbabilisticActionConfiguration
+    -> NetworkBounds QBKATTag
+    -> QBKATTest
+    -> QBKATPolicy
+    -> NetworkState
+    -> IO ()
+qbkatMainWithOpts = qbkatMainWithOpts' (Proxy @Probability)
+
+qbkatMainWithOptsD
+    :: KatCLIOpts
+    -> ProbabilisticActionConfiguration
+    -> NetworkBounds QBKATTag
+    -> QBKATTest
+    -> QBKATPolicy
+    -> NetworkState
+    -> IO ()
+qbkatMainWithOptsD = qbkatMainWithOpts' (Proxy @Double)

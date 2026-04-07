@@ -1,10 +1,5 @@
-import BellKAT.ProbabilisticPrelude
-
-p :: ProbBellKATPolicy
-p = (create "C" <||> create "C")
-    <>
-    (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
-    <>
-    ite (hasSubset ["A" ~ "C", "B" ~ "C"])
-        (swap "C" ("A", "B"))
-        (destroy ("A", "C") <||> destroy ("B", "C"))
+(create(C) <||> create(C))
+<> (trans(C -> A ~ C) <||> trans(C -> B ~ C))
+<> (if A ~~? C && B ~~? C
+    then swap(A ~ B @ C)
+    else destroy(A ~ C) <||> destroy (B ~ C))

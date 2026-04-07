@@ -25,22 +25,24 @@ import qualified BellKAT.ProbabilisticPrelude          as PP
 import qualified BellKAT.QuantumPrelude                as QP
 
 data KCEOMode = KCEOModeProbabilistic | KCEOModeQuantum
+    deriving stock (Show)
 
 data ProbabilityMode = PMDouble | PMRational
+    deriving stock (Show)
 
 data KatCLIExtraOpts = KCEO
     { kceoNetworkFilepath :: FilePath
     , kceoMode            :: KCEOMode
     , kceoProbabilityMode :: ProbabilityMode
-    , kceoTargetEvent     :: String
     , kceoPolicyFilepath  :: FilePath
+    , kceoTargetEvent     :: String
     , kceoOpts            :: KatCLIOpts
-    }
+    } deriving stock (Show)
 
 data JsonQKatConfig t = JKQC
     { jkqcNetworkCapacity :: Maybe (NetworkCapacity t)
     , jkqcCutoff          :: Maybe Int
-    , jkqcPAC             :: ProbabilisticActionConfiguration
+    , jkqcActionConfig    :: ProbabilisticActionConfiguration
     } deriving stock (Generic)
 
 instance (Ord t, Default t, FromJSON t) => FromJSON (JsonQKatConfig t) where
@@ -69,9 +71,9 @@ main = do
                         $ desugarSurfacePolicy surfacePolicy
         case kceoProbabilityMode opts of
           PMDouble -> QP.qbkatMainWithOptsD
-                (kceoOpts opts) (jkqcPAC nw) nb targetEvent policy []
+                (kceoOpts opts) (jkqcActionConfig nw) nb targetEvent policy []
           PMRational -> QP.qbkatMainWithOpts
-                (kceoOpts opts) (jkqcPAC nw) nb targetEvent policy []
+                (kceoOpts opts) (jkqcActionConfig nw) nb targetEvent policy []
       KCEOModeProbabilistic -> do
         nw <- loadNetworkConfiguration $ kceoNetworkFilepath opts
         targetEvent <- evaluateBooleanTest <$>
@@ -79,9 +81,9 @@ main = do
         let policy = bimap (evaluateBooleanTest . fmap (const def)) (\a -> TaggedAction def a def) $ desugarSurfacePolicy surfacePolicy
         case kceoProbabilityMode opts of
           PMDouble -> PP.pbkatMainWithOptsD
-                (kceoOpts opts) (jkqcPAC nw) (jkqcNetworkCapacity nw) targetEvent policy
+                (kceoOpts opts) (jkqcActionConfig nw) (jkqcNetworkCapacity nw) targetEvent policy
           PMRational -> PP.pbkatMainWithOpts
-                (kceoOpts opts) (jkqcPAC nw) (jkqcNetworkCapacity nw) targetEvent policy
+                (kceoOpts opts) (jkqcActionConfig nw) (jkqcNetworkCapacity nw) targetEvent policy
 
 loadSurfacePolicy :: FilePath -> IO (SurfacePolicy () Action)
 loadSurfacePolicy path =

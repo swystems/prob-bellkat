@@ -100,13 +100,15 @@ pTestTerm =
         (BTTrue <$ reserved "true")
     <|> (BTFalse <$ reserved "false")
     <|> parens pTestGuard
-    <|> BTAtomic <$> pBellPairSep (~) "/~" <*> pure (rangeNotGreater 0)
+    <|> try (BTAtomic <$> pBellPairSep (~) "/~?" <*> pure (rangeNotGreater 0))
+    <|> BTAtomic <$> pBellPairSep (~) "~~?" <*> pure (rangeGreater 0)
     <?> "test term"
 
 -- | Operator precedence table for 'BoundedTest'.
 testOperatorTable :: (Default t, Tag t) => [[Operator Parser (BooleanTest t)]]
 testOperatorTable =
-    [ [ InfixL (symbol "||" $> (||*)) ] -- Logical OR (left-associative)
+    [ [ InfixL (symbol "&&" $> (&&*)) ] -- Logical AND (left-associative)
+    , [ InfixL (symbol "||" $> (||*)) ] -- Logical OR (left-associative)
     ]
 
 -- | Parses a 'BoundedTest' guard using an operator precedence table.
@@ -117,7 +119,7 @@ pTestGuard = makeExprParser pTestTerm testOperatorTable
 pAtomicActionTerm :: Parser (SurfacePolicy t Action)
 pAtomicActionTerm =
     Atomic <$> (
-            (reserved "swap" >> parens (Swap <$> pLocation <* symbol "@" <*> pBellPair))
+            (reserved "swap" >> parens (flip Swap <$> pBellPair <* symbol "@" <*> pLocation))
         <|> (reserved "trans" >> parens (Transmit <$> pLocation <* symbol "->" <*> pBellPair))
         <|> (reserved "distill" >> parens (Distill <$> pBellPair))
         <|> (reserved "create" >> parens (Create <$> pLocation))
@@ -205,6 +207,6 @@ operatorTable :: (Default t, Tag t)
               => [[Operator Parser (OrderedGuardedPolicy (BooleanTest t) (SurfacePolicy t Action))]]
 operatorTable =
     [ [ InfixN (symbol "<.>" $> OGPOrdered)   ] -- Ordered composition (non-associative)
-    , [ InfixL (symbol "<||>" $> OGPParallel) ] -- Parallel composition (left-associative)
     , [ InfixL (symbol "<>" $> OGPSequence)   ] -- Sequential composition (left-associative)
+    , [ InfixL (symbol "<||>" $> OGPParallel) ] -- Parallel composition (left-associative)
     ]

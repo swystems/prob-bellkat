@@ -25,7 +25,7 @@ data KatMode = KMRun | KMTrace | KMProbability | KMAutomaton
 data KatCLIOpts = KCO
     { kcoJSON :: Bool
     , kcoMode :: KatMode
-    }
+    } deriving stock (Show)
 
 -- Helper function to create subparser commands
 commandParser :: String -> String -> KatMode -> OA.Mod OA.CommandFields KatMode

@@ -29,12 +29,12 @@ data KCEOMode = KCEOModeProbabilistic | KCEOModeQuantum
 data ProbabilityMode = PMDouble | PMRational
 
 data KatCLIExtraOpts = KCEO
-    { kceoOpts            :: KatCLIOpts
-    , kceoNetworkFilepath :: FilePath
+    { kceoNetworkFilepath :: FilePath
     , kceoMode            :: KCEOMode
     , kceoProbabilityMode :: ProbabilityMode
     , kceoTargetEvent     :: String
     , kceoPolicyFilepath  :: FilePath
+    , kceoOpts            :: KatCLIOpts
     }
 
 data JsonQKatConfig t = JKQC
@@ -48,12 +48,12 @@ instance (Ord t, Default t, FromJSON t) => FromJSON (JsonQKatConfig t) where
 
 kceoParser :: OA.Parser KatCLIExtraOpts
 kceoParser = KCEO
-    <$> katCLIOptsParser
-    <*> OA.strOption (OA.long "network" <> OA.short 'n' <> OA.help "Network's JSON file")
-    <*> (OA.flag' KCEOModeProbabilistic (OA.long "probabilitic") <|> OA.flag' KCEOModeQuantum (OA.long "quantum"))
+    <$> OA.strOption (OA.long "network" <> OA.short 'n' <> OA.help "Network's JSON file")
+    <*> (OA.flag' KCEOModeProbabilistic (OA.long "probabilitic" <> OA.help "Run PBKAT") <|> OA.flag' KCEOModeQuantum (OA.long "quantum" <> OA.help "Run QBKAT"))
     <*> OA.flag PMDouble PMRational (OA.long "rational")
     <*> OA.strOption (OA.long "policy" <> OA.short 'p' <> OA.help "QKAT policy file")
     <*> OA.strOption (OA.long "event" <> OA.short 'e' <> OA.help "Event description")
+    <*> katCLIOptsParser
 
 main :: IO ()
 main = do

@@ -68,6 +68,16 @@ output/probabilistic-examples/%.json: probabilistic-examples/%.hs
 		>$@ \
 		2>$@.stderr
 
+output/new-probabilistic-examples/%.json: \
+		new-probabilistic-examples/%_run.sh \
+		new-probabilistic-examples/%_network.json \
+		new-probabilistic-examples/%_policy.qkat
+	mkdir -p $(dir $@)
+	$< \
+		--json run \
+		>$@ \
+		2>$@.stderr
+
 output/examples/%.json: examples/%.hs
 	mkdir -p $(dir $@)
 	$(call build_and_run,$(basename $(notdir $<))) \

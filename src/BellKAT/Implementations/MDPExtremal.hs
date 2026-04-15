@@ -19,7 +19,7 @@ import qualified Data.Map.Strict             as Map
 import qualified Data.Set                    as Set
 import           GHC.Exts                    (IsList, Item, toList)
 
-import           BellKAT.Implementations.MDPProbability
+import           BellKAT.Utils.MDP
     ( MDP(..)
     , StepCost(..)
     )

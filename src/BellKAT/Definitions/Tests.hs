@@ -19,6 +19,11 @@ module BellKAT.Definitions.Tests
     boundedTestSingleton,
     boundedTestContains,
     boundedTestNotContains,
+    PairSelector(..),
+    KindedTest,
+    kindedTestContains,
+    kindedTestNotContains,
+    toSelectorPredicate,
     rangeGreater,
     rangeNotGreater,
     ) where
@@ -211,3 +216,95 @@ testRange bp (lb, ub) bps =
     let c = Mset.count' bp bps
      in c >= lb && maybe True (c <) ub
 
+data PairSelector
+    = StaticPair
+    | PurePair
+    | MixedPair
+    deriving stock (Eq, Ord)
+
+instance Show PairSelector where
+    show StaticPair = "static"
+    show PurePair = "pure"
+    show MixedPair = "mixed"
+
+instance Default PairSelector where
+    def = StaticPair
+
+-- | Test wrapper used by QBKAT to distinguish static, pure, and mixed queries.
+--
+-- The generic `Test` instance intentionally collapses these distinctions and only checks for
+-- presence/absence of the underlying Bell pair. This keeps guards in `if`/`while` statements
+-- static, while qmdp-specific consumers can still recover the exact selector-aware semantics
+-- through `toSelectorPredicate`.
+newtype KindedTest tag = KindedTest (BoundedTest PairSelector)
+    deriving newtype (Eq)
+
+kindedTestContains :: TaggedBellPairs PairSelector -> KindedTest tag
+kindedTestContains = KindedTest . boundedTestContains
+
+kindedTestNotContains :: TaggedBellPairs PairSelector -> KindedTest tag
+kindedTestNotContains = KindedTest . boundedTestNotContains
+
+toSelectorPredicate :: KindedTest tag -> BellPairsPredicate PairSelector
+toSelectorPredicate (KindedTest t) = toBPsPredicate t
+
+instance Test KindedTest where
+    toBPsPredicate (KindedTest t) =
+        BPsPredicate $
+            getBPsPredicate (toBPsPredicate t) . expandCollapsedSelectors
+
+instance Boolean (KindedTest tag) where
+    true = KindedTest true
+    false = KindedTest false
+    notB (KindedTest t) = KindedTest (notB t)
+    KindedTest x ||* KindedTest y = KindedTest (x ||* y)
+    KindedTest x &&* KindedTest y = KindedTest (x &&* y)
+
+instance DecidableBoolean (KindedTest tag) where
+    isFalse (KindedTest t) = isFalse t
+
+instance Show (KindedTest tag) where
+    show (KindedTest xs)
+      | xs == true = "⊤"
+      | xs == false = "⊥"
+      | otherwise = intercalate "∨" $ map showSelectorBounds disjuncts
+      where
+        BoundedTest disjuncts = xs
+
+showSelectorBounds :: Bounds PairSelector -> String
+showSelectorBounds = intercalate "∧" . map showSelectorBound . Map.toList
+
+showSelectorBound :: (TaggedBellPair PairSelector, Range) -> String
+showSelectorBound (bp, (lb, ub)) =
+    let bpS = showSelectorPair bp
+        lbs = case lb of
+                0 -> Nothing
+                1 -> Just bpS
+                n -> Just $ show n <> "×" <> bpS
+        ubs = case ub of
+                Nothing -> Nothing
+                Just 1 -> Just $ "¬" <> bpS
+                Just n -> Just $ "¬" <> show n <> "×" <> bpS
+     in intercalate "∧" $ catMaybes [lbs, ubs]
+
+showSelectorPair :: TaggedBellPair PairSelector -> String
+showSelectorPair (TaggedBellPair bp selector) =
+    case selector of
+        StaticPair -> show bp
+        PurePair -> renderKindedPair '-' bp
+        MixedPair -> renderKindedPair '=' bp
+
+renderKindedPair :: Char -> BellPair -> String
+renderKindedPair sep bp =
+    let (l1, l2) = locations bp
+     in name l1 <> [sep] <> name l2
+
+expandCollapsedSelectors :: TaggedBellPairs tag -> TaggedBellPairs PairSelector
+expandCollapsedSelectors (Mset.LMS (bps, ())) =
+    Mset.fromList (concatMap expandPair (toList bps)) Mset.@ ()
+  where
+    expandPair (TaggedBellPair bp _) =
+        [ TaggedBellPair bp StaticPair
+        , TaggedBellPair bp PurePair
+        , TaggedBellPair bp MixedPair
+        ]

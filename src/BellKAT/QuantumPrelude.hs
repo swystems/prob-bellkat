@@ -79,7 +79,7 @@ import BellKAT.Bundles.Core
 type QBKATTag = ()
 type QBKATRuntimeTag = QuantumTag
 
-type QBKATTest = BoundedTest QBKATTag
+type QBKATTest = KindedTest QBKATTag
 type QBKATAction = TaggedAction QBKATTag
 
 type QBKATPolicy = OrderedGuardedPolicy QBKATTest QBKATAction

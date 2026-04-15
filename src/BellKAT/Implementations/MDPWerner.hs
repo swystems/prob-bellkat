@@ -6,6 +6,7 @@ module BellKAT.Implementations.MDPWerner
     ( WernerBellPairs(..)
     , toWernerBellPairs
     , holdsWernerTest
+    , holdsWernerGuardTest
     , StepCost(..)
     , MDP(..)
     , MDP'
@@ -19,10 +20,7 @@ import           Control.Subcategory.Applicative
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Pointed
 import           Data.Bifunctor              (second)
-import qualified Data.IntMap.Strict          as IM
 import qualified Data.Map.Strict             as Map
-import           Data.Monoid                 (Sum (..))
-import qualified Data.Set                    as Set
 import qualified GHC.Exts
 import           GHC.Exts                    (fromList, toList)
 
@@ -32,11 +30,6 @@ import           BellKAT.Definitions.Atomic
 import           BellKAT.Definitions.Core
 import           BellKAT.Definitions.Tests
 import           BellKAT.Implementations.Configuration
-import           BellKAT.Implementations.MDPProbability
-    ( MDP(..)
-    , MDP'
-    , StepCost(..)
-    )
 import           BellKAT.Implementations.Output
 import           BellKAT.Implementations.ProbAtomicOneStepQuantum (ProbAtomicOneStepPolicy)
 import           BellKAT.Implementations.ProbabilisticQuantumOps
@@ -44,11 +37,20 @@ import           BellKAT.Implementations.ProbabilisticQuantumOps
     , StateKind(..)
     )
 import           BellKAT.Utils.Choice
-import           BellKAT.Utils.Convex
-import           BellKAT.Utils.Convex.Constraint
 import           BellKAT.Utils.Distribution  (D, RationalOrDouble)
+import           BellKAT.Utils.MDP
+    ( MDP(..)
+    , MDP'
+    , StepCost(..)
+    , combinedRoundCost
+    , fromDistribution
+    , mapMDPProbabilities
+    , minimizeStateSystem
+    , parallelCompose
+    , requireCardinality
+    , setAllCosts
+    )
 import qualified BellKAT.Utils.Distribution  as D
-import           BellKAT.Utils.Automata.Transitions.Functorial (StateSystem(..))
 
 newtype WernerBellPairs = WernerBellPairs { unWernerBellPairs :: TaggedBellPairs StateKind }
     deriving stock (Eq, Ord)
@@ -78,45 +80,23 @@ instance Show WernerBellPairs where
 toWernerBellPairs :: LabelledBellPairs cTag StateKind -> WernerBellPairs
 toWernerBellPairs = WernerBellPairs . Mset.map' id
 
-holdsWernerTest :: Test test => test () -> WernerBellPairs -> Bool
-holdsWernerTest t = getBPsPredicate (toBPsPredicate t) . staticBellPairs . unWernerBellPairs
+holdsWernerTest :: KindedTest () -> WernerBellPairs -> Bool
+holdsWernerTest t = getBPsPredicate (toSelectorPredicate t) . expandSelectorState . unWernerBellPairs
 
-minimizeStateSystem
-    :: (Eq p, Num p, RationalOrDouble p)
-    => StateSystem (MDP p) WernerBellPairs
-    -> StateSystem (MDP p) WernerBellPairs
-minimizeStateSystem ss = SS
-    { ssInitial = resolveNode (ssInitial ss)
-    , ssTransitions = IM.fromListWith Map.union
-        [ (pc, Map.singleton bps (cmap resolveNode outgoing))
-        | (pc, perState) <- IM.toList (ssTransitions ss)
-        , (bps, outgoing) <- Map.toList perState
-        , let node = (pc, bps)
-        , resolveNode node == node
-        ]
-    }
+holdsWernerGuardTest :: Test test => test () -> WernerBellPairs -> Bool
+holdsWernerGuardTest t = getBPsPredicate (toBPsPredicate t) . staticBellPairs . unWernerBellPairs
+
+expandSelectorState :: TaggedBellPairs StateKind -> TaggedBellPairs PairSelector
+expandSelectorState (Mset.LMS (bps, ())) =
+    Mset.fromList (concatMap expandPair (GHC.Exts.toList bps)) Mset.@ ()
   where
-    resolveNode node = go Set.empty node
-      where
-        go seen current
-            | current `Set.member` seen = current
-            | otherwise =
-                case silentSuccessor current of
-                    Just next | next /= current -> go (Set.insert current seen) next
-                    _ -> current
-
-    silentSuccessor (pc, bps) = do
-        perState <- IM.lookup pc (ssTransitions ss)
-        mdp <- Map.lookup bps perState
-        deterministicZeroCostSuccessor mdp
-
-deterministicZeroCostSuccessor :: (Eq p, Num p) => MDP p (Int, WernerBellPairs) -> Maybe (Int, WernerBellPairs)
-deterministicZeroCostSuccessor (MDP mdp) = do
-    [generator] <- pure $ getGenerators mdp
-    [((next, cost), prob)] <- pure $ D.toListD generator
-    if prob == 1 && cost == mempty
-       then Just next
-       else Nothing
+    expandPair (TaggedBellPair bp kind) =
+        [ TaggedBellPair bp StaticPair
+        , TaggedBellPair bp $
+            case kind of
+                Pure -> PurePair
+                Mixed -> MixedPair
+        ]
 
 execute
     :: ProbabilisticActionConfiguration
@@ -157,7 +137,7 @@ executePAA
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 executePAA pac act bps =
-    if holdsWernerTest (paaTest act) bps
+    if holdsWernerGuardTest (paaTest act) bps
        then mconcat
             [ computeListOutput pac (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
             | Partial { chosen, rest = rest' } <- findElemsNDT staticBellPair (toList . paaInputBPs $ act) (unWernerBellPairs bps)
@@ -174,7 +154,7 @@ computeListOutput pac (ListOutput xs) chosen untouched =
     setAllCosts roundCost $
         parallelCompose (go xs chosen) (fromDistribution (decohereState pac roundCost untouched))
   where
-    roundCost = combinedRoundCost xs
+    roundCost = combinedRoundCost (boOperation . snd) xs
 
     go [] restBps = fromDistribution (decohereState pac roundCost restBps)
     go ((i, out):outs) (WernerBellPairs currentBps) =
@@ -371,66 +351,10 @@ remainingWait roundCost localCost = max 0 (roundCost - localCost)
 swapOutputDelay :: Int -> Int -> Int
 swapOutputDelay roundCost _localCost = roundCost
 
-combinedRoundCost :: [(LabelledBellPairs () (), BinaryOutput)] -> Int
-combinedRoundCost xs =
-    maximum (0 : fmap (primitiveCost . boOperation . snd) xs)
-
-primitiveCost :: Op -> Int
-primitiveCost FSkip = 0
-primitiveCost FDestroy = 0
-primitiveCost FCreate{} = 1
-primitiveCost (FGenerate _ _ d) = d
-primitiveCost (FTransmit _ _ d) = d
-primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
-primitiveCost (FDistill _ d) = d
-
-requireCardinality :: String -> Int -> WernerBellPairs -> a -> a
-requireCardinality opName expected bps result
-    | length (toList bps) == expected = result
-    | otherwise =
-        error $
-            "computePrimitiveOutput: " <> opName <> " expected "
-            <> show expected <> " inputs, got " <> show (length (toList bps))
-
-fromDistribution :: D Double WernerBellPairs -> MDP Double WernerBellPairs
-fromDistribution =
-    MDP . fromList . pure . fmapWithZeroCost
-  where
-    fmapWithZeroCost = cmap (\st -> (st, mkStepCost 0))
-
-setAllCosts :: Int -> MDP Double WernerBellPairs -> MDP Double WernerBellPairs
-setAllCosts cost (MDP mdp) =
-    MDP $ cmap (\(st, _) -> (st, mkStepCost cost)) mdp
-
-parallelCompose
-    :: MDP Double WernerBellPairs
-    -> MDP Double WernerBellPairs
-    -> MDP Double WernerBellPairs
-parallelCompose (MDP lhs) (MDP rhs) =
-    MDP . fromList $
-        [ fromList
-            [ ((s1 <> s2, max c1 c2), p1 * p2)
-            | ((s1, c1), p1) <- D.toListD d1
-            , ((s2, c2), p2) <- D.toListD d2
-            ]
-        | d1 <- getGenerators lhs
-        , d2 <- getGenerators rhs
-        ]
-
 applyWernerExecutionParams :: ExecutionParams () rTag cTag -> WernerBellPairs -> WernerBellPairs
 applyWernerExecutionParams EP{epNetworkCapacity = Nothing} = id
 applyWernerExecutionParams EP{epNetworkCapacity = Just cap} =
     WernerBellPairs . fixNetworkCapacity cap . unWernerBellPairs
-
-mapMDPProbabilities
-    :: (RationalOrDouble p, RationalOrDouble p', DDom a, DDom (a, StepCost))
-    => (p -> p')
-    -> MDP p a
-    -> MDP p' a
-mapMDPProbabilities f = MDP . D.mapProbability f . unMDP
-
-mkStepCost :: Int -> StepCost
-mkStepCost = StepCost . Sum
 
 epsilon :: Double
 epsilon = 1e-12

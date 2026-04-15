@@ -16,9 +16,15 @@ import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Definitions.Core
 import BellKAT.Bundles.Core (runNonLoggedPipeline)
 import BellKAT.Bundles.OpBased (probStarPolicyQMDPPipeline', probStarPolicyWMDPPipeline')
-import BellKAT.Implementations.MDPProbability
+import BellKAT.Utils.MDP
   ( MDP(..)
   , StepCost(..)
+  , fromGenerator
+  , minimizeStateSystem
+  , parallelCompose
+  )
+import BellKAT.Implementations.MDPProbability
+  ( StaticBellPairs
   , holdsStaticTest
   , toStaticBellPairs
   )
@@ -241,6 +247,39 @@ spec = do
       wernerParams `shouldBe` replicate 2 freshW
       -- (redundant equality check emphasizing uniformity)
       all (== freshW) wernerParams `shouldBe` True
+
+  describe "shared MDP core" $ do
+    it "uses the maximum cost when composing parallel generators" $ do
+      let lhs =
+            fromGenerator
+              [ ((["A" ~ "B"] :: StaticBellPairs, StepCost (Sum 1)), 1 :: Rational) ]
+          rhs =
+            fromGenerator
+              [ ((["B" ~ "C"] :: StaticBellPairs, StepCost (Sum 3)), 1 :: Rational) ]
+          [gen] = getGenerators . unMDP $ parallelCompose lhs rhs
+
+      D.toListD gen `shouldBe`
+        [ ((["A" ~ "B", "B" ~ "C"] :: StaticBellPairs, StepCost (Sum 3)), 1 :: Rational) ]
+
+    it "minimizes deterministic zero-cost hops without changing the reachable behavior" $ do
+      let terminal = ["A" ~ "C"] :: StaticBellPairs
+          promoted = ["A" ~ "B"] :: StaticBellPairs
+          ss = SS
+                { ssInitial = (0, mempty)
+                , ssTransitions = IM.fromList
+                    [ (0, Map.fromList
+                        [ (mempty, fromGenerator [(((1, promoted), StepCost (Sum 0)), 1 :: Rational)])
+                        ])
+                    , (1, Map.fromList
+                        [ (promoted, fromGenerator [(((2, terminal), StepCost (Sum 2)), 1 :: Rational)])
+                        ])
+                    ]
+                }
+          minimized = minimizeStateSystem ss
+
+      ssInitial minimized `shouldBe` (1, promoted)
+      IM.lookup 0 (ssTransitions minimized) `shouldBe` Nothing
+      fmap (Map.keys) (IM.lookup 1 (ssTransitions minimized)) `shouldBe` Just [promoted]
 
   describe "static MDP" $ do
     it "builds a finite Pa MDP with per-distribution costs and elides empty labels" $ do

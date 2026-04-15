@@ -42,6 +42,12 @@ class DSLTestNeq t tag => DSLTest t tag where
 (~~?) :: (Tag tag, Default tag, DSLTest t tag) => Location -> Location -> t
 l ~~? l' = hasSubset [l ~ l']
 
+(=~?) :: Location -> Location -> KindedTest tag
+l =~? l' = kindedTestContains [l ~ l' @ MixedPair]
+
+(-~?) :: Location -> Location -> KindedTest tag
+l -~? l' = kindedTestContains [l ~ l' @ PurePair]
+
 instance Tag t => DSLTestNeq (BellPairsPredicate t) t where
     hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf'`))
 
@@ -59,6 +65,12 @@ instance Tag t => DSLTestNeq (BoundedTest t) t where
 
 instance Tag t => DSLTest (FreeTest t) t where
     hasSubset = FTSubset
+
+instance DSLTestNeq (KindedTest t) PairSelector where
+    hasNotSubset = kindedTestNotContains
+
+instance DSLTest (KindedTest t) PairSelector where
+    hasSubset = kindedTestContains
 
 class DSLFunctions p where
     defaultTagged :: Action -> p

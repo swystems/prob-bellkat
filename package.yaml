@@ -91,6 +91,7 @@ library:
     - BellKAT.Utils.Convex.Constraint
     - BellKAT.Utils.Convex.DConvexHull
     - BellKAT.Utils.Cost
+    - BellKAT.Utils.MDP
     - BellKAT.Utils.Automata
     - BellKAT.Utils.Automata.NFA
     - BellKAT.Utils.Automata.EpsNFA
@@ -350,6 +351,15 @@ executables:
     dependencies: 
       - bellkat
     main: probabilistic-examples/P5_3_coopmans_mixed.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP_oneswap:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P_oneswap.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists

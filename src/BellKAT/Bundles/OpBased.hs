@@ -142,7 +142,7 @@ guardedToWernerMDPStage' pac ep initialState = Stage
     , stageConfig = (ep, initialState)
     , stageFunction = \(ep', initialState') gfa ->
         MDPW.minimizeStateSystem $
-        GASQ.executeSystem MDPW.holdsWernerTest (MDPW.executeWith' pac ep') gfa
+        GASQ.executeSystem MDPW.holdsWernerGuardTest (MDPW.executeWith' pac ep') gfa
         initialState'
     }
 

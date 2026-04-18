@@ -52,6 +52,7 @@ import           BellKAT.Utils.MDP
     )
 import qualified BellKAT.Utils.Distribution  as D
 
+-- | Wrapper for pairs with purity tag
 newtype WernerBellPairs = WernerBellPairs { unWernerBellPairs :: TaggedBellPairs StateKind }
     deriving stock (Eq, Ord)
     deriving newtype (Semigroup, Monoid)
@@ -80,12 +81,15 @@ instance Show WernerBellPairs where
 toWernerBellPairs :: LabelledBellPairs cTag StateKind -> WernerBellPairs
 toWernerBellPairs = WernerBellPairs . Mset.map' id
 
+-- | Evaluates test also on the purity tags of the pairs
 holdsWernerTest :: KindedTest () -> WernerBellPairs -> Bool
 holdsWernerTest t = getBPsPredicate (toSelectorPredicate t) . expandSelectorState . unWernerBellPairs
 
+-- | Evaluates test ignoring the purity tags
 holdsWernerGuardTest :: Test test => test () -> WernerBellPairs -> Bool
 holdsWernerGuardTest t = getBPsPredicate (toBPsPredicate t) . staticBellPairs . unWernerBellPairs
 
+-- | Expands into a selector that includes both the static and dynamic versions of each pair
 expandSelectorState :: TaggedBellPairs StateKind -> TaggedBellPairs PairSelector
 expandSelectorState (Mset.LMS (bps, ())) =
     Mset.fromList (concatMap expandPair (GHC.Exts.toList bps)) Mset.@ ()
@@ -151,12 +155,20 @@ computeListOutput
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 computeListOutput pac (ListOutput xs) chosen untouched =
-    setAllCosts roundCost $
+    setAllCosts roundCost $ -- Set all costs to the round cost
+                            -- Decohere pairs not selected for the combined action
         parallelCompose (go xs chosen) (fromDistribution (decohereState pac roundCost untouched))
-  where
+    where
     roundCost = combinedRoundCost (boOperation . snd) xs
 
+    -- Decohere pairs inside chosen that ended up not being used for the primitive actions (i.e. those that are in restBps) for the difference between the round cost and the time taken by the local operations
     go [] restBps = fromDistribution (decohereState pac roundCost restBps)
+
+    -- Takes a primitive output (i, out) from the combined list
+    -- , finds all the ways of picking the required input pairs (i) from the input multiset (currentBps) 
+    -- , for each of them computes the output of the primitive action (computePrimitiveOutput) 
+    -- , recursively computing the output of the rest of the combined list (go outs (WernerBellPairs rest')) 
+    -- , where rest' are the pairs that were not chosen for the primitive action
     go ((i, out):outs) (WernerBellPairs currentBps) =
         mconcat
             [ parallelCompose (computePrimitiveOutput pac roundCost out (WernerBellPairs chosenBps))
@@ -203,7 +215,11 @@ createLike pac pSuccess w0 localCost roundCost outBp =
         [ (mempty, 1 - pSuccess)
         , (singletonMixed outBp, pSuccess * (1 - w0))
         ]
-        <> weightedOutcomes (pSuccess * w0) (decohereState pac (remainingWait roundCost localCost) (singletonPure outBp))
+        <> 
+        weightedOutcomes (pSuccess * w0) 
+        -- pure pairs in the output are decohered 
+        -- for the difference between the round cost and the time taken by the local operation
+        (decohereState pac (remainingWait roundCost localCost) (singletonPure outBp))
 
 transmitLike
     :: ProbabilisticActionConfiguration
@@ -235,7 +251,7 @@ swapLike
     -> TaggedBellPair ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-swapLike pac pSuccess localCost roundCost outBp chosen =
+swapLike pac pSuccess _ roundCost outBp chosen =
     fromDistribution . distributionFromOutcomes $
         [ (mempty, 1 - pSuccess) ] <> successOutcomes
   where
@@ -243,7 +259,10 @@ swapLike pac pSuccess localCost roundCost outBp chosen =
         case fmap bellPairTag (toList chosen) of
             [Pure, Pure] ->
                 weightedOutcomes pSuccess $
-                    decohereState pac (swapOutputDelay roundCost localCost) (singletonPure outBp)
+                    -- pure pairs in the output are decohered for the whole round cost
+                    -- as swap produces its output pair instantaneously at the start of the round
+                    -- the rest of the round is classical communication or other operations
+                    decohereState pac roundCost (singletonPure outBp)
             [_, _] ->
                 [(singletonMixed outBp, pSuccess)]
             _ ->
@@ -256,12 +275,13 @@ distillLike
     -> TaggedBellPair ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-distillLike pac localCost roundCost outBp chosen =
+distillLike pac _ roundCost outBp chosen =
     fromDistribution . distributionFromOutcomes $
+        -- again, pure pairs in the output are decohered for the whole round cost
         case fmap bellPairTag (toList chosen) of
             [Pure, Pure] ->
                 weightedOutcomes 1 $
-                    decohereState pac (remainingWait roundCost localCost) (singletonPure outBp)
+                    decohereState pac roundCost (singletonPure outBp)
             [Pure, Mixed] ->
                 mixedPureOutcomes
             [Mixed, Pure] ->
@@ -274,7 +294,7 @@ distillLike pac localCost roundCost outBp chosen =
                 error "distillLike: expected exactly two input Bell pairs"
   where
     mixedPureOutcomes =
-        weightedOutcomes (1 / 6) (decohereState pac (remainingWait roundCost localCost) (singletonPure outBp))
+        weightedOutcomes (1 / 6) (decohereState pac roundCost (singletonPure outBp))
             <> [ (singletonMixed outBp, 1 / 3)
                , (mempty, 1 / 2)
                ]
@@ -346,10 +366,11 @@ weightedOutcomes weight =
     fmap (second (weight *)) . D.toListD
 
 remainingWait :: Int -> Int -> Int
-remainingWait roundCost localCost = max 0 (roundCost - localCost)
-
-swapOutputDelay :: Int -> Int -> Int
-swapOutputDelay roundCost _localCost = roundCost
+remainingWait roundCost localCost
+    | localCost <= roundCost = roundCost - localCost
+    | otherwise =
+        error $ "remainingWait: local action cost " <> show localCost
+             <> " exceeds round cost " <> show roundCost
 
 applyWernerExecutionParams :: ExecutionParams () rTag cTag -> WernerBellPairs -> WernerBellPairs
 applyWernerExecutionParams EP{epNetworkCapacity = Nothing} = id

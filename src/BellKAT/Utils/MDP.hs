@@ -27,6 +27,7 @@ import qualified Data.Map.Strict             as Map
 import           Data.Monoid                 (Sum (..))
 import qualified Data.Set                    as Set
 import           GHC.Exts                    (IsList, fromList, toList)
+import           Numeric                     (showFFloat)
 import           Control.Subcategory.Bind
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Pointed
@@ -68,7 +69,7 @@ instance RationalOrDouble p => CFunctor (MDP p) where
 instance RationalOrDouble p => CBind (MDP p) where
     cjoin = MDP . cjoin . cmap (\(MDP ma, c) -> cmap (second (c <>)) ma) . unMDP
 
-instance (Show p, Show a) => Show (MDP p a) where
+instance (RealFrac p, Show a) => Show (MDP p a) where
     show (MDP mdp)
         | null gens = "⦅⦆"
         | otherwise = "⦅ " <> intercalate ", " (showGenerator <$> gens) <> " ⦆"
@@ -78,7 +79,18 @@ instance (Show p, Show a) => Show (MDP p a) where
         showGenerator = intercalate "+" . fmap showOutcome . D.toListD
 
         showOutcome ((x, c), p) =
-            show x <> "×《" <> show p <> ", " <> show c <> "》"
+            show x <> "×《" <> formatProb p <> ", " <> show c <> "》"
+
+        -- | Show only few fractional digits for readability
+        formatProb q = trimTrailingZeros (showFFloat (Just 5) (realToFrac q :: Double) "")
+
+        trimTrailingZeros s =
+            let (intPart, fracPartWithDot) = span (/= '.') s
+             in case fracPartWithDot of
+                    [] -> s
+                    (_:fracPart) ->
+                        let trimmed = reverse (dropWhile (== '0') (reverse fracPart))
+                         in if null trimmed then intPart else intPart <> "." <> trimmed
 
 fromGenerator
     :: (RationalOrDouble p, DDom a, DDom (a, StepCost))
@@ -198,7 +210,9 @@ primitiveCost FDestroy = 0
 primitiveCost FCreate{} = 1
 primitiveCost (FGenerate _ _ d) = d
 primitiveCost (FTransmit _ _ d) = d
-primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
+primitiveCost (FSwap {}) = 0
+-- TODO: we might want to refactor this somehow in the DSL
+-- primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
 primitiveCost (FDistill _ d) = d
 
 combinedRoundCost :: Foldable t => (a -> Op) -> t a -> Int

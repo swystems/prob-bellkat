@@ -231,11 +231,8 @@ instance Default PairSelector where
     def = StaticPair
 
 -- | Test wrapper used by QBKAT to distinguish static, pure, and mixed queries.
---
--- The generic `Test` instance intentionally collapses these distinctions and only checks for
--- presence/absence of the underlying Bell pair. This keeps guards in `if`/`while` statements
--- static, while qmdp-specific consumers can still recover the exact selector-aware semantics
--- through `toSelectorPredicate`.
+-- Guard checks, e.g. if or while, ignore purity and only inspect static pair presence
+-- Kinded event tests can distinguish static/pure/mixed by expanding PairSelector
 newtype KindedTest tag = KindedTest (BoundedTest PairSelector)
     deriving newtype (Eq)
 

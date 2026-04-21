@@ -5,7 +5,11 @@ p = while ("A" /~? "B")
     (
         (create "C" <||> create "C")
         <>
-        (trans "C" ("A", "C") <||> trans "C" ("B", "C"))
+        (
+            ite ("A" /~? "C") (trans "C" ("A", "C")) mempty
+            <||> 
+            ite ("B" /~? "C") (trans "C" ("B", "C")) mempty
+        )
         <>
         swap "C" ("A", "B")
     )
@@ -36,7 +40,7 @@ actionConfig w0 tCoh = PAC
 
 main :: IO ()
 main =
-    let ev = "A" ~~? "B"
-        w0 = 9/10
-        tCoh = 100
+    let ev = "A" =~? "B"
+        w0 = 958/1000
+        tCoh = 14000
     in qbkatMainD (actionConfig w0 tCoh) nb ev p mempty

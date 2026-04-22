@@ -78,6 +78,62 @@ instance Show WernerBellPairs where
                     Mixed -> "="
              in name l1 <> sep <> name l2
 
+-- | When applying capacity constraints, 
+-- | we keep track of which pairs are produced by the current action 
+-- | and which are retained from the input
+data WernerPieces = WernerPieces
+    { wpProduced :: WernerBellPairs
+    , wpRetained :: WernerBellPairs
+    } deriving stock (Eq, Ord, Show)
+
+instance Semigroup WernerPieces where
+    WernerPieces p1 r1 <> WernerPieces p2 r2 =
+        -- | we keep the produced pieces first (better quality)
+        WernerPieces (p1 <> p2) (r1 <> r2)
+
+instance Monoid WernerPieces where
+    mempty = WernerPieces mempty mempty
+
+producedPieces :: WernerBellPairs -> WernerPieces
+producedPieces bps = WernerPieces bps mempty
+
+retainedPieces :: WernerBellPairs -> WernerPieces
+retainedPieces bps = WernerPieces mempty bps
+
+finalizeWernerPieces :: Maybe (NetworkCapacity ()) -> WernerPieces -> WernerBellPairs
+finalizeWernerPieces Nothing (WernerPieces produced retained) =
+    produced <> retained
+finalizeWernerPieces (Just cap) (WernerPieces produced retained) =
+    WernerBellPairs . (Mset.@ ()) . Mset.fromList $ producedKept <> retainedKept
+  where
+    (producedKept, remainingCounts) =
+        takeWernerCapacity (capacityCounts cap) (toList produced)
+    (retainedKept, _) =
+        takeWernerCapacity remainingCounts (toList retained)
+
+capacityCounts :: NetworkCapacity () -> Map.Map BellPair Int
+capacityCounts (NC cap) =
+    Map.fromListWith (+) [ (bellPair tbp, 1) | tbp <- toList cap ]
+
+takeWernerCapacity
+    :: Map.Map BellPair Int
+    -> [TaggedBellPair StateKind]
+    -> ([TaggedBellPair StateKind], Map.Map BellPair Int)
+takeWernerCapacity = go []
+  where
+    go kept counts [] = (reverse kept, counts)
+    go kept counts (tbp:tbps) =
+        case Map.lookup bp counts of
+            Nothing ->
+                go (tbp:kept) counts tbps
+            Just n
+              | n > 0 ->
+                  go (tbp:kept) (Map.insert bp (n - 1) counts) tbps
+              | otherwise ->
+                  go kept counts tbps
+      where
+        bp = bellPair tbp
+
 toWernerBellPairs :: LabelledBellPairs cTag StateKind -> WernerBellPairs
 toWernerBellPairs = WernerBellPairs . Mset.map' id
 
@@ -116,7 +172,7 @@ execute'
     -> WernerBellPairs
     -> MDP p WernerBellPairs
 execute' pac policy =
-    mapMDPProbabilities realToFrac . executeDouble pac policy
+    mapMDPProbabilities realToFrac . executeDouble pac Nothing policy
 
 executeWith'
     :: RationalOrDouble p
@@ -125,44 +181,52 @@ executeWith'
     -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
     -> WernerBellPairs
     -> MDP p WernerBellPairs
-executeWith' pac ep policy = cmap (applyWernerExecutionParams ep) . execute' pac policy
+executeWith' pac ep policy =
+    mapMDPProbabilities realToFrac . executeDouble pac (epNetworkCapacity ep) policy
 
 executeDouble
     :: ProbabilisticActionConfiguration
+-> Maybe (NetworkCapacity ())
     -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-executeDouble pac policy bps =
-    foldMap (\paa -> executePAA pac paa bps) (toList policy)
+executeDouble pac mbCap policy bps =
+    foldMap (\paa -> executePAA pac mbCap paa bps) (toList policy)
 
 executePAA
     :: ProbabilisticActionConfiguration
+-> Maybe (NetworkCapacity ())
     -> ProbabilisticAtomicAction (ListOutput BinaryOutput) ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-executePAA pac act bps =
-    if holdsWernerGuardTest (paaTest act) bps
+executePAA pac mbCap act bps =
+    if holdsWernerStaticTest (paaTest act) bps
        then mconcat
-            [ computeListOutput pac (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
+            [ computeListOutput pac mbCap (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
             | Partial { chosen, rest = rest' } <- findElemsNDT staticBellPair (toList . paaInputBPs $ act) (unWernerBellPairs bps)
             ]
        else mempty
 
 computeListOutput
     :: ProbabilisticActionConfiguration
+-> Maybe (NetworkCapacity ())
     -> ListOutput BinaryOutput
     -> WernerBellPairs
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-computeListOutput pac (ListOutput xs) chosen untouched =
+computeListOutput pac mbCap (ListOutput xs) chosen untouched =
     setAllCosts roundCost $ -- Set all costs to the round cost
                             -- Decohere pairs not selected for the combined action
-        parallelCompose (go xs chosen) (fromDistribution (decohereState pac roundCost untouched))
+cmap (finalizeWernerPieces mbCap) $
+        parallelCompose
+(go xs chosen)
+(fromDistribution (cmap retainedPieces (decohereState pac roundCost untouched)))
     where
     roundCost = combinedRoundCost (boOperation . snd) xs
 
     -- Decohere pairs inside chosen that ended up not being used for the primitive actions (i.e. those that are in restBps) for the difference between the round cost and the time taken by the local operations
-    go [] restBps = fromDistribution (decohereState pac roundCost restBps)
+    go [] restBps =
+fromDistribution (cmap retainedPieces (decohereState pac roundCost restBps))
 
     -- Takes a primitive output (i, out) from the combined list
     -- , finds all the ways of picking the required input pairs (i) from the input multiset (currentBps) 
@@ -371,11 +435,6 @@ remainingWait roundCost localCost
     | otherwise =
         error $ "remainingWait: local action cost " <> show localCost
              <> " exceeds round cost " <> show roundCost
-
-applyWernerExecutionParams :: ExecutionParams () rTag cTag -> WernerBellPairs -> WernerBellPairs
-applyWernerExecutionParams EP{epNetworkCapacity = Nothing} = id
-applyWernerExecutionParams EP{epNetworkCapacity = Just cap} =
-    WernerBellPairs . fixNetworkCapacity cap . unWernerBellPairs
 
 epsilon :: Double
 epsilon = 1e-12

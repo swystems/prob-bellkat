@@ -186,7 +186,7 @@ executeWith' pac ep policy =
 
 executeDouble
     :: ProbabilisticActionConfiguration
--> Maybe (NetworkCapacity ())
+    -> Maybe (NetworkCapacity ())
     -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
@@ -195,12 +195,12 @@ executeDouble pac mbCap policy bps =
 
 executePAA
     :: ProbabilisticActionConfiguration
--> Maybe (NetworkCapacity ())
+    -> Maybe (NetworkCapacity ())
     -> ProbabilisticAtomicAction (ListOutput BinaryOutput) ()
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 executePAA pac mbCap act bps =
-    if holdsWernerStaticTest (paaTest act) bps
+    if holdsWernerGuardTest (paaTest act) bps
        then mconcat
             [ computeListOutput pac mbCap (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
             | Partial { chosen, rest = rest' } <- findElemsNDT staticBellPair (toList . paaInputBPs $ act) (unWernerBellPairs bps)
@@ -209,7 +209,7 @@ executePAA pac mbCap act bps =
 
 computeListOutput
     :: ProbabilisticActionConfiguration
--> Maybe (NetworkCapacity ())
+    -> Maybe (NetworkCapacity ())
     -> ListOutput BinaryOutput
     -> WernerBellPairs
     -> WernerBellPairs
@@ -217,16 +217,16 @@ computeListOutput
 computeListOutput pac mbCap (ListOutput xs) chosen untouched =
     setAllCosts roundCost $ -- Set all costs to the round cost
                             -- Decohere pairs not selected for the combined action
-cmap (finalizeWernerPieces mbCap) $
-        parallelCompose
-(go xs chosen)
-(fromDistribution (cmap retainedPieces (decohereState pac roundCost untouched)))
+        cmap (finalizeWernerPieces mbCap) $
+                parallelCompose
+        (go xs chosen)
+        (fromDistribution (cmap retainedPieces (decohereState pac roundCost untouched)))
     where
     roundCost = combinedRoundCost (boOperation . snd) xs
 
     -- Decohere pairs inside chosen that ended up not being used for the primitive actions (i.e. those that are in restBps) for the difference between the round cost and the time taken by the local operations
     go [] restBps =
-fromDistribution (cmap retainedPieces (decohereState pac roundCost restBps))
+        fromDistribution (cmap retainedPieces (decohereState pac roundCost restBps))
 
     -- Takes a primitive output (i, out) from the combined list
     -- , finds all the ways of picking the required input pairs (i) from the input multiset (currentBps) 
@@ -245,26 +245,26 @@ computePrimitiveOutput
     -> Int
     -> BinaryOutput
     -> WernerBellPairs
-    -> MDP Double WernerBellPairs
+    -> MDP Double WernerPieces
 computePrimitiveOutput _ _ BinaryOutput{boOperation = FSkip} _ =
     fromDistribution (cpure mempty)
 computePrimitiveOutput _ _ BinaryOutput{boOperation = FDestroy} _ =
     fromDistribution (cpure mempty)
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FCreate p w} chosen =
     requireCardinality "create" 0 chosen $
-        createLike pac (fromRational p) w 1 roundCost outBp
+        cmap producedPieces $ createLike pac (fromRational p) w 1 roundCost outBp
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FGenerate p w d} chosen =
     requireCardinality "generate" 0 chosen $
-        createLike pac (fromRational p) w d roundCost outBp
+        cmap producedPieces $ createLike pac (fromRational p) w d roundCost outBp
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FTransmit p _ d} chosen =
     requireCardinality "transmit" 1 chosen $
-        transmitLike pac (fromRational p) d roundCost outBp chosen
+        cmap producedPieces $ transmitLike pac (fromRational p) d roundCost outBp chosen
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FSwap p _ ds} chosen =
     requireCardinality "swap" 2 chosen $
-        swapLike pac (fromRational p) (max (fst ds) (snd ds)) roundCost outBp chosen
+        cmap producedPieces $ swapLike pac (fromRational p) (max (fst ds) (snd ds)) roundCost outBp chosen
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FDistill _ d} chosen =
     requireCardinality "distill" 2 chosen $
-        distillLike pac d roundCost outBp chosen
+        cmap producedPieces $ distillLike pac d roundCost outBp chosen
 
 createLike
     :: ProbabilisticActionConfiguration

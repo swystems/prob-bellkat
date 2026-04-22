@@ -5,13 +5,16 @@ module BellKAT.Implementations.MDPExtremal
     ( ConcreteMDPState
     , ExtremalQuery(..)
     , CoverageStatus(..)
+    , SchedulerChoiceTrace(..)
+    , SchedulerChoice(..)
+    , SchedulerSelection(..)
     , ExtremalResult(..)
     , computeExtremalReachability
     , renderExtremalResult
     ) where
 
 import qualified Data.Aeson                  as A
-import           Data.List                   (foldl', intercalate, transpose, zipWith5)
+import           Data.List                   (foldl', intercalate, mapAccumL, transpose, zipWith5)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Monoid                 (Sum (..))
 import qualified Data.IntMap.Strict          as IM
@@ -31,6 +34,37 @@ import qualified BellKAT.Utils.Distribution  as D
 type ConcreteMDPState s = (Int, s)
 
 type ExtremalTable s p = Map.Map (ConcreteMDPState s) (IM.IntMap p)
+
+type Action s p = D p (ConcreteMDPState s, StepCost)
+
+type SchedulerChoiceLog s p = Map.Map (ConcreteMDPState s) [SchedulerChoice s p]
+
+-- | Compact scheduler trace for one state.
+--
+-- The trace only stores change points: each 'SchedulerChoice' applies from its
+-- budget until the next listed change point for the same state.
+data SchedulerChoiceTrace s p = SchedulerChoiceTrace
+    { sctState :: ConcreteMDPState s
+    , sctChanges :: [SchedulerChoice s p]
+    }
+    deriving stock (Eq, Show)
+
+-- | Scheduler choice beginning at a particular budget.
+data SchedulerChoice s p = SchedulerChoice
+    { scBudget :: Int
+    , scSelection :: SchedulerSelection s p
+    }
+    deriving stock (Eq, Show)
+
+data SchedulerSelection s p
+    = ChosenAction Int p (Action s p)
+    | AllActionsSameValue p
+    deriving stock (Eq, Show)
+
+data BudgetCell s p = BudgetCell
+    { bcValue :: p
+    , bcChoice :: Maybe (ConcreteMDPState s, SchedulerChoice s p)
+    }
 
 data ExtremalQuery
     = ExtremalBudget Int
@@ -57,11 +91,13 @@ data ExtremalResult s p = ExtremalResult
     , erResolvedBudget :: Int
     , erMinTable :: ExtremalTable s p
     , erMaxTable :: ExtremalTable s p
+    , erMinSchedulerChoices :: [SchedulerChoiceTrace s p]
+    , erMaxSchedulerChoices :: [SchedulerChoiceTrace s p]
     , erCoverageStatus :: Maybe (CoverageStatus p)
     }
     deriving stock (Eq, Show)
 
-instance (Show p, RationalOrDouble p) => A.ToJSON (CoverageStatus p) where
+instance RationalOrDouble p => A.ToJSON (CoverageStatus p) where
     toJSON status =
         case status of
             CoverageReached target budget value ->
@@ -69,14 +105,13 @@ instance (Show p, RationalOrDouble p) => A.ToJSON (CoverageStatus p) where
             CoverageUnreachable target budget value ->
                 coverageToJSON "unreachable" target budget value
       where
-        coverageToJSON :: Show p => String -> Double -> Int -> p -> A.Value
+        coverageToJSON :: RationalOrDouble p => String -> Double -> Int -> p -> A.Value
         coverageToJSON kind target budget value =
             A.object
                 [ "status" A..= kind
                 , "target" A..= target
                 , "budget" A..= budget
                 , "value" A..= toDouble value
-                , "value_exact" A..= show value
                 ]
 
 instance (Ord s, Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) => A.ToJSON (ExtremalResult s p) where
@@ -93,10 +128,10 @@ instance (Ord s, Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) =>
                         [ "cdf_min" A..= fmap toDouble cdfMin
                         , "cdf_max" A..= fmap toDouble cdfMax
                         ]
-                , "series_exact" A..=
+                , "scheduler_choices" A..=
                     A.object
-                        [ "cdf_min" A..= fmap show cdfMin
-                        , "cdf_max" A..= fmap show cdfMax
+                        [ "min" A..= fmap schedulerChoiceTraceToJSON (erMinSchedulerChoices result)
+                        , "max" A..= fmap schedulerChoiceTraceToJSON (erMaxSchedulerChoices result)
                         ]
                 ]
 
@@ -107,6 +142,35 @@ stateToJSON st@(pc, bps) =
         , "bell_pairs" A..= fmap show (toList bps)
         , "rendered" A..= show st
         ]
+
+schedulerChoiceTraceToJSON
+    :: (Show s, IsList s, Show (Item s), Show p, RationalOrDouble p)
+    => SchedulerChoiceTrace s p
+    -> A.Value
+schedulerChoiceTraceToJSON trace =
+    A.object
+        [ "state" A..= stateToJSON (sctState trace)
+        , "changes" A..= fmap schedulerChoiceToJSON (sctChanges trace)
+        ]
+
+schedulerChoiceToJSON
+    :: (Show s, Show p, RationalOrDouble p)
+    => SchedulerChoice s p
+    -> A.Value
+schedulerChoiceToJSON choice =
+    A.object $
+        [ "budget" A..= scBudget choice ]
+        <> case scSelection choice of
+            ChosenAction actionIndex value action ->
+                [ "kind" A..= ("chosen_action" :: String)
+                , "action_index" A..= actionIndex
+                , "value" A..= toDouble value
+                , "action" A..= renderAction action
+                ]
+            AllActionsSameValue value ->
+                [ "kind" A..= ("all_actions_same_value" :: String)
+                , "value" A..= toDouble value
+                ]
 
 computeExtremalReachability
     :: (Ord s, Show s, RationalOrDouble p)
@@ -121,12 +185,12 @@ computeExtremalReachability isGoal query ss = do
         goalSet = Set.fromList goalStates
         actions = buildActionMap ss states
 
-    validatePositiveCosts goalSet actions
+    validateNonNegativeCosts goalSet actions
 
-    let (minTable, resolvedBudget, coverageStatus) =
-            computeExtremalTable selectMin query states goalSet actions (ssInitial ss)
-        (maxTable, _, _) =
-            computeExtremalTable selectMax (ExtremalBudget resolvedBudget) states goalSet actions (ssInitial ss)
+    let (minTable, resolvedBudget, coverageStatus, minChoices) =
+            computeExtremalTable selectMinAction query states goalSet actions (ssInitial ss)
+        (maxTable, _, _, maxChoices) =
+            computeExtremalTable selectMaxAction (ExtremalBudget resolvedBudget) states goalSet actions (ssInitial ss)
 
     pure $
         ExtremalResult
@@ -136,6 +200,8 @@ computeExtremalReachability isGoal query ss = do
             , erResolvedBudget = resolvedBudget
             , erMinTable = minTable
             , erMaxTable = maxTable
+            , erMinSchedulerChoices = minChoices
+            , erMaxSchedulerChoices = maxChoices
             , erCoverageStatus = coverageStatus
             }
 
@@ -159,6 +225,9 @@ renderExtremalResult result =
                   ]
                 | (t, pmfMin, pmfMax, cdfMin, cdfMax) <- initialStateRows result
                 ]
+           , ""
+           , renderSchedulerChoices "Worst scheduler choices (min CDF):" (erMinSchedulerChoices result)
+           , renderSchedulerChoices "Best scheduler choices (max CDF):" (erMaxSchedulerChoices result)
            ]
 
 renderStateList :: Show s => [ConcreteMDPState s] -> String
@@ -174,6 +243,35 @@ renderCoverageStatus (CoverageUnreachable target budget value) =
     "Coverage target " <> show target
         <> " was not reached; the worst-scheduler CDF stabilised by budget "
         <> show budget <> " at cdf_min[t] = " <> show value
+
+renderSchedulerChoices :: (Show s, Show p) => String -> [SchedulerChoiceTrace s p] -> String
+renderSchedulerChoices title [] =
+    unlines [title, "  none"]
+renderSchedulerChoices title traces =
+    unlines $ title : concatMap renderSchedulerChoiceTrace traces
+
+renderSchedulerChoiceTrace :: (Show s, Show p) => SchedulerChoiceTrace s p -> [String]
+renderSchedulerChoiceTrace trace =
+    ("  state=" <> show (sctState trace))
+        : fmap (("    " <>) . renderSchedulerChoice) (sctChanges trace)
+
+renderSchedulerChoice :: (Show s, Show p) => SchedulerChoice s p -> String
+renderSchedulerChoice choice =
+    "from t=" <> show (scBudget choice)
+        <> case scSelection choice of
+            ChosenAction actionIndex value action ->
+                ": choose action #" <> show actionIndex
+                    <> " with value " <> show value
+                    <> " -> " <> renderAction action
+            AllActionsSameValue value ->
+                ": all actions have same value " <> show value
+
+renderAction :: (Show s, Show p) => Action s p -> String
+renderAction =
+    intercalate "+" . fmap renderOutcome . D.toListD
+  where
+    renderOutcome ((nextState, cost), prob) =
+        show nextState <> "×《" <> show prob <> ", " <> show cost <> "》"
 
 renderTable :: [String] -> [[String]] -> String
 renderTable headers rows =
@@ -243,7 +341,7 @@ buildActionMap
     :: Ord s
     => StateSystem (MDP p) s
     -> [ConcreteMDPState s]
-    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
+    -> Map.Map (ConcreteMDPState s) [Action s p]
 buildActionMap ss states =
     Map.fromList
         [ (st, actionGenerators st)
@@ -266,12 +364,12 @@ validateExtremalQuery (ExtremalCoverage target)
     | otherwise =
         Right ()
 
-validatePositiveCosts
+validateNonNegativeCosts
     :: (Ord s, Show s)
     => Set.Set (ConcreteMDPState s)
-    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
+    -> Map.Map (ConcreteMDPState s) [Action s p]
     -> Either String ()
-validatePositiveCosts goalStates actions =
+validateNonNegativeCosts goalStates actions =
     case
         [ (st, cost)
         | (st, gens) <- Map.toList actions
@@ -279,26 +377,26 @@ validatePositiveCosts goalStates actions =
         , gen <- gens
         , ((_, stepCost), _) <- D.toListD gen
         , let cost = getSum (getStepCost stepCost)
-        , cost <= 0
+        , cost < 0
         ] of
         [] ->
             Right ()
         (st, cost) : _ ->
             Left $
-                "The extremal DP solver currently requires strictly positive step costs; "
+                "The extremal DP solver requires non-negative step costs; "
                     <> "encountered cost " <> show cost <> " in state " <> show st
 
 computeExtremalTable
     :: (Ord s, RationalOrDouble p)
-    => ([p] -> p)
+    => ([(Int, Action s p, p)] -> (Int, Action s p, p))
     -> ExtremalQuery
     -> [ConcreteMDPState s]
     -> Set.Set (ConcreteMDPState s)
-    -> Map.Map (ConcreteMDPState s) [D p (ConcreteMDPState s, StepCost)]
+    -> Map.Map (ConcreteMDPState s) [Action s p]
     -> ConcreteMDPState s
-    -> (ExtremalTable s p, Int, Maybe (CoverageStatus p))
-computeExtremalTable selectValue query states goalStates actions initialState =
-    go 0 0 initialTable
+    -> (ExtremalTable s p, Int, Maybe (CoverageStatus p), [SchedulerChoiceTrace s p])
+computeExtremalTable selectAction query states goalStates actions initialState =
+    go 0 0 initialTable Map.empty
   where
     initialTable =
         Map.fromList
@@ -315,8 +413,9 @@ computeExtremalTable selectValue query states goalStates actions initialState =
             , ((_, stepCost), _) <- D.toListD gen
             ]
 
-    go budget stableSteps table =
-        let table' = appendBudget budget table
+    go budget stableSteps table choices =
+        let (table', budgetChoices) = appendBudget budget table
+            choices' = recordSchedulerChoices choices budgetChoices
             stableSteps' =
                 if budget > 0 && columnsApproxEqual table' budget (budget - 1)
                    then stableSteps + 1
@@ -324,47 +423,138 @@ computeExtremalTable selectValue query states goalStates actions initialState =
             currentInitial = tableValue table' initialState budget
          in case query of
                 ExtremalBudget maxBudget
-                    | budget >= maxBudget -> (table', budget, Nothing)
-                    | otherwise -> go (budget + 1) stableSteps' table'
+                    | budget >= maxBudget -> (table', budget, Nothing, schedulerChoiceTraces choices')
+                    | otherwise -> go (budget + 1) stableSteps' table' choices'
                 ExtremalCoverage target
                     | meetsCoverage target currentInitial ->
                         ( table'
                         , budget
                         , Just (CoverageReached target budget currentInitial)
+                        , schedulerChoiceTraces choices'
                         )
                     | stableSteps' >= maxObservedCost ->
                         ( table'
                         , budget
                         , Just (CoverageUnreachable target budget currentInitial)
+                        , schedulerChoiceTraces choices'
                         )
                     | otherwise ->
-                        go (budget + 1) stableSteps' table'
+                        go (budget + 1) stableSteps' table' choices'
 
     appendBudget budget table =
-        foldl'
-            (\acc st -> Map.adjust (IM.insert budget (cellValue table budget st)) st acc)
-            table
-            states
+        let cells = foldl' (\memo st -> snd (resolveCell budget table memo st)) Map.empty states
+            choicesForBudget = foldMap (maybe [] pure . bcChoice) (Map.elems cells)
+            table' =
+                foldl'
+                    (\acc (st, cell) -> Map.adjust (IM.insert budget (bcValue cell)) st acc)
+                    table
+                    (Map.toList cells)
+         in (table', choicesForBudget)
 
-    cellValue table budget st
-        | st `Set.member` goalStates = 1
+    -- TODO: zero-cost dependencies are assumed acyclic. Under that user-side
+    -- precondition, recursive same-budget evaluation terminates; zero-cost
+    -- loops should be rejected by a future validation pass.
+    resolveCell budget table memo st
+        | Just cell <- Map.lookup st memo = (cell, memo)
+        | st `Set.member` goalStates =
+            let cell = BudgetCell 1 Nothing
+             in (cell, Map.insert st cell memo)
         | otherwise =
             case Map.findWithDefault [] st actions of
-                [] -> 0
+                [] ->
+                    let cell = BudgetCell 0 Nothing
+                     in (cell, Map.insert st cell memo)
                 gens ->
-                    selectValue
-                        [ sum
-                            [ prob * tableValue table nextState (budget - getSum (getStepCost cost))
-                            | ((nextState, cost), prob) <- D.toListD gen
-                            ]
-                        | gen <- gens
-                        ]
+                    let (memo', scoredActions) =
+                            mapAccumL (scoreAction budget table) memo (zip [1..] gens)
+                        (actionIndex, action, value) = selectAction scoredActions
+                        choice =
+                            if length gens > 1
+                               then Just
+                                    ( st
+                                    , SchedulerChoice
+                                        { scBudget = budget
+                                        , scSelection =
+                                            if allActionsSameValue scoredActions
+                                               then AllActionsSameValue value
+                                               else ChosenAction actionIndex value action
+                                        }
+                                    )
+                               else Nothing
+                        cell = BudgetCell value choice
+                     in (cell, Map.insert st cell memo')
 
-selectMin :: Ord p => [p] -> p
-selectMin = minimum
+    scoreAction budget table memo (actionIndex, action) =
+        let (value, memo') =
+                foldl'
+                    (scoreOutcome budget table)
+                    (0, memo)
+                    (D.toListD action)
+         in (memo', (actionIndex, action, value))
 
-selectMax :: Ord p => [p] -> p
-selectMax = maximum
+    scoreOutcome budget table (total, memo) ((nextState, cost), prob) =
+        let costValue = getSum (getStepCost cost)
+         in if costValue == 0
+               then
+                    let (cell, memo') = resolveCell budget table memo nextState
+                     in (total + prob * bcValue cell, memo')
+               else
+                    ( total + prob * tableValue table nextState (budget - costValue)
+                    , memo
+                    )
+
+recordSchedulerChoices
+    :: Ord s
+    => SchedulerChoiceLog s p
+    -> [(ConcreteMDPState s, SchedulerChoice s p)]
+    -> SchedulerChoiceLog s p
+recordSchedulerChoices =
+    foldl' recordChoice
+  where
+    recordChoice logByState (st, choice) =
+        Map.alter (Just . appendIfChanged choice) st logByState
+
+    appendIfChanged choice Nothing = [choice]
+    appendIfChanged choice (Just []) = [choice]
+    appendIfChanged choice (Just existing@(latest:_))
+        | sameScheduledAction (scSelection latest) (scSelection choice) = existing
+        | otherwise = choice : existing
+
+sameScheduledAction :: SchedulerSelection s p -> SchedulerSelection s p -> Bool
+sameScheduledAction (AllActionsSameValue _) (AllActionsSameValue _) = True
+sameScheduledAction (ChosenAction left _ _) (ChosenAction right _ _) = left == right
+sameScheduledAction _ _ = False
+
+schedulerChoiceTraces :: SchedulerChoiceLog s p -> [SchedulerChoiceTrace s p]
+schedulerChoiceTraces =
+    fmap toTrace . Map.toList
+  where
+    toTrace (st, choices) =
+        SchedulerChoiceTrace
+            { sctState = st
+            , sctChanges = reverse choices
+            }
+
+selectMinAction :: Ord p => [(Int, a, p)] -> (Int, a, p)
+selectMinAction = selectActionBy (<)
+
+selectMaxAction :: Ord p => [(Int, a, p)] -> (Int, a, p)
+selectMaxAction = selectActionBy (>)
+
+allActionsSameValue :: RationalOrDouble p => [(Int, a, p)] -> Bool
+allActionsSameValue [] = True
+allActionsSameValue ((_, _, value):xs) =
+    all (\(_, _, value') -> approxEqual value value') xs
+
+selectActionBy :: Ord p => (p -> p -> Bool) -> [(Int, a, p)] -> (Int, a, p)
+selectActionBy _ [] =
+    error "selectActionBy: empty action list"
+selectActionBy better (x:xs) =
+    foldl' choose x xs
+  where
+    choose best@(_, _, bestValue) candidate@(_, _, candidateValue)
+        | candidateValue `better` bestValue = candidate
+        | otherwise = best
 
 tableValue :: Ord s => Num p => ExtremalTable s p -> ConcreteMDPState s -> Int -> p
 tableValue _ _ budget | budget < 0 = 0

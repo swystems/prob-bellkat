@@ -20,7 +20,7 @@ import           BellKAT.Implementations.MDPProbability (MDP, StaticBellPairs)
 import qualified BellKAT.Implementations.MDPProbability as MDPP
 import           BellKAT.Implementations.MDPWerner (WernerBellPairs)
 import qualified BellKAT.Implementations.MDPWerner as MDPW
-import           BellKAT.Implementations.ProbabilisticQuantumOps (BinaryOutput)
+import           BellKAT.Implementations.ProbabilisticQuantumOps (BinaryOutput, DistillationCount)
 import           BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag, MaxClock)
 import           BellKAT.Bundles.Core
 import           BellKAT.Bundles.Desugaring (probabilisticOpDesugarStage)
@@ -113,11 +113,11 @@ guardedToSystemStage ep initialState = Stage
 
 guardedToMDPStage'
     :: forall p. RationalOrDouble p
-    => forall test. (Test test, DecidableBoolean (test ()), Show (test ()))
-    => ExecutionParams () QuantumTag MaxClock
+    => forall test. (Test test, DecidableBoolean (test DistillationCount), Show (test DistillationCount))
+    => ExecutionParams DistillationCount QuantumTag MaxClock
     -> StaticBellPairs
-    -> Stage (ExecutionParams () QuantumTag MaxClock, StaticBellPairs)
-        (GASQ.GuardedAutomatonStepQuantum (test ()) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput QuantumOutput) ()))
+    -> Stage (ExecutionParams DistillationCount QuantumTag MaxClock, StaticBellPairs)
+        (GASQ.GuardedAutomatonStepQuantum (test DistillationCount) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput QuantumOutput) DistillationCount))
         (GASQ.StateSystem (MDP p) StaticBellPairs)
 guardedToMDPStage' ep initialState = Stage
     { stageName = "system_mdp_stage'"
@@ -130,12 +130,12 @@ guardedToMDPStage' ep initialState = Stage
 
 guardedToWernerMDPStage'
     :: forall p rTag cTag test. RationalOrDouble p
-    => (Test test, DecidableBoolean (test ()), Show (test ()))
+    => (Test test, DecidableBoolean (test DistillationCount), Show (test DistillationCount))
     => ProbabilisticActionConfiguration
-    -> ExecutionParams () rTag cTag
+    -> ExecutionParams DistillationCount rTag cTag
     -> WernerBellPairs
-    -> Stage (ExecutionParams () rTag cTag, WernerBellPairs)
-        (GASQ.GuardedAutomatonStepQuantum (test ()) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()))
+    -> Stage (ExecutionParams DistillationCount rTag cTag, WernerBellPairs)
+        (GASQ.GuardedAutomatonStepQuantum (test DistillationCount) (PAOSQ.ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount))
         (GASQ.StateSystem (MDP p) WernerBellPairs)
 guardedToWernerMDPStage' pac ep initialState = Stage
     { stageName = "system_werner_mdp_stage'"
@@ -212,11 +212,11 @@ probStarPolicyOpSystemPipeline proxy pac ep initialState =
 
 probStarPolicyQMDPPipeline'
     :: forall p. RationalOrDouble p
-    => forall test. (Test test, DecidableBoolean (test ()), Show (test ()))
+    => forall test. (Test test, DecidableBoolean (test DistillationCount), Show (test DistillationCount))
     => ProbabilisticActionConfiguration
-    -> ExecutionParams () QuantumTag MaxClock
+    -> ExecutionParams DistillationCount QuantumTag MaxClock
     -> StaticBellPairs
-    -> Pipeline (Simple (OrderedGuardedPolicy (test ())) ())
+    -> Pipeline (Simple (OrderedGuardedPolicy (test DistillationCount)) DistillationCount)
         (GASQ.StateSystem (MDP p) StaticBellPairs)
 probStarPolicyQMDPPipeline' pac ep initialState =
     probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput QuantumOutput)) pac
@@ -224,11 +224,11 @@ probStarPolicyQMDPPipeline' pac ep initialState =
 
 probStarPolicyWMDPPipeline'
     :: forall p rTag cTag test. RationalOrDouble p
-    => (Test test, DecidableBoolean (test ()), Show (test ()))
+    => (Test test, DecidableBoolean (test DistillationCount), Show (test DistillationCount))
     => ProbabilisticActionConfiguration
-    -> ExecutionParams () rTag cTag
+    -> ExecutionParams DistillationCount rTag cTag
     -> WernerBellPairs
-    -> Pipeline (Simple (OrderedGuardedPolicy (test ())) ())
+    -> Pipeline (Simple (OrderedGuardedPolicy (test DistillationCount)) DistillationCount)
         (GASQ.StateSystem (MDP p) WernerBellPairs)
 probStarPolicyWMDPPipeline' pac ep initialState =
     probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput BinaryOutput)) pac

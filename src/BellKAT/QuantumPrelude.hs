@@ -60,15 +60,17 @@ import BellKAT.Implementations.MDPWerner
     , holdsWernerTest
     )
 import BellKAT.Implementations.ProbabilisticQuantumOps
-    ( StateKind(..)
+    ( DistillationCount
+    , StateKind(..)
+    , WernerTag(..)
     )
 import BellKAT.Implementations.MDPExtremal
     ( ExtremalQuery(..)
     , computeExtremalReachability
     , renderExtremalResult
     )
-import BellKAT.Implementations.Output (ListOutput, staticBellPairs, OutputBellPairs)
-import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh)
+import BellKAT.Implementations.Output (ListOutput, staticBellPairs, staticTag, OutputBellPairs)
+import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh, qtFidelity)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
 import BellKAT.Utils.Multiset (LabelledMultiset)
@@ -76,7 +78,7 @@ import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Bundles.OpBased
 import BellKAT.Bundles.Core
 
-type QBKATTag = ()
+type QBKATTag = DistillationCount
 type QBKATRuntimeTag = QuantumTag
 
 type QBKATTest = KindedTest QBKATTag
@@ -280,14 +282,18 @@ initialWernerState :: NetworkState -> Either String WernerBellPairs
 initialWernerState (Mset.LMS (bps, _)) =
     fmap (toWernerBellPairs . (Mset.@ ()) . Mset.fromList) . traverse toKindedPair . toList $ bps
   where
-    toKindedPair (TaggedBellPair bp (QuantumTag _ w))
-        | approx01 w 1 = Right (TaggedBellPair bp Pure)
-        | approx01 w 0 = Right (TaggedBellPair bp Mixed)
+    toKindedPair (TaggedBellPair bp qTag)
+        | approx01 w 1 = Right (TaggedBellPair bp pureTag)
+        | approx01 w 0 = Right (TaggedBellPair bp mixedTag)
         | otherwise =
             Left $
                 "qmdp currently requires an initial state whose Bell pairs are already "
                 <> "deterministically pure (Werner 1) or mixed (Werner 0); "
                 <> "encountered Werner " <> show w <> " for " <> show bp
+      where
+        w = qtFidelity qTag
+        pureTag = WernerTag (staticTag qTag) Pure
+        mixedTag = WernerTag (staticTag qTag) Mixed
 
 approx01 :: Double -> Double -> Bool
 approx01 x y = abs (x - y) <= 1e-12

@@ -42,11 +42,32 @@ class DSLTestNeq t tag => DSLTest t tag where
 (~~?) :: (Tag tag, Default tag, DSLTest t tag) => Location -> Location -> t
 l ~~? l' = hasSubset [l ~ l']
 
-(=~?) :: Location -> Location -> KindedTest tag
-l =~? l' = kindedTestContains [l ~ l' @ MixedPair]
+(=~?) :: (Default tag, Tag tag) => Location -> Location -> KindedTest tag
+l =~? l' = kindedTestContains [l ~ l' @ MixedPair def]
 
-(-~?) :: Location -> Location -> KindedTest tag
-l -~? l' = kindedTestContains [l ~ l' @ PurePair]
+(-~?) :: (Default tag, Tag tag) => Location -> Location -> KindedTest tag
+l -~? l' = kindedTestContains [l ~ l' @ PurePair def]
+
+purePair :: TaggedBellPair tag -> TaggedBellPair (PairSelector tag)
+purePair = fmap PurePair
+
+mixedPair :: TaggedBellPair tag -> TaggedBellPair (PairSelector tag)
+mixedPair = fmap MixedPair
+
+staticPair :: TaggedBellPair tag -> TaggedBellPair (PairSelector tag)
+staticPair = fmap StaticPair
+
+hasPureSubset :: Ord tag => TaggedBellPairs tag -> KindedTest tag
+hasPureSubset = kindedTestContains . Mset.map' purePair
+
+hasMixedSubset :: Ord tag => TaggedBellPairs tag -> KindedTest tag
+hasMixedSubset = kindedTestContains . Mset.map' mixedPair
+
+hasNotPureSubset :: Ord tag => TaggedBellPairs tag -> KindedTest tag
+hasNotPureSubset = kindedTestNotContains . Mset.map' purePair
+
+hasNotMixedSubset :: Ord tag => TaggedBellPairs tag -> KindedTest tag
+hasNotMixedSubset = kindedTestNotContains . Mset.map' mixedPair
 
 instance Tag t => DSLTestNeq (BellPairsPredicate t) t where
     hasNotSubset x = BPsPredicate (not . (x `Mset.isSubsetOf'`))
@@ -66,11 +87,11 @@ instance Tag t => DSLTestNeq (BoundedTest t) t where
 instance Tag t => DSLTest (FreeTest t) t where
     hasSubset = FTSubset
 
-instance DSLTestNeq (KindedTest t) PairSelector where
-    hasNotSubset = kindedTestNotContains
+instance Ord tag => DSLTestNeq (KindedTest tag) tag where
+    hasNotSubset = kindedTestNotContains . Mset.map' (fmap StaticPair)
 
-instance DSLTest (KindedTest t) PairSelector where
-    hasSubset = kindedTestContains
+instance Ord tag => DSLTest (KindedTest tag) tag where
+    hasSubset = kindedTestContains . Mset.map' (fmap StaticPair)
 
 class DSLFunctions p where
     defaultTagged :: Action -> p
@@ -125,8 +146,8 @@ instance Taggable (Simple Policy t) t where
 instance Taggable (TaggedBellPair t) t where
     tbp .~ t = tbp { bellPairTag = t }
 
-instance Taggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
-    OGPAtomic (TaggedAction ti a _) .~ t = OGPAtomic (TaggedAction ti a (Just t))
+instance Taggable (Simple (OrderedGuardedPolicy test) t) t where
+    OGPAtomic (TaggedAction ti a _) .~ t = OGPAtomic (TaggedAction ti a t)
     _ .~ _ = error "cannot attach tag to this thing"
 
 instance Eq t => Taggable (BellPairsPredicate (Maybe t)) t where
@@ -140,8 +161,8 @@ instance InverseTaggable (Simple Policy (Maybe t)) t where
     t ~. APAtomic (TaggedAction _ a to) = APAtomic (TaggedAction (Just t) a to)
     _ ~. _ = error "cannot attach tag to this thing"
 
-instance InverseTaggable (Simple (OrderedGuardedPolicy test) (Maybe t)) t where
-    t ~. OGPAtomic (TaggedAction _ a to)= OGPAtomic (TaggedAction (Just t) a to)
+instance InverseTaggable (Simple (OrderedGuardedPolicy test) t) t where
+    t ~. OGPAtomic (TaggedAction _ a to)= OGPAtomic (TaggedAction t a to)
     _ ~. _ = error "cannot attach tag to this thing"
 
 hasTag :: Eq t => t -> TaggedBellPair (Maybe t) -> Bool

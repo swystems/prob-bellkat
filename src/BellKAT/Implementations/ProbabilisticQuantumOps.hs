@@ -7,7 +7,9 @@
    Description : Syntactic definitions related to probabilistic quantum operations
 -}
 module BellKAT.Implementations.ProbabilisticQuantumOps (
+    DistillationCount,
     StateKind(..),
+    WernerTag(..),
     BinaryOutput(..)
 ) where
 
@@ -31,12 +33,28 @@ instance Default StateKind where
 instance RuntimeTag StateKind () where
   staticTag _ = ()
 
-data BinaryOutput = BinaryOutput { boOutputBP :: TaggedBellPair (), boOperation :: Op }
+type DistillationCount = Int
+
+data WernerTag = WernerTag
+    { wtDistillations :: DistillationCount
+    , wtStateKind     :: StateKind
+    } deriving stock (Eq, Ord)
+
+instance Show WernerTag where
+    show (WernerTag n kind) = show kind <> "@" <> show n
+
+instance Default WernerTag where
+    def = WernerTag def def
+
+instance RuntimeTag WernerTag DistillationCount where
+    staticTag = wtDistillations
+
+data BinaryOutput = BinaryOutput { boOutputBP :: TaggedBellPair DistillationCount, boOperation :: Op }
     deriving stock (Eq, Ord, Show)
 
 instance Output BinaryOutput where
-    type STag BinaryOutput = ()
-    type RTag BinaryOutput = StateKind
+    type STag BinaryOutput = DistillationCount
+    type RTag BinaryOutput = WernerTag
     type CTag BinaryOutput = ()
     type OutputM BinaryOutput = CostCD'
     computeOutput _ inputBellPairs = cpure inputBellPairs

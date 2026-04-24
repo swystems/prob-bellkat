@@ -20,6 +20,7 @@ import           Control.Subcategory.Applicative
 import           Control.Subcategory.Functor
 import           Control.Subcategory.Pointed
 import           Data.Bifunctor              (second)
+import           Data.Default
 import qualified Data.Map.Strict             as Map
 import qualified GHC.Exts
 import           GHC.Exts                    (fromList, toList)
@@ -34,7 +35,9 @@ import           BellKAT.Implementations.Output
 import           BellKAT.Implementations.ProbAtomicOneStepQuantum (ProbAtomicOneStepPolicy)
 import           BellKAT.Implementations.ProbabilisticQuantumOps
     ( BinaryOutput(..)
+    , DistillationCount
     , StateKind(..)
+    , WernerTag(..)
     )
 import           BellKAT.Utils.Choice
 import           BellKAT.Utils.Distribution  (D, RationalOrDouble)
@@ -52,13 +55,13 @@ import           BellKAT.Utils.MDP
     )
 import qualified BellKAT.Utils.Distribution  as D
 
--- | Wrapper for pairs with purity tag
-newtype WernerBellPairs = WernerBellPairs { unWernerBellPairs :: TaggedBellPairs StateKind }
+-- | Wrapper for pairs with a static distillation count and runtime purity tag
+newtype WernerBellPairs = WernerBellPairs { unWernerBellPairs :: TaggedBellPairs WernerTag }
     deriving stock (Eq, Ord)
     deriving newtype (Semigroup, Monoid)
 
 instance GHC.Exts.IsList WernerBellPairs where
-    type Item WernerBellPairs = TaggedBellPair StateKind
+    type Item WernerBellPairs = TaggedBellPair WernerTag
     fromList = WernerBellPairs . GHC.Exts.fromList
     toList = GHC.Exts.toList . Mset.bellPairs . unWernerBellPairs
 
@@ -70,13 +73,16 @@ instance Show WernerBellPairs where
         renderPairs [x] = renderPair x
         renderPairs (x:xs) = renderPair x <> "," <> renderPairs xs
 
-        renderPair :: TaggedBellPair StateKind -> String
-        renderPair (TaggedBellPair bp kind) =
+        renderPair :: TaggedBellPair WernerTag -> String
+        renderPair (TaggedBellPair bp WernerTag{wtDistillations, wtStateKind}) =
             let (l1, l2) = locations bp
-                sep = case kind of
+                sep = case wtStateKind of
                     Pure -> "-"
                     Mixed -> "="
-             in name l1 <> sep <> name l2
+                countSuffix
+                  | wtDistillations == def = ""
+                  | otherwise = show wtDistillations
+             in name l1 <> sep <> name l2 <> countSuffix
 
 -- | When applying capacity constraints, 
 -- | we keep track of which pairs are produced by the current action 
@@ -100,7 +106,7 @@ producedPieces bps = WernerPieces bps mempty
 retainedPieces :: WernerBellPairs -> WernerPieces
 retainedPieces bps = WernerPieces mempty bps
 
-finalizeWernerPieces :: Maybe (NetworkCapacity ()) -> WernerPieces -> WernerBellPairs
+finalizeWernerPieces :: Maybe (NetworkCapacity DistillationCount) -> WernerPieces -> WernerBellPairs
 finalizeWernerPieces Nothing (WernerPieces produced retained) =
     produced <> retained
 finalizeWernerPieces (Just cap) (WernerPieces produced retained) =
@@ -111,14 +117,14 @@ finalizeWernerPieces (Just cap) (WernerPieces produced retained) =
     (retainedKept, _) =
         takeWernerCapacity remainingCounts (toList retained)
 
-capacityCounts :: NetworkCapacity () -> Map.Map BellPair Int
+capacityCounts :: NetworkCapacity DistillationCount -> Map.Map BellPair Int
 capacityCounts (NC cap) =
     Map.fromListWith (+) [ (bellPair tbp, 1) | tbp <- toList cap ]
 
 takeWernerCapacity
     :: Map.Map BellPair Int
-    -> [TaggedBellPair StateKind]
-    -> ([TaggedBellPair StateKind], Map.Map BellPair Int)
+    -> [TaggedBellPair WernerTag]
+    -> ([TaggedBellPair WernerTag], Map.Map BellPair Int)
 takeWernerCapacity = go []
   where
     go kept counts [] = (reverse kept, counts)
@@ -134,33 +140,33 @@ takeWernerCapacity = go []
       where
         bp = bellPair tbp
 
-toWernerBellPairs :: LabelledBellPairs cTag StateKind -> WernerBellPairs
+toWernerBellPairs :: LabelledBellPairs cTag WernerTag -> WernerBellPairs
 toWernerBellPairs = WernerBellPairs . Mset.map' id
 
--- | Evaluates test also on the purity tags of the pairs
-holdsWernerTest :: KindedTest () -> WernerBellPairs -> Bool
+-- | Evaluates test on both static distillation counts and runtime purity tags
+holdsWernerTest :: KindedTest DistillationCount -> WernerBellPairs -> Bool
 holdsWernerTest t = getBPsPredicate (toSelectorPredicate t) . expandSelectorState . unWernerBellPairs
 
 -- | Evaluates test ignoring the purity tags
-holdsWernerGuardTest :: Test test => test () -> WernerBellPairs -> Bool
+holdsWernerGuardTest :: Test test => test DistillationCount -> WernerBellPairs -> Bool
 holdsWernerGuardTest t = getBPsPredicate (toBPsPredicate t) . staticBellPairs . unWernerBellPairs
 
--- | Expands into a selector that includes both the static and dynamic versions of each pair
-expandSelectorState :: TaggedBellPairs StateKind -> TaggedBellPairs PairSelector
+-- | Expands into selectors for the static count and observed purity of each pair
+expandSelectorState :: TaggedBellPairs WernerTag -> TaggedBellPairs (PairSelector DistillationCount)
 expandSelectorState (Mset.LMS (bps, ())) =
     Mset.fromList (concatMap expandPair (GHC.Exts.toList bps)) Mset.@ ()
   where
-    expandPair (TaggedBellPair bp kind) =
-        [ TaggedBellPair bp StaticPair
+    expandPair (TaggedBellPair bp WernerTag{wtDistillations, wtStateKind}) =
+        [ TaggedBellPair bp (StaticPair wtDistillations)
         , TaggedBellPair bp $
-            case kind of
-                Pure -> PurePair
-                Mixed -> MixedPair
+            case wtStateKind of
+                Pure -> PurePair wtDistillations
+                Mixed -> MixedPair wtDistillations
         ]
 
 execute
     :: ProbabilisticActionConfiguration
-    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
+    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP' WernerBellPairs
 execute = execute'
@@ -168,7 +174,7 @@ execute = execute'
 execute'
     :: RationalOrDouble p
     => ProbabilisticActionConfiguration
-    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
+    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP p WernerBellPairs
 execute' pac policy =
@@ -177,8 +183,8 @@ execute' pac policy =
 executeWith'
     :: RationalOrDouble p
     => ProbabilisticActionConfiguration
-    -> ExecutionParams () rTag cTag
-    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
+    -> ExecutionParams DistillationCount rTag cTag
+    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP p WernerBellPairs
 executeWith' pac ep policy =
@@ -186,8 +192,8 @@ executeWith' pac ep policy =
 
 executeDouble
     :: ProbabilisticActionConfiguration
-    -> Maybe (NetworkCapacity ())
-    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) ()
+    -> Maybe (NetworkCapacity DistillationCount)
+    -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 executeDouble pac mbCap policy bps =
@@ -195,8 +201,8 @@ executeDouble pac mbCap policy bps =
 
 executePAA
     :: ProbabilisticActionConfiguration
-    -> Maybe (NetworkCapacity ())
-    -> ProbabilisticAtomicAction (ListOutput BinaryOutput) ()
+    -> Maybe (NetworkCapacity DistillationCount)
+    -> ProbabilisticAtomicAction (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 executePAA pac mbCap act bps =
@@ -209,7 +215,7 @@ executePAA pac mbCap act bps =
 
 computeListOutput
     :: ProbabilisticActionConfiguration
-    -> Maybe (NetworkCapacity ())
+    -> Maybe (NetworkCapacity DistillationCount)
     -> ListOutput BinaryOutput
     -> WernerBellPairs
     -> WernerBellPairs
@@ -272,7 +278,7 @@ createLike
     -> Double
     -> Int
     -> Int
-    -> TaggedBellPair ()
+    -> TaggedBellPair DistillationCount
     -> MDP Double WernerBellPairs
 createLike pac pSuccess w0 localCost roundCost outBp =
     fromDistribution . distributionFromOutcomes $
@@ -290,20 +296,21 @@ transmitLike
     -> Double
     -> Int
     -> Int
-    -> TaggedBellPair ()
+    -> TaggedBellPair DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 transmitLike pac pSuccess localCost roundCost outBp chosen =
     fromDistribution . distributionFromOutcomes $
         [ (mempty, 1 - pSuccess) ]
         <> case toList chosen of
-            [TaggedBellPair _ kind] ->
-                case kind of
+            [TaggedBellPair _ inTag@WernerTag{wtStateKind}] ->
+                let outCount = wtDistillations inTag
+                 in case wtStateKind of
                     Pure ->
                         weightedOutcomes pSuccess $
-                            decohereState pac (remainingWait roundCost localCost) (singletonPure outBp)
+                            decohereState pac (remainingWait roundCost localCost) (singletonPureWith outCount outBp)
                     Mixed ->
-                        [(singletonMixed outBp, pSuccess)]
+                        [(singletonMixedWith outCount outBp, pSuccess)]
             _ ->
                 error "transmitLike: expected exactly one input Bell pair"
 
@@ -312,7 +319,7 @@ swapLike
     -> Double
     -> Int
     -> Int
-    -> TaggedBellPair ()
+    -> TaggedBellPair DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 swapLike pac pSuccess _ roundCost outBp chosen =
@@ -321,14 +328,19 @@ swapLike pac pSuccess _ roundCost outBp chosen =
   where
     successOutcomes =
         case fmap bellPairTag (toList chosen) of
-            [Pure, Pure] ->
-                weightedOutcomes pSuccess $
-                    -- pure pairs in the output are decohered for the whole round cost
-                    -- as swap produces its output pair instantaneously at the start of the round
-                    -- the rest of the round is classical communication or other operations
-                    decohereState pac roundCost (singletonPure outBp)
-            [_, _] ->
-                [(singletonMixed outBp, pSuccess)]
+            [t1, t2] ->
+                -- assign to the output pair the same number of distillations 
+                -- as the more distilled input pair
+                let outCount = max (wtDistillations t1) (wtDistillations t2)
+                 in case (wtStateKind t1, wtStateKind t2) of
+                    (Pure, Pure) ->
+                        weightedOutcomes pSuccess $
+                            -- pure pairs in the output are decohered for the whole round cost
+                            -- as swap produces its output pair instantaneously at the start of the round
+                            -- the rest of the round is classical communication or other operations
+                            decohereState pac roundCost (singletonPureWith outCount outBp)
+                    _ ->
+                        [(singletonMixedWith outCount outBp, pSuccess)]
             _ ->
                 error "swapLike: expected exactly two input Bell pairs"
 
@@ -336,30 +348,35 @@ distillLike
     :: ProbabilisticActionConfiguration
     -> Int
     -> Int
-    -> TaggedBellPair ()
+    -> TaggedBellPair DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
 distillLike pac _ roundCost outBp chosen =
     fromDistribution . distributionFromOutcomes $
         -- again, pure pairs in the output are decohered for the whole round cost
         case fmap bellPairTag (toList chosen) of
-            [Pure, Pure] ->
-                weightedOutcomes 1 $
-                    decohereState pac roundCost (singletonPure outBp)
-            [Pure, Mixed] ->
-                mixedPureOutcomes
-            [Mixed, Pure] ->
-                mixedPureOutcomes
-            [Mixed, Mixed] ->
-                [ (singletonMixed outBp, 1 / 2)
-                , (mempty, 1 / 2)
-                ]
+            [t1, t2] ->
+                -- assign to the output pair a distillation count that is
+                -- one more than the maximum distillation count of the input pairs
+                let outCount = max (wtDistillations t1) (wtDistillations t2) + 1
+                 in case (wtStateKind t1, wtStateKind t2) of
+                    (Pure, Pure) ->
+                        weightedOutcomes 1 $
+                            decohereState pac roundCost (singletonPureWith outCount outBp)
+                    (Pure, Mixed) ->
+                        mixedPureOutcomes outCount
+                    (Mixed, Pure) ->
+                        mixedPureOutcomes outCount
+                    (Mixed, Mixed) ->
+                        [ (singletonMixedWith outCount outBp, 1 / 2)
+                        , (mempty, 1 / 2)
+                        ]
             _ ->
                 error "distillLike: expected exactly two input Bell pairs"
   where
-    mixedPureOutcomes =
-        weightedOutcomes (1 / 6) (decohereState pac roundCost (singletonPure outBp))
-            <> [ (singletonMixed outBp, 1 / 3)
+    mixedPureOutcomes outCount =
+        weightedOutcomes (1 / 6) (decohereState pac roundCost (singletonPureWith outCount outBp))
+            <> [ (singletonMixedWith outCount outBp, 1 / 3)
                , (mempty, 1 / 2)
                ]
 
@@ -376,17 +393,17 @@ decohereState pac deltaT bps =
     go (bp:bps') =
         cmap (\(x, xs) -> x : xs) (pair (decohereBellPair pac deltaT bp) (go bps'))
 
-    fmapToWerner :: [TaggedBellPair StateKind] -> WernerBellPairs
+    fmapToWerner :: [TaggedBellPair WernerTag] -> WernerBellPairs
     fmapToWerner = WernerBellPairs . GHC.Exts.fromList
 
 decohereBellPair
     :: ProbabilisticActionConfiguration
     -> Int
-    -> TaggedBellPair StateKind
-    -> D Double (TaggedBellPair StateKind)
+    -> TaggedBellPair WernerTag
+    -> D Double (TaggedBellPair WernerTag)
 decohereBellPair _ deltaT bp | deltaT <= 0 = cpure bp
-decohereBellPair pac deltaT bp@(TaggedBellPair outBp kind) =
-    case kind of
+decohereBellPair pac deltaT bp@(TaggedBellPair outBp tag@WernerTag{wtStateKind}) =
+    case wtStateKind of
         Mixed ->
             cpure bp
         Pure ->
@@ -394,10 +411,10 @@ decohereBellPair pac deltaT bp@(TaggedBellPair outBp kind) =
              in if coherence >= 1 - epsilon
                    then cpure bp
                    else if coherence <= epsilon
-                           then cpure (TaggedBellPair outBp Mixed)
+                           then cpure (TaggedBellPair outBp tag{wtStateKind = Mixed})
                            else fromList
                                 [ (bp, coherence)
-                                , (TaggedBellPair outBp Mixed, 1 - coherence)
+                                , (TaggedBellPair outBp tag{wtStateKind = Mixed}, 1 - coherence)
                                 ]
 
 coherenceFactor :: ProbabilisticActionConfiguration -> BellPair -> Int -> Double
@@ -415,11 +432,22 @@ coherenceTimeAt pac l =
         Just t -> t
         Nothing -> error $ "no coherence time for " <> show l
 
-singletonPure :: TaggedBellPair () -> WernerBellPairs
-singletonPure outBp = WernerBellPairs . Mset.singleton' $ fmap (const Pure) outBp
+singletonPure :: TaggedBellPair DistillationCount -> WernerBellPairs
+singletonPure outBp = singletonPureWith (bellPairTag outBp) outBp
 
-singletonMixed :: TaggedBellPair () -> WernerBellPairs
-singletonMixed outBp = WernerBellPairs . Mset.singleton' $ fmap (const Mixed) outBp
+singletonMixed :: TaggedBellPair DistillationCount -> WernerBellPairs
+singletonMixed outBp = singletonMixedWith (bellPairTag outBp) outBp
+
+singletonPureWith :: DistillationCount -> TaggedBellPair DistillationCount -> WernerBellPairs
+singletonPureWith count outBp = singletonWernerWith count Pure outBp
+
+singletonMixedWith :: DistillationCount -> TaggedBellPair DistillationCount -> WernerBellPairs
+singletonMixedWith count outBp = singletonWernerWith count Mixed outBp
+
+singletonWernerWith :: DistillationCount -> StateKind -> TaggedBellPair DistillationCount -> WernerBellPairs
+singletonWernerWith count kind outBp =
+    WernerBellPairs . Mset.singleton' $
+        TaggedBellPair (bellPair outBp) (WernerTag count kind)
 
 distributionFromOutcomes :: [(WernerBellPairs, Double)] -> D Double WernerBellPairs
 distributionFromOutcomes =

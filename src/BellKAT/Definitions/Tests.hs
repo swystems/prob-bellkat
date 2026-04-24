@@ -216,33 +216,33 @@ testRange bp (lb, ub) bps =
     let c = Mset.count' bp bps
      in c >= lb && maybe True (c <) ub
 
-data PairSelector
-    = StaticPair
-    | PurePair
-    | MixedPair
+data PairSelector tag
+    = StaticPair tag
+    | PurePair tag
+    | MixedPair tag
     deriving stock (Eq, Ord)
 
-instance Show PairSelector where
-    show StaticPair = "static"
-    show PurePair = "pure"
-    show MixedPair = "mixed"
+instance Show tag => Show (PairSelector tag) where
+    show (StaticPair tag) = "static:" <> show tag
+    show (PurePair tag) = "pure:" <> show tag
+    show (MixedPair tag) = "mixed:" <> show tag
 
-instance Default PairSelector where
-    def = StaticPair
+instance Default tag => Default (PairSelector tag) where
+    def = StaticPair def
 
 -- | Test wrapper used by QBKAT to distinguish static, pure, and mixed queries.
 -- Guard checks, e.g. if or while, ignore purity and only inspect static pair presence
 -- Kinded event tests can distinguish static/pure/mixed by expanding PairSelector
-newtype KindedTest tag = KindedTest (BoundedTest PairSelector)
+newtype KindedTest tag = KindedTest (BoundedTest (PairSelector tag))
     deriving newtype (Eq)
 
-kindedTestContains :: TaggedBellPairs PairSelector -> KindedTest tag
+kindedTestContains :: Ord tag => TaggedBellPairs (PairSelector tag) -> KindedTest tag
 kindedTestContains = KindedTest . boundedTestContains
 
-kindedTestNotContains :: TaggedBellPairs PairSelector -> KindedTest tag
+kindedTestNotContains :: Ord tag => TaggedBellPairs (PairSelector tag) -> KindedTest tag
 kindedTestNotContains = KindedTest . boundedTestNotContains
 
-toSelectorPredicate :: KindedTest tag -> BellPairsPredicate PairSelector
+toSelectorPredicate :: Ord tag => KindedTest tag -> BellPairsPredicate (PairSelector tag)
 toSelectorPredicate (KindedTest t) = toBPsPredicate t
 
 instance Test KindedTest where
@@ -250,17 +250,17 @@ instance Test KindedTest where
         BPsPredicate $
             getBPsPredicate (toBPsPredicate t) . expandCollapsedSelectors
 
-instance Boolean (KindedTest tag) where
+instance Ord tag => Boolean (KindedTest tag) where
     true = KindedTest true
     false = KindedTest false
     notB (KindedTest t) = KindedTest (notB t)
     KindedTest x ||* KindedTest y = KindedTest (x ||* y)
     KindedTest x &&* KindedTest y = KindedTest (x &&* y)
 
-instance DecidableBoolean (KindedTest tag) where
+instance Ord tag => DecidableBoolean (KindedTest tag) where
     isFalse (KindedTest t) = isFalse t
 
-instance Show (KindedTest tag) where
+instance (Tag tag, Default tag) => Show (KindedTest tag) where
     show (KindedTest xs)
       | xs == true = "⊤"
       | xs == false = "⊥"
@@ -268,10 +268,10 @@ instance Show (KindedTest tag) where
       where
         BoundedTest disjuncts = xs
 
-showSelectorBounds :: Bounds PairSelector -> String
+showSelectorBounds :: (Tag tag, Default tag) => Bounds (PairSelector tag) -> String
 showSelectorBounds = intercalate "∧" . map showSelectorBound . Map.toList
 
-showSelectorBound :: (TaggedBellPair PairSelector, Range) -> String
+showSelectorBound :: (Tag tag, Default tag) => (TaggedBellPair (PairSelector tag), Range) -> String
 showSelectorBound (bp, (lb, ub)) =
     let bpS = showSelectorPair bp
         lbs = case lb of
@@ -284,24 +284,27 @@ showSelectorBound (bp, (lb, ub)) =
                 Just n -> Just $ "¬" <> show n <> "×" <> bpS
      in intercalate "∧" $ catMaybes [lbs, ubs]
 
-showSelectorPair :: TaggedBellPair PairSelector -> String
+showSelectorPair :: (Tag tag, Default tag) => TaggedBellPair (PairSelector tag) -> String
 showSelectorPair (TaggedBellPair bp selector) =
     case selector of
-        StaticPair -> show bp
-        PurePair -> renderKindedPair '-' bp
-        MixedPair -> renderKindedPair '=' bp
+        StaticPair tag -> showTaggedSelectorPair '~' bp tag
+        PurePair tag -> showTaggedSelectorPair '-' bp tag
+        MixedPair tag -> showTaggedSelectorPair '=' bp tag
 
-renderKindedPair :: Char -> BellPair -> String
-renderKindedPair sep bp =
+showTaggedSelectorPair :: (Tag tag, Default tag) => Char -> BellPair -> tag -> String
+showTaggedSelectorPair sep bp tag =
     let (l1, l2) = locations bp
-     in name l1 <> [sep] <> name l2
+        tagSuffix
+          | tag == def = ""
+          | otherwise = show tag
+     in name l1 <> [sep] <> name l2 <> tagSuffix
 
-expandCollapsedSelectors :: TaggedBellPairs tag -> TaggedBellPairs PairSelector
+expandCollapsedSelectors :: Ord tag => TaggedBellPairs tag -> TaggedBellPairs (PairSelector tag)
 expandCollapsedSelectors (Mset.LMS (bps, ())) =
     Mset.fromList (concatMap expandPair (toList bps)) Mset.@ ()
   where
-    expandPair (TaggedBellPair bp _) =
-        [ TaggedBellPair bp StaticPair
-        , TaggedBellPair bp PurePair
-        , TaggedBellPair bp MixedPair
+    expandPair (TaggedBellPair bp tag) =
+        [ TaggedBellPair bp (StaticPair tag)
+        , TaggedBellPair bp (PurePair tag)
+        , TaggedBellPair bp (MixedPair tag)
         ]

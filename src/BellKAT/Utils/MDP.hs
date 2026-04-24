@@ -211,9 +211,15 @@ primitiveCost FCreate{} = 1
 primitiveCost (FGenerate _ _ d) = d
 primitiveCost (FTransmit _ _ d) = d
 primitiveCost (FSwap {}) = 0
--- TODO: we might want to refactor this somehow in the DSL
 -- primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
-primitiveCost (FDistill _ d) = d
+primitiveCost (FDistill _ _) = 0
+-- primitiveCost (FDistill _ d) = d
+
+-- TODO: we want to refactor this in the DSL
+-- if a DSL flag instantaneousOps is enabled by the user,
+-- then swap and distill have cost 0
+-- otherwise (and default) their cost depend on distances as in the commented code above 
+
 
 combinedRoundCost :: Foldable t => (a -> Op) -> t a -> Int
 combinedRoundCost toOp =

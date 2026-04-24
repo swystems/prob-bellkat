@@ -50,6 +50,8 @@ cradle:
           component: "exe:probP5_3_coopmans_mixed"
         - path: "quantum-examples/P_oneswap.hs"
           component: "exe:quantP_oneswap"
+        - path: "quantum-examples/P_onedist.hs"
+          component: "exe:quantP_onedist"
         - path: "quantum-examples/Pa.hs"
           component: "exe:quantPa"
         - path: "quantum-examples/Pd.hs"

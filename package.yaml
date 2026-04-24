@@ -365,6 +365,15 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP_onedist:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/P_onedist.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   quantPa:
     dependencies: 
       - bellkat

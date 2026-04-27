@@ -2,7 +2,7 @@
 
 set -x
 
-mode="${1:-all}"
+mode="${1:-distill-swap}"
 
 run_swap() {
 	local example_file="quantum-examples/P_oneswap.hs"
@@ -35,6 +35,18 @@ run_distill() {
 	python3 scripts/plot_extremal.py --pure-json output/quantP_onedist_pure.json --mixed-json output/quantP_onedist_mixed.json --output-dir output/figures
 }
 
+run_distill_swap() {
+	local example_file="quantum-examples/P_distswap.hs"
+
+	# assume it starts with "hasPureSubset"
+	cabal build; cabal run quantP_distswap -- --json qmdp --compute-extremal --truncation 199 > output/quantP_distswap_pure.json
+	sed -i '' 's/hasPureSubset/hasMixedSubset/g' "$example_file"
+
+	cabal build; cabal run quantP_distswap -- --json qmdp --compute-extremal --truncation 199 > output/quantP_distswap_mixed.json
+	sed -i '' 's/hasMixedSubset/hasPureSubset/g' "$example_file"
+
+	python3 scripts/plot_extremal.py --pure-json output/quantP_distswap_pure.json --mixed-json output/quantP_distswap_mixed.json --output-dir output/figures
+}
 case "$mode" in
 	swap)
 		run_swap
@@ -42,12 +54,16 @@ case "$mode" in
 	distill)
 		run_distill
 		;;
+	distill-swap)
+		run_distill_swap
+		;;
 	all)
 		run_swap
 		run_distill
+		run_distill_swap
 		;;
 	*)
-		echo "Usage: $0 [swap|distill|all]"
+		echo "Usage: $0 [swap|distill|distill-swap|all]"
 		exit 1
 		;;
 esac

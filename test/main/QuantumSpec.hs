@@ -55,6 +55,7 @@ import BellKAT.QuantumPrelude
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag, QBKATTest
   , NetworkState
   , create, distill, trans, swap, ucreate, while, (/~?), (~~?), (<||>)
+  , (.~), (~.)
   )
 
 -- | Helper to build a labelled multiset of tagged bell pairs with a given clock
@@ -471,7 +472,7 @@ spec = do
       all (== cABPure) ([cABMixed, cBDPure] :: [Int]) `shouldBe` True
       all (\((_, cost), _) -> getSum (getStepCost cost) == cABPure) (D.toListD gen) `shouldBe` True
 
-    it "applies the mixed-plus-pure distillation table" $ do
+    it "applies quality-aware distillation update rule" $ do
       let pac = PAC
             { pacTransmitProbability = []
             , pacCreateProbability   = []
@@ -502,6 +503,39 @@ spec = do
       (pPure + pMixed) `shouldApproxBe` 0.5
       pMixed `shouldSatisfy` (> pPure)
       all (== cEmpty) ([cPure, cMixed] :: [Int]) `shouldBe` True
+
+    it "swaps explicitly tagged distilled pairs" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = []
+            , pacSwapProbability     = [("B", 1/2)]
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = []
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100)]
+            , pacDistances           = [(("A", "B"), 1), (("B", "C"), 1), (("A", "C"), 2)]
+            }
+          ep :: ExecutionParams DistillationCount () ()
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = (1 :: QBKATTag) ~. (swap "B" ("A", "C") .~ (1 :: QBKATTag))
+          initial =
+            [ TaggedBellPair ("A" ~ "B") (WernerTag 1 Pure)
+            , TaggedBellPair ("B" ~ "C") (WernerTag 1 Pure)
+            ] :: WernerBellPairs
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyWMDPPipeline' @Double pac ep initial)
+              pol
+          gen = expectInitialGenerator ss initial
+          pureAC = [TaggedBellPair ("A" ~ "C") (WernerTag 1 Pure)] :: WernerBellPairs
+          (pEmpty, cEmpty) = expectOutcome (mempty :: WernerBellPairs) gen
+          (pPure, cPure) = expectOutcome pureAC gen
+
+      pEmpty `shouldApproxBe` 0.5
+      pPure `shouldApproxBe` 0.5
+      cEmpty `shouldBe` 0
+      cPure `shouldBe` 0
 
 main :: IO ()
 main = hspec spec

@@ -1,5 +1,6 @@
 import os
 import pickle
+import subprocess
 import sys
 from pathlib import Path
 
@@ -10,9 +11,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from plot_extremal import derive_pmf_series, load_extremal_series
 
-# ONESWAP_SHOW_PLOTS=1 ONEDIST_SHOW_PLOTS=1 pytest -s scripts/tests/test_validation.py
-def _should_show_plots(name: str) -> bool:
-    return os.getenv(f"{name.upper()}_SHOW_PLOTS", "0").strip().lower() in {"1", "true", "yes", "on"}
+# SHOW_PLOTS=1 RUN_VALIDATION_RUNNER=1 pytest -s scripts/tests/test_validation.py
+TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "0").strip().lower() in TRUE_ENV_VALUES
+
+
+def _should_show_plots() -> bool:
+    return _env_flag("SHOW_PLOTS")
 
 
 def _plot_title_prefix(name: str) -> str:
@@ -20,6 +28,8 @@ def _plot_title_prefix(name: str) -> str:
         return "One Swap Example"
     if name == "onedist":
         return "One Distill Example"
+    if name == "distswap":
+        return "Distill Swap Example"
     return f"{name} Example"
 
 
@@ -63,6 +73,14 @@ def _load_distribution_data(name: str) -> dict[str, np.ndarray | float | None]:
     l1_pmf = float(np.sum(np.abs(pmf_mdp - pmf_reference)))
     rmse_pmf = float(np.sqrt(np.mean((pmf_mdp - pmf_reference) ** 2)))
     max_pmf = float(np.max(np.abs(pmf_mdp - pmf_reference)))
+    if w_reference is None:
+        l1_werner = None
+        rmse_werner = None
+        max_werner = None
+    else:
+        l1_werner = float(np.sum(np.abs(w_out - w_reference)))
+        rmse_werner = float(np.sqrt(np.mean((w_out - w_reference) ** 2)))
+        max_werner = float(np.max(np.abs(w_out - w_reference)))
 
     return {
         "name": name,
@@ -82,6 +100,9 @@ def _load_distribution_data(name: str) -> dict[str, np.ndarray | float | None]:
         "l1_pmf": l1_pmf,
         "rmse_pmf": rmse_pmf,
         "max_pmf": max_pmf,
+        "l1_werner": l1_werner,
+        "rmse_werner": rmse_werner,
+        "max_werner": max_werner,
     }
 
 
@@ -128,8 +149,14 @@ def _report_metrics_and_optionally_plot(data: dict[str, np.ndarray | float | Non
         f"RMSE = {data['rmse_pmf']:.6e}, "
         f"MaxAbs = {data['max_pmf']:.6e}"
     )
+    if data["w_reference"] is not None:
+        print(
+            f"  W    L1 = {data['l1_werner']:.6e}, "
+            f"RMSE = {data['rmse_werner']:.6e}, "
+            f"MaxAbs = {data['max_werner']:.6e}"
+        )
 
-    if _should_show_plots(str(data["name"])):
+    if _should_show_plots():
         title_prefix = _plot_title_prefix(str(data["name"]))
         _plot_results(
             pmf_mdp=np.asarray(data["pmf_mdp"]),
@@ -169,6 +196,14 @@ def _plot_results(
     plt.show()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def prepare_validation_outputs() -> None:
+    if not _env_flag("RUN_VALIDATION_RUNNER"):
+        return
+
+    subprocess.run(["bash", "scripts/validation_runner.sh", "all"], check=True)
+
+
 @pytest.fixture(scope="module")
 def oneswap_data() -> dict[str, np.ndarray | float | None]:
     return _load_distribution_data("oneswap")
@@ -177,6 +212,11 @@ def oneswap_data() -> dict[str, np.ndarray | float | None]:
 @pytest.fixture(scope="module")
 def onedist_data() -> dict[str, np.ndarray | float | None]:
     return _load_distribution_data("onedist")
+
+
+@pytest.fixture(scope="module")
+def distswap_data() -> dict[str, np.ndarray | float | None]:
+    return _load_distribution_data("distswap")
 
 
 def test_oneswap_pmf_is_deterministic(oneswap_data: dict[str, np.ndarray | float | None]) -> None:
@@ -206,3 +246,16 @@ def test_onedist_reports_metrics_and_optionally_plots(
 ) -> None:
     _report_metrics_and_optionally_plot(onedist_data)
 
+
+def test_distswap_pmf_is_deterministic(distswap_data: dict[str, np.ndarray | float | None]) -> None:
+    _assert_pmf_is_deterministic(distswap_data)
+
+
+def test_distswap_pure_plus_mixed_equals_total(distswap_data: dict[str, np.ndarray | float | None]) -> None:
+    _assert_pure_plus_mixed_equals_total(distswap_data)
+
+
+def test_distswap_reports_metrics_and_optionally_plots(
+    distswap_data: dict[str, np.ndarray | float | None],
+) -> None:
+    _report_metrics_and_optionally_plot(distswap_data)

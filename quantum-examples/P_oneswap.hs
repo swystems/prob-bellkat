@@ -30,7 +30,7 @@ actionConfig w0 tCoh = PAC
     , pacDistances =
     [ (("A", "B"), 1)
     , (("B", "C"), 1)
-    , (("A", "C"), 0)
+    , (("A", "C"), 2)
     ]
     }
 

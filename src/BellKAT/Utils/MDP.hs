@@ -14,6 +14,7 @@ module BellKAT.Utils.MDP
     , setAllCosts
     , mapMDPProbabilities
     , deterministicZeroCostSuccessor
+    , totalTransitionCount
     , minimizeStateSystem
     , primitiveCost
     , combinedRoundCost
@@ -174,6 +175,15 @@ deterministicZeroCostSuccessor (MDP mdp) = do
     if prob == 1 && cost == mempty
        then Just next
        else Nothing
+
+totalTransitionCount :: StateSystem (MDP p) s -> Int
+totalTransitionCount ss =
+    sum
+        [ length (D.toListD gen)
+        | (_, perState) <- IM.toList (ssTransitions ss)
+        , (_, MDP mdp) <- Map.toList perState
+        , gen <- getGenerators mdp
+        ]
 
 minimizeStateSystem
     :: (DDom s, Eq p, Num p, RationalOrDouble p)

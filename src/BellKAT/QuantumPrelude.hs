@@ -73,6 +73,7 @@ import BellKAT.Implementations.Output (ListOutput, staticBellPairs, staticTag, O
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh, qtFidelity)
 import BellKAT.Utils.Convex (CD, computeEventProbabilityRange)
 import BellKAT.Utils.Distribution (RationalOrDouble)
+import BellKAT.Utils.MDP (totalTransitionCount)
 import BellKAT.Utils.Multiset (LabelledMultiset)
 import qualified BellKAT.Utils.Multiset as Mset
 import BellKAT.Bundles.OpBased
@@ -214,14 +215,20 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
               runLoggedPipeline systemPipeline protocol >>= print
           QMMDP mdpOpts -> do
               let mdp = runNonLoggedPipeline mdpPipeline protocol
+                  transitionCount = totalTransitionCount mdp
               case resolveExtremalQuery mdpOpts of
                 Left err ->
                     ioError (userError err)
                 Right Nothing ->
                     if qcoJSON opts
                        then BS.putStr . A.encode $
-                            A.object ["mdp_rendered" A..= show mdp]
-                       else putStrLn (show mdp)
+                            A.object
+                                [ "mdp_rendered" A..= show mdp
+                                , "transition_count" A..= transitionCount
+                                ]
+                       else do
+                            putStrLn (show mdp)
+                            putStrLn ("Total transitions T: " <> show transitionCount)
                 Right (Just query) ->
                     case computeExtremalReachability (holdsStaticTest ev) query mdp of
                         Left err ->
@@ -231,10 +238,12 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                                then BS.putStr . A.encode $
                                     A.object
                                         [ "mdp_rendered" A..= show mdp
+                                        , "transition_count" A..= transitionCount
                                         , "extremal" A..= result
                                         ]
                                else do
                                     putStrLn (show mdp)
+                                    putStrLn ("Total transitions T: " <> show transitionCount)
                                     putStrLn ""
                                     putStrLn (renderExtremalResult result)
           QMQMDP mdpOpts -> do
@@ -243,14 +252,20 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                       Left err -> ioError (userError err)
                       Right st -> pure st
               let qmdp = runNonLoggedPipeline (probStarPolicyWMDPPipeline' @p pac qmdpEp initialQState) protocol
+                  transitionCount = totalTransitionCount qmdp
               case resolveExtremalQuery mdpOpts of
                 Left err ->
                     ioError (userError err)
                 Right Nothing ->
                     if qcoJSON opts
                        then BS.putStr . A.encode $
-                            A.object ["mdp_rendered" A..= show qmdp]
-                       else putStrLn (show qmdp)
+                            A.object
+                                [ "mdp_rendered" A..= show qmdp
+                                , "transition_count" A..= transitionCount
+                                ]
+                       else do
+                            putStrLn (show qmdp)
+                            putStrLn ("Total transitions T: " <> show transitionCount)
                 Right (Just query) ->
                     case computeExtremalReachability (holdsWernerTest ev) query qmdp of
                         Left err ->
@@ -260,10 +275,12 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                                then BS.putStr . A.encode $
                                     A.object
                                         [ "mdp_rendered" A..= show qmdp
+                                        , "transition_count" A..= transitionCount
                                         , "extremal" A..= result
                                         ]
                                else do
                                     putStrLn (show qmdp)
+                                    putStrLn ("Total transitions T: " <> show transitionCount)
                                     putStrLn ""
                                     putStrLn (renderExtremalResult result)
           QMAutomaton ->

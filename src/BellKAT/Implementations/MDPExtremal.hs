@@ -21,6 +21,7 @@ import qualified Data.IntMap.Strict          as IM
 import qualified Data.Map.Strict             as Map
 import qualified Data.Set                    as Set
 import           GHC.Exts                    (IsList, Item, toList)
+import           Numeric                     (showFFloat)
 
 import           BellKAT.Utils.MDP
     ( MDP(..)
@@ -57,8 +58,8 @@ data SchedulerChoice s p = SchedulerChoice
     deriving stock (Eq, Show)
 
 data SchedulerSelection s p
-    = ChosenAction Int p (Action s p)
-    | AllActionsSameValue p
+    = ChosenAction Int p [(Int, p)] (Action s p)
+    | AllActionsSameValue p [(Int, p)]
     deriving stock (Eq, Show)
 
 data BudgetCell s p = BudgetCell
@@ -161,16 +162,24 @@ schedulerChoiceToJSON choice =
     A.object $
         [ "budget" A..= scBudget choice ]
         <> case scSelection choice of
-            ChosenAction actionIndex value action ->
+            ChosenAction actionIndex value actionValues action ->
                 [ "kind" A..= ("chosen_action" :: String)
                 , "action_index" A..= actionIndex
                 , "value" A..= toDouble value
+                , "action_values" A..= fmap actionValueToJSON actionValues
                 , "action" A..= renderAction action
                 ]
-            AllActionsSameValue value ->
+            AllActionsSameValue value actionValues ->
                 [ "kind" A..= ("all_actions_same_value" :: String)
                 , "value" A..= toDouble value
+                , "action_values" A..= fmap actionValueToJSON actionValues
                 ]
+  where
+    actionValueToJSON (actionIndex, value) =
+        A.object
+            [ "action_index" A..= actionIndex
+            , "value" A..= toDouble value
+            ]
 
 computeExtremalReachability
     :: (Ord s, Show s, RationalOrDouble p)
@@ -205,7 +214,7 @@ computeExtremalReachability isGoal query ss = do
             , erCoverageStatus = coverageStatus
             }
 
-renderExtremalResult :: (Ord s, Num p, Show p, Show s) => ExtremalResult s p -> String
+renderExtremalResult :: (Ord s, RationalOrDouble p, Show s) => ExtremalResult s p -> String
 renderExtremalResult result =
     unlines $
         [ "Extremal cost-bounded reachability"
@@ -244,27 +253,40 @@ renderCoverageStatus (CoverageUnreachable target budget value) =
         <> " was not reached; the worst-scheduler CDF stabilised by budget "
         <> show budget <> " at cdf_min[t] = " <> show value
 
-renderSchedulerChoices :: (Show s, Show p) => String -> [SchedulerChoiceTrace s p] -> String
+renderSchedulerChoices :: (Show s, RationalOrDouble p) => String -> [SchedulerChoiceTrace s p] -> String
 renderSchedulerChoices title [] =
     unlines [title, "  none"]
 renderSchedulerChoices title traces =
     unlines $ title : concatMap renderSchedulerChoiceTrace traces
 
-renderSchedulerChoiceTrace :: (Show s, Show p) => SchedulerChoiceTrace s p -> [String]
+renderSchedulerChoiceTrace :: (Show s, RationalOrDouble p) => SchedulerChoiceTrace s p -> [String]
 renderSchedulerChoiceTrace trace =
     ("  state=" <> show (sctState trace))
         : fmap (("    " <>) . renderSchedulerChoice) (sctChanges trace)
 
-renderSchedulerChoice :: (Show s, Show p) => SchedulerChoice s p -> String
+renderSchedulerChoice :: (Show s, RationalOrDouble p) => SchedulerChoice s p -> String
 renderSchedulerChoice choice =
     "from t=" <> show (scBudget choice)
         <> case scSelection choice of
-            ChosenAction actionIndex value action ->
+            ChosenAction actionIndex value actionValues action ->
                 ": choose action #" <> show actionIndex
-                    <> " with value " <> show value
+                    <> " with value " <> formatSchedulerValue value
+                    <> " as (" <> renderActionValues actionValues <> ")"
                     <> " -> " <> renderAction action
-            AllActionsSameValue value ->
-                ": all actions have same value " <> show value
+            AllActionsSameValue value actionValues ->
+                ": all actions have same value " <> formatSchedulerValue value
+                    <> " as (" <> renderActionValues actionValues <> ")"
+
+renderActionValues :: RationalOrDouble p => [(Int, p)] -> String
+renderActionValues =
+    intercalate ", " . fmap renderActionValue
+  where
+    renderActionValue (actionIndex, value) =
+        "#" <> show actionIndex <> ": " <> formatSchedulerValue value
+
+formatSchedulerValue :: RationalOrDouble p => p -> String
+formatSchedulerValue value =
+    showFFloat (Just 4) (toDouble value) ""
 
 renderAction :: (Show s, Show p) => Action s p -> String
 renderAction =
@@ -468,6 +490,10 @@ computeExtremalTable selectAction query states goalStates actions initialState =
                     let (memo', scoredActions) =
                             mapAccumL (scoreAction budget table) memo (zip [1..] gens)
                         (actionIndex, action, value) = selectAction scoredActions
+                        actionValues =
+                            [ (idx, actionValue)
+                            | (idx, _, actionValue) <- scoredActions
+                            ]
                         choice =
                             if length gens > 1
                                then Just
@@ -476,8 +502,8 @@ computeExtremalTable selectAction query states goalStates actions initialState =
                                         { scBudget = budget
                                         , scSelection =
                                             if allActionsSameValue scoredActions
-                                               then AllActionsSameValue value
-                                               else ChosenAction actionIndex value action
+                                               then AllActionsSameValue value actionValues
+                                               else ChosenAction actionIndex value actionValues action
                                         }
                                     )
                                else Nothing
@@ -521,8 +547,8 @@ recordSchedulerChoices =
         | otherwise = choice : existing
 
 sameScheduledAction :: SchedulerSelection s p -> SchedulerSelection s p -> Bool
-sameScheduledAction (AllActionsSameValue _) (AllActionsSameValue _) = True
-sameScheduledAction (ChosenAction left _ _) (ChosenAction right _ _) = left == right
+sameScheduledAction (AllActionsSameValue _ _) (AllActionsSameValue _ _) = True
+sameScheduledAction (ChosenAction left _ _ _) (ChosenAction right _ _ _) = left == right
 sameScheduledAction _ _ = False
 
 schedulerChoiceTraces :: SchedulerChoiceLog s p -> [SchedulerChoiceTrace s p]

@@ -14,7 +14,7 @@ p =
             <> -- followed by.. 
             (
                 swap "H" ("A", "C") 
-                <||>
+                <.>
                 swap "H" ("B", "C")
             )
         ) 
@@ -33,9 +33,9 @@ actionConfig =
         , pacCreateProbability = []
         , pacCreateWerner = []
         , pacUCreateProbability =
-            [ (("A", "H"), 1/40000)
-            , (("B", "H"), 1/30000)
-            , (("C", "H"), 1/30000)
+            [ (("A", "H"), 1/4)
+            , (("B", "H"), 1/3)
+            , (("C", "H"), 1/3)
             ]
         , pacSwapProbability =
             [ ("H", 1/2) ]
@@ -59,5 +59,5 @@ actionConfig =
 
 main :: IO ()
 main =
-    let ev = "B" ~~? "C"
+    let ev = hasSubset ["A" ~ "C"]
     in qbkatMainD actionConfig nb ev p mempty

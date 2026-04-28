@@ -3,6 +3,7 @@ import pickle
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,8 @@ from plot_extremal import derive_pmf_series, load_extremal_series
 
 # SHOW_PLOTS=1 RUN_VALIDATION_RUNNER=1 pytest -s scripts/tests/test_validation.py
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+STAR_LINKS = ("AC", "BC")
+STAR_REFERENCE_ATOL = 1e-6
 
 
 def _env_flag(name: str) -> bool:
@@ -106,6 +109,122 @@ def _load_distribution_data(name: str) -> dict[str, np.ndarray | float | None]:
     }
 
 
+def _load_reference_series(path: str) -> tuple[np.ndarray, np.ndarray]:
+    with open(path, "rb") as f:
+        reference = pickle.load(f)
+
+    if isinstance(reference, dict):
+        items = sorted(reference.items())
+        return (
+            np.array([t for t, _ in items]),
+            np.array([value for _, value in items]),
+        )
+
+    values = np.array(reference)
+    return np.arange(len(values)), values
+
+
+def _select_timesteps(series: np.ndarray, timesteps: np.ndarray) -> np.ndarray:
+    if (
+        np.issubdtype(timesteps.dtype, np.integer)
+        and len(timesteps) > 0
+        and int(np.max(timesteps)) < len(series)
+    ):
+        return series[timesteps.astype(int)]
+
+    if len(series) == len(timesteps):
+        return series
+
+    raise AssertionError(
+        "Cannot align computed series with reference timesteps: "
+        f"{len(series)} computed points vs {len(timesteps)} reference points."
+    )
+
+
+def _load_json_pmf(path: str) -> tuple[np.ndarray, np.ndarray]:
+    series = load_extremal_series(path)
+    pmf_min, pmf_max = derive_pmf_series(series)
+    return np.array(pmf_min), np.array(pmf_max)
+
+
+def _werner_from_json(pure_path: str, mixed_path: str) -> dict[str, np.ndarray]:
+    pure_min, pure_max = _load_json_pmf(pure_path)
+    mixed_min, mixed_max = _load_json_pmf(mixed_path)
+
+    if len(pure_min) != len(mixed_min) or len(pure_max) != len(mixed_max):
+        raise AssertionError("Pure and mixed PMF series must have matching lengths.")
+
+    werner_min = np.array([
+        pure / total if total > 0 else 0.0
+        for pure, total in zip(pure_min, pure_min + mixed_min)
+    ])
+    werner_max = np.array([
+        pure / total if total > 0 else 0.0
+        for pure, total in zip(pure_max, pure_max + mixed_max)
+    ])
+
+    return {
+        "pure_min": pure_min,
+        "pure_max": pure_max,
+        "mixed_min": mixed_min,
+        "mixed_max": mixed_max,
+        "werner_min": werner_min,
+        "werner_max": werner_max,
+    }
+
+
+def _series_metrics(computed: np.ndarray, reference: np.ndarray) -> dict[str, float]:
+    return {
+        "l1": float(np.sum(np.abs(computed - reference))),
+        "rmse": float(np.sqrt(np.mean((computed - reference) ** 2))),
+        "max": float(np.max(np.abs(computed - reference))),
+    }
+
+
+def _load_star_validation_data() -> dict[str, dict[str, dict[str, Any]]]:
+    data: dict[str, dict[str, dict[str, Any]]] = {"pmf": {}, "werner": {}}
+
+    for link in STAR_LINKS:
+        link_lower = link.lower()
+        pmf_t, pmf_reference = _load_reference_series(
+            f"scripts/tests/dump/qcnc_star_pmf_{link_lower}.pkl"
+        )
+        pmf_min, pmf_max = _load_json_pmf(f"output/quantP5_Star_{link}.json")
+        pmf_computed = _select_timesteps(pmf_min, pmf_t)
+        pmf_computed_max = _select_timesteps(pmf_max, pmf_t)
+
+        werner_t, werner_reference = _load_reference_series(
+            f"scripts/tests/dump/qcnc_star_werner_{link_lower}.pkl"
+        )
+        werner_json = _werner_from_json(
+            f"output/quantP5_Star_{link}_pure.json",
+            f"output/quantP5_Star_{link}_mixed.json",
+        )
+        werner_computed = _select_timesteps(werner_json["werner_min"], werner_t)
+        werner_computed_max = _select_timesteps(werner_json["werner_max"], werner_t)
+
+        data["pmf"][link] = {
+            "t": pmf_t,
+            "computed": pmf_computed,
+            "computed_max": pmf_computed_max,
+            "reference": pmf_reference,
+            "metrics": _series_metrics(pmf_computed, pmf_reference),
+        }
+        data["werner"][link] = {
+            "t": werner_t,
+            "computed": werner_computed,
+            "computed_max": werner_computed_max,
+            "reference": werner_reference,
+            "pure_min": _select_timesteps(werner_json["pure_min"], werner_t),
+            "pure_max": _select_timesteps(werner_json["pure_max"], werner_t),
+            "mixed_min": _select_timesteps(werner_json["mixed_min"], werner_t),
+            "mixed_max": _select_timesteps(werner_json["mixed_max"], werner_t),
+            "metrics": _series_metrics(werner_computed, werner_reference),
+        }
+
+    return data
+
+
 def _assert_pmf_is_deterministic(data: dict[str, np.ndarray | float | None]) -> None:
     if bool(data["has_main"]):
         assert np.allclose(data["pmf_main_min"], data["pmf_main_max"], atol=1e-6), (
@@ -196,6 +315,78 @@ def _plot_results(
     plt.show()
 
 
+def _report_star_metrics_and_optionally_plot(
+    star_data: dict[str, dict[str, dict[str, Any]]],
+) -> None:
+    for group_name, group_data in star_data.items():
+        print(f"[qcnc_star] {group_name.upper()} validation vs expected:")
+        for link in STAR_LINKS:
+            metrics = group_data[link]["metrics"]
+            print(
+                f"  {link} L1 = {metrics['l1']:.6e}, "
+                f"RMSE = {metrics['rmse']:.6e}, "
+                f"MaxAbs = {metrics['max']:.6e}"
+            )
+
+    if not _should_show_plots():
+        return
+
+    _plot_star_comparison(
+        title="Star Example - Output PMF",
+        ylabel="Output Probability",
+        group_data=star_data["pmf"],
+    )
+    _plot_star_comparison(
+        title="Star Example - Werner Parameter",
+        ylabel="Werner parameter",
+        group_data=star_data["werner"],
+    )
+
+
+def _plot_star_comparison(
+    title: str,
+    ylabel: str,
+    group_data: dict[str, dict[str, Any]],
+) -> None:
+    plt.figure(figsize=(6, 2.5), dpi=300)
+    plt.title(title)
+
+    styles = {
+        "AC": {"computed": ("o", "-"), "reference": ("x", "--")},
+        "BC": {"computed": ("s", "-"), "reference": ("+", "--")},
+    }
+
+    for link in STAR_LINKS:
+        metric = "Pr" if ylabel == "Output Probability" else "W"
+        t = group_data[link]["t"]
+        computed_marker, computed_style = styles[link]["computed"]
+        reference_marker, reference_style = styles[link]["reference"]
+        plt.plot(
+            t,
+            group_data[link]["computed"],
+            label=f"MDP ${metric}^{{{link}}}(T=t)$",
+            marker=computed_marker,
+            markersize=3,
+            linestyle=computed_style,
+            linewidth=1,
+        )
+        plt.plot(
+            t,
+            group_data[link]["reference"],
+            label=f"QCNC ${metric}^{{{link}}}(T=t)$",
+            marker=reference_marker,
+            markersize=3,
+            linestyle=reference_style,
+            linewidth=1,
+        )
+
+    plt.xlabel("Timestep $t$")
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def prepare_validation_outputs() -> None:
     if not _env_flag("RUN_VALIDATION_RUNNER"):
@@ -217,6 +408,11 @@ def onedist_data() -> dict[str, np.ndarray | float | None]:
 @pytest.fixture(scope="module")
 def distswap_data() -> dict[str, np.ndarray | float | None]:
     return _load_distribution_data("distswap")
+
+
+@pytest.fixture(scope="module")
+def star_data() -> dict[str, dict[str, dict[str, Any]]]:
+    return _load_star_validation_data()
 
 
 def test_oneswap_pmf_is_deterministic(oneswap_data: dict[str, np.ndarray | float | None]) -> None:
@@ -259,3 +455,47 @@ def test_distswap_reports_metrics_and_optionally_plots(
     distswap_data: dict[str, np.ndarray | float | None],
 ) -> None:
     _report_metrics_and_optionally_plot(distswap_data)
+
+
+def test_star_pmf_is_deterministic(star_data: dict[str, dict[str, dict[str, Any]]]) -> None:
+    for link in STAR_LINKS:
+        assert np.allclose(
+            star_data["pmf"][link]["computed"],
+            star_data["pmf"][link]["computed_max"],
+            atol=STAR_REFERENCE_ATOL,
+        ), f"Star {link} PMF min and max should be equal (no non-determinism)"
+
+
+def test_star_werner_is_deterministic(star_data: dict[str, dict[str, dict[str, Any]]]) -> None:
+    for link in STAR_LINKS:
+        assert np.allclose(
+            star_data["werner"][link]["pure_min"],
+            star_data["werner"][link]["pure_max"],
+            atol=STAR_REFERENCE_ATOL,
+        ), f"Star {link} pure PMF min and max should be equal (no non-determinism)"
+        assert np.allclose(
+            star_data["werner"][link]["mixed_min"],
+            star_data["werner"][link]["mixed_max"],
+            atol=STAR_REFERENCE_ATOL,
+        ), f"Star {link} mixed PMF min and max should be equal (no non-determinism)"
+        assert np.allclose(
+            star_data["werner"][link]["computed"],
+            star_data["werner"][link]["computed_max"],
+            atol=STAR_REFERENCE_ATOL,
+        ), f"Star {link} Werner min and max should be equal (no non-determinism)"
+
+
+def test_star_matches_reference_pickles(star_data: dict[str, dict[str, dict[str, Any]]]) -> None:
+    for group_name in ("pmf", "werner"):
+        for link in STAR_LINKS:
+            assert np.allclose(
+                star_data[group_name][link]["computed"],
+                star_data[group_name][link]["reference"],
+                atol=STAR_REFERENCE_ATOL,
+            ), f"Star {link} {group_name} does not match the QCNC paper"
+
+
+def test_star_reports_metrics_and_optionally_plots(
+    star_data: dict[str, dict[str, dict[str, Any]]],
+) -> None:
+    _report_star_metrics_and_optionally_plot(star_data)

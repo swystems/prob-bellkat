@@ -45,6 +45,12 @@ simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
+    (SimSwap repeaters (l1, l2)) ->
+        let path = l1 : repeaters <> [l2]
+         in CreateBellPairArgs
+            (simSwapInputBPs (taTagIn ta) path)
+            ((l1 ~ l2) @ taTagOut ta)
+            1.0
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
     (Create l)            -> CreateBellPairArgs
@@ -63,6 +69,12 @@ simpleOpActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (FSwap 1.0 (1, 1, 1) (1, 1))
+    (SimSwap repeaters (l1, l2)) ->
+        let path = l1 : repeaters <> [l2]
+         in CreateBellPairArgs
+            (simSwapInputBPs (taTagIn ta) path)
+            ((l1 ~ l2) @ taTagOut ta)
+            (FSimSwap 1.0 (simSwapDefaultCoherenceSpecs path, (1, 1)) (simSwapDefaultDistanceSpecs path))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (FTransmit 1.0 (1, 1) 1)
@@ -108,6 +120,12 @@ probabilisticActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (swapProbability pac l)
+    (SimSwap repeaters (l1, l2)) ->
+        let path = l1 : repeaters <> [l2]
+         in CreateBellPairArgs
+            (simSwapInputBPs (taTagIn ta) path)
+            ((l1 ~ l2) @ taTagOut ta)
+            (product (fmap (swapProbability pac) repeaters))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (transmitProbability pac l (l1, l2))
@@ -128,6 +146,15 @@ probabilisticOpActionMeaning pac ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
         [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
         (FSwap (swapProbability pac l) (coherenceTimeTriplet pac (l, l1, l2)) (distanceTriplet pac (l, l1, l2)))
+    (SimSwap repeaters locs@(l1, l2)) ->
+        let path = l1 : repeaters <> [l2]
+         in CreateBellPairArgs
+            (simSwapInputBPs (taTagIn ta) path)
+            ((l1 ~ l2) @ taTagOut ta)
+            (FSimSwap
+                (product (fmap (swapProbability pac) repeaters))
+                (simSwapCoherenceSpecs pac path, coherenceTimePair pac locs)
+                (simSwapDistanceSpecs pac path))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
         (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)))
@@ -210,6 +237,36 @@ distancePair pac (l1, l2) =
 
 distanceTriplet :: ProbabilisticActionConfiguration -> (Location, Location, Location) -> (SpaceUnit, SpaceUnit)
 distanceTriplet pac (l, l1, l2) = (distancePair pac (l, l1), distancePair pac (l, l2))
+
+simSwapInputBPs :: tag -> [Location] -> [TaggedBellPair tag]
+simSwapInputBPs tag path =
+    zipWith (\l l' -> (l ~ l') @ tag) path (tail path)
+
+simSwapDefaultCoherenceSpecs :: [Location] -> [(BellPair, (TimeUnit, TimeUnit))]
+simSwapDefaultCoherenceSpecs path =
+    zipWith (\l l' -> (l ~ l', (1, 1))) path (tail path)
+
+simSwapDefaultDistanceSpecs :: [Location] -> [(BellPair, SpaceUnit)]
+simSwapDefaultDistanceSpecs path =
+    zipWith (\l l' -> (l ~ l', 1)) path (tail path)
+
+simSwapCoherenceSpecs :: ProbabilisticActionConfiguration -> [Location] -> [(BellPair, (TimeUnit, TimeUnit))]
+simSwapCoherenceSpecs pac path =
+    zipWith edgeSpec path (tail path)
+  where
+    edgeSpec l l' =
+        ( l ~ l'
+        , coherenceTimePair pac (l, l')
+        )
+
+simSwapDistanceSpecs :: ProbabilisticActionConfiguration -> [Location] -> [(BellPair, SpaceUnit)]
+simSwapDistanceSpecs pac path =
+    zipWith edgeSpec path (tail path)
+  where
+    edgeSpec l l' =
+        ( l ~ l'
+        , distancePair pac (l, l')
+        )
 
     
 instance CanDesugarActions op (TaggedAction tag) where

@@ -54,6 +54,8 @@ cradle:
           component: "exe:quantP_onedist"
         - path: "quantum-examples/P_distswap.hs"
           component: "exe:quantP_distswap"
+        - path: "quantum-examples/P_compare_swap.hs"
+          component: "exe:quantP_compare_swap"
         - path: "quantum-examples/Pa.hs"
           component: "exe:quantPa"
         - path: "quantum-examples/Pd.hs"

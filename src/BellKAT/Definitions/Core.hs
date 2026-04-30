@@ -127,6 +127,9 @@ data Op =
     -- ^ yields mempty (destroyed Bell pair)
     | FSwap Probability (CoherenceTime, CoherenceTime, CoherenceTime) (Distance, Distance)
     -- ^ yields the swapped Bell pair given the two in input, with probability p
+    | FSimSwap Probability ([(BellPair, (CoherenceTime, CoherenceTime))], (CoherenceTime, CoherenceTime)) [(BellPair, Distance)]
+                        -- ^ coherence time of pairs in the chain,        ^ coherence time of end nodes,   ^ distance of pairs in the chain  
+    -- ^ yields one end-to-end Bell pair by simultaneously swapping all pairs in the chain
     | FDistill (CoherenceTime, CoherenceTime) Distance
     -- ^ yields the distilled Bell pair given the two same-location ones in input
     -- ^ computing the probability dynamically

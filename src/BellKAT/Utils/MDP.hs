@@ -220,10 +220,17 @@ primitiveCost FDestroy = 0
 primitiveCost FCreate{} = 1
 primitiveCost (FGenerate _ _ d) = d
 primitiveCost (FTransmit _ _ d) = d
-primitiveCost (FSwap {}) = 0
--- primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
-primitiveCost (FDistill _ _) = 0
--- primitiveCost (FDistill _ d) = d
+-- primitiveCost (FSwap {}) = 0
+primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
+-- primitiveCost (FSimSwap {}) = 0
+primitiveCost (FSimSwap _ _ simSwapDistanceSpecs) =
+    case ds of
+        [] -> 0
+        _ -> max (sum ds - head ds) (sum ds - last ds)
+    where
+        ds = [d | (_, d) <- simSwapDistanceSpecs]
+-- primitiveCost (FDistill _ _) = 0
+primitiveCost (FDistill _ d) = d
 
 -- TODO: we want to refactor this in the DSL
 -- if a DSL flag instantaneousOps is enabled by the user,

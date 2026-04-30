@@ -383,6 +383,15 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP_compare_swap:
+    dependencies:
+      - bellkat
+    main: quantum-examples/P_compare_swap.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   quantPa:
     dependencies: 
       - bellkat

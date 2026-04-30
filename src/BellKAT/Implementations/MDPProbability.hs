@@ -129,6 +129,9 @@ computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FTran
 computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSwap p _ _)} chosen =
     requireCardinality "swap" 2 chosen $
         successOrFailure (primitiveCost op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCount outBp chosen)
+computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSimSwap p _ distanceSpecs)} chosen =
+    requireCardinality "simultaneous swap" (length distanceSpecs) chosen $
+        successOrFailure (primitiveCost op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCountN outBp chosen)
 computePrimitiveOutput QuantumOutput{qoOperation = op@(FDistill _ _)} chosen =
     requireCardinality "distill" 2 chosen $
         error $
@@ -147,3 +150,9 @@ outBpWithMaxInputCount outBp chosen =
     case fmap bellPairTag (toList chosen) of
         [count1, count2] -> outBp { bellPairTag = max count1 count2 }
         _ -> error "outBpWithMaxInputCount: expected exactly two input Bell pairs"
+
+outBpWithMaxInputCountN :: TaggedBellPair DistillationCount -> StaticBellPairs -> TaggedBellPair DistillationCount
+outBpWithMaxInputCountN outBp chosen =
+    case fmap bellPairTag (toList chosen) of
+        [] -> error "outBpWithMaxInputCountN: expected at least one input Bell pair"
+        counts -> outBp { bellPairTag = maximum counts }

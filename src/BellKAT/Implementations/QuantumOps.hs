@@ -19,6 +19,7 @@ module BellKAT.Implementations.QuantumOps (
     Werner,
     -- * Primitive quantum operations (exported for testing)
     swapBPs,
+    simSwapBPs,
     createBP,
     transmitBP,
     distBPs,
@@ -170,6 +171,9 @@ instance Output QuantumOutput where
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FSwap p tCohs ds} inClockedBps =
         [swapBPs p tCohs ds inClockedBps outBp]
 
+    computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FSimSwap p coherenceSpecs distanceSpecs} inClockedBps =
+        [simSwapBPs p coherenceSpecs distanceSpecs inClockedBps outBp]
+
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FDistill tCohs d} inClockedBps =
         [distBPs tCohs d inClockedBps outBp]
 
@@ -211,6 +215,68 @@ swapBPs p (tCohL, tCohL1, tCohL2) (d1, d2) (Mset.LMS (inBps, clock)) (TaggedBell
                 _ -> fromList [ (successOutput, p), (failureOutput, 1 - p) ]
         _ -> error "swapBPs: expected exactly two input tagged Bell pairs"
 
+-- | Simultaneously swap a whole chain of Bell pairs into one end-to-end pair
+-- | Success consumes all inputs and produces the output pair 
+-- | with probability equal to the product of the individual repeater swap probabilities.
+simSwapBPs :: Rational
+            -> ([(BellPair, (TimeUnit, TimeUnit))], (TimeUnit, TimeUnit))
+            -> [(BellPair, SpaceUnit)]
+            -> LabelledBellPairs MaxClock QuantumTag
+            -> TaggedBellPair DistillationCount
+            -> D' (LabelledBellPairs MaxClock QuantumTag)
+simSwapBPs p (edgeCohSpecs, endpointCohs) distanceSpecs (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _)
+    | null edgeCohSpecs =
+        error "simSwapBPs: expected at least one input edge"
+    | length inputBps /= length edgeCohSpecs =
+        error $ "simSwapBPs: expected exactly " <> show (length edgeCohSpecs)
+             <> " input tagged Bell pairs, got " <> show (length inputBps)
+    | fmap fst edgeCohSpecs /= fmap fst distanceSpecs =
+        error "simSwapBPs: coherence and distance specs must describe the same chain"
+    | otherwise =
+        case matchInputEdges edgeCohSpecs inputBps of
+            Nothing ->
+                error "simSwapBPs: input Bell pairs do not match the simultaneous-swap chain"
+            Just matched ->
+                let
+                    clockNow = getMaxClock clock
+                    completionTime = if instantaneousOps then 0 else sum (fmap snd distanceSpecs)
+                    productionTS = clockNow + completionTime
+                    inputWernerProduct =
+                        product [ qtFidelity qTag | (_, qTag, _) <- matched ]
+                    inputDecayProduct =
+                        product
+                            [ decay edgeCohs (clockNow - qtTimestamp qTag)
+                            | (_, qTag, edgeCohs) <- matched
+                            ]
+                    outCount =
+                        maximum [ qtDistillations qTag | (_, qTag, _) <- matched ]
+                    newTag = mkQuantumTag outCount productionTS $
+                        inputWernerProduct
+                            * inputDecayProduct
+                            * decay endpointCohs completionTime
+                    successOutput = Mset.singletonT (TaggedBellPair outBp newTag) (MaxClock productionTS)
+                    failureOutput = labelledMempty (MaxClock productionTS)
+                in case p of
+                    0 -> cpure failureOutput
+                    1 -> cpure successOutput
+                    _ -> fromList [ (successOutput, p), (failureOutput, 1 - p) ]
+  where
+    inputBps = toList inBps
+
+    matchInputEdges [] [] = Just []
+    matchInputEdges [] _ = Nothing
+    matchInputEdges _ [] = Nothing
+    matchInputEdges ((edgeBp, edgeCohs) : edges) bps = do
+        (TaggedBellPair _ qTag, remaining) <- pickEdge edgeBp bps
+        matched <- matchInputEdges edges remaining
+        pure ((edgeBp, qTag, edgeCohs) : matched)
+
+    pickEdge _ [] = Nothing
+    pickEdge edgeBp (bp@(TaggedBellPair actualBp _) : bps)
+        | actualBp == edgeBp = Just (bp, bps)
+        | otherwise = do
+            (found, remaining) <- pickEdge edgeBp bps
+            pure (found, bp : remaining)
 
 -- | Perform entanglement distillation on two tagged Bell pairs.
 -- | returns a distribution capturing the probabilistic nature of entanglement distillation. 

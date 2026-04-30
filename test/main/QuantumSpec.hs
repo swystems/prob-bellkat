@@ -54,7 +54,7 @@ import BellKAT.QuantumPrelude
   ( ProbabilisticActionConfiguration(..)
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag, QBKATTest
   , NetworkState
-  , create, distill, trans, swap, ucreate, while, (/~?), (~~?), (<||>)
+  , create, distill, trans, swap, sswap, ucreate, while, (/~?), (~~?), (<||>)
   , (.~), (~.)
   )
 
@@ -135,6 +135,50 @@ spec = do
           dist = swapBPs p (10, 10, 10) (1, 1) input (TaggedBellPair ("A" ~ "B") (0 :: DistillationCount))
       -- should yield only empty multiset with prob 1
       D.toListD dist `shouldBe` [(labelledMempty (MaxClock (getMaxClock clock + 1)), 1)]
+
+    it "simultaneously swaps a chain and applies edge decoherence" $ do
+      let p = 1 :: Rational
+          clock = MaxClock 7
+          input = Mset.LMS (
+            Mset.fromList [
+              TaggedBellPair ("C" ~ "D") (QuantumTag 3 0.9),
+              TaggedBellPair ("A" ~ "B") (QuantumTag 1 0.8),
+              TaggedBellPair ("B" ~ "C") (QuantumTag 2 0.7)
+            ],
+            clock)
+          edgeCoherenceSpecs =
+            [ ("A" ~ "B", (10, 11))
+            , ("B" ~ "C", (11, 12))
+            , ("C" ~ "D", (12, 13))
+            ]
+          edgeDistanceSpecs =
+            [ ("A" ~ "B", 1)
+            , ("B" ~ "C", 2)
+            , ("C" ~ "D", 3)
+            ]
+          endpointCohs = (10, 13)
+          out =
+            simSwapBPs
+              p
+              (edgeCoherenceSpecs, endpointCohs)
+              edgeDistanceSpecs
+              input
+              (TaggedBellPair ("A" ~ "D") (0 :: DistillationCount))
+          [(Mset.LMS (resSet, newClock), _)] = D.toListD out
+          [TaggedBellPair _ qTag] = toList resSet
+          localDecay :: (TimeUnit, TimeUnit) -> TimeUnit -> Double
+          localDecay (tCoh1, tCoh2) deltaT =
+            exp (- fromIntegral deltaT / fromIntegral tCoh1 - fromIntegral deltaT / fromIntegral tCoh2)
+          completionTime = 6
+          expectedWerner =
+            0.8 * 0.7 * 0.9
+              * localDecay (10, 11) (getMaxClock clock - 1)
+              * localDecay (11, 12) (getMaxClock clock - 2)
+              * localDecay (12, 13) (getMaxClock clock - 3)
+              * localDecay endpointCohs completionTime
+      qtTimestamp qTag `shouldBe` getMaxClock clock + completionTime
+      qtFidelity qTag `shouldApproxBe` expectedWerner
+      newClock `shouldBe` MaxClock (getMaxClock clock + completionTime)
 
   describe "timestamp advancement" $ do
     it "create then transmit increases timestamp by one and decays" $ do
@@ -318,6 +362,35 @@ spec = do
       rendered `shouldSatisfy` isInfixOf "⦃C~C,C~C⦄"
       rendered `shouldSatisfy` isInfixOf "⦃A~C,B~C⦄"
       rendered `shouldSatisfy` isInfixOf "⦃A~B⦄"
+
+    it "uses product success probability for simultaneous swaps" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = []
+            , pacSwapProbability     = [("B", 1/2), ("C", 1/5)]
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = []
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100),("D",100)]
+            , pacDistances           = [(("A","B"),1), (("B","C"),1), (("C","D"),1), (("A","D"),3)]
+            }
+          ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = sswap ["B", "C"] ("A", "D")
+          initial = ["A" ~ "B", "B" ~ "C", "C" ~ "D"] :: StaticBellPairs
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyQMDPPipeline' @Double pac ep initial)
+              pol
+          gen = expectInitialGenerator ss initial
+          (pEmpty, cEmpty) = expectOutcome (mempty :: StaticBellPairs) gen
+          (pSuccess, cSuccess) = expectOutcome (["A" ~ "D"] :: StaticBellPairs) gen
+
+      pEmpty `shouldApproxBe` 0.9
+      pSuccess `shouldApproxBe` 0.1
+      cEmpty `shouldBe` 2
+      cSuccess `shouldBe` 2
 
     it "computes extremal CDFs for the Pa MDP" $ do
       let pac = PAC
@@ -529,13 +602,57 @@ spec = do
               pol
           gen = expectInitialGenerator ss initial
           pureAC = [TaggedBellPair ("A" ~ "C") (WernerTag 1 Pure)] :: WernerBellPairs
+          mixedAC = [TaggedBellPair ("A" ~ "C") (WernerTag 1 Mixed)] :: WernerBellPairs
           (pEmpty, cEmpty) = expectOutcome (mempty :: WernerBellPairs) gen
           (pPure, cPure) = expectOutcome pureAC gen
+          (pMixed, cMixed) = expectOutcome mixedAC gen
+          expectedPure = 0.5 * exp (-1 / 100 - 1 / 100)
 
       pEmpty `shouldApproxBe` 0.5
-      pPure `shouldApproxBe` 0.5
-      cEmpty `shouldBe` 0
-      cPure `shouldBe` 0
+      pPure `shouldApproxBe` expectedPure
+      (pPure + pMixed) `shouldApproxBe` 0.5
+      cEmpty `shouldBe` 1
+      cPure `shouldBe` 1
+      cMixed `shouldBe` 1
+
+    it "simultaneously swaps pure Werner chains" $ do
+      let pac = PAC
+            { pacTransmitProbability = []
+            , pacCreateProbability   = []
+            , pacSwapProbability     = [("B", 1/2), ("C", 1/5)]
+            , pacUCreateProbability  = []
+            , pacCreateWerner        = []
+            , pacUCreateWerner       = []
+            , pacCoherenceTime       = [("A",100),("B",100),("C",100),("D",100)]
+            , pacDistances           = [(("A","B"),1), (("B","C"),1), (("C","D"),1), (("A","D"),3)]
+            }
+          ep :: ExecutionParams DistillationCount () ()
+          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          pol :: QBKATPolicy
+          pol = sswap ["B", "C"] ("A", "D")
+          initial =
+            [ TaggedBellPair ("A" ~ "B") (WernerTag 0 Pure)
+            , TaggedBellPair ("B" ~ "C") (WernerTag 0 Pure)
+            , TaggedBellPair ("C" ~ "D") (WernerTag 0 Pure)
+            ] :: WernerBellPairs
+          ss =
+            runNonLoggedPipeline
+              (probStarPolicyWMDPPipeline' @Double pac ep initial)
+              pol
+          gen = expectInitialGenerator ss initial
+          pureAD = [TaggedBellPair ("A" ~ "D") (WernerTag 0 Pure)] :: WernerBellPairs
+          mixedAD = [TaggedBellPair ("A" ~ "D") (WernerTag 0 Mixed)] :: WernerBellPairs
+          (pEmpty, cEmpty) = expectOutcome (mempty :: WernerBellPairs) gen
+          (pPure, cPure) = expectOutcome pureAD gen
+          (pMixed, cMixed) = expectOutcome mixedAD gen
+          expectedPure = 0.1 * exp (-2 / 100 - 2 / 100)
+
+      pEmpty `shouldApproxBe` 0.9
+      pPure `shouldApproxBe` expectedPure
+      (pPure + pMixed) `shouldApproxBe` 0.1
+      cEmpty `shouldBe` 2
+      cPure `shouldBe` 2
+      cMixed `shouldBe` 2
 
 main :: IO ()
 main = hspec spec

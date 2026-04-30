@@ -16,6 +16,7 @@ import           BellKAT.Definitions.Structures
 -- | Define primitive actions
 data Action
     = Swap Location (Location, Location)
+    | SimSwap [Location] (Location, Location)
     | Transmit Location (Location, Location)
     | Distill (Location, Location)
     | Create Location
@@ -201,6 +202,7 @@ instance Tests (WithTests OrderedStarPolicy test tag) test tag where
 instance Arbitrary Action where
     arbitrary = oneof
         [ Swap <$> arbitrary <*> arbitrary
+        , SimSwap <$> listOf1 arbitrary <*> arbitrary
         , Create <$> arbitrary
         , Transmit <$> arbitrary <*> arbitrary
         , Distill <$> arbitrary

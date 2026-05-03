@@ -268,6 +268,9 @@ computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperatio
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FSwap p _ ds} chosen =
     requireCardinality "swap" 2 chosen $
         cmap producedPieces $ swapLike pac (fromRational p) (max (fst ds) (snd ds)) roundCost outBp chosen
+computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FSimSwap p _ distanceSpecs} chosen =
+    requireCardinality "simultaneous swap" (length distanceSpecs) chosen $
+        cmap producedPieces $ simSwapLike pac (fromRational p) roundCost outBp chosen
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FDistill _ d} chosen =
     requireCardinality "distill" 2 chosen $
         cmap producedPieces $ distillLike pac d roundCost outBp chosen
@@ -343,6 +346,34 @@ swapLike pac pSuccess _ roundCost outBp chosen =
                         [(singletonMixedWith outCount outBp, pSuccess)]
             _ ->
                 error "swapLike: expected exactly two input Bell pairs"
+
+simSwapLike
+    :: ProbabilisticActionConfiguration
+    -> Double
+    -> Int
+    -> TaggedBellPair DistillationCount
+    -> WernerBellPairs
+    -> MDP Double WernerBellPairs
+simSwapLike pac pSuccess roundCost outBp chosen =
+    fromDistribution . distributionFromOutcomes $
+        [ (mempty, 1 - pSuccess) ] <> successOutcomes
+  where
+    -- all input links are consumed
+    successOutcomes =
+        case fmap bellPairTag (toList chosen) of
+            [] ->
+                error "simSwapLike: expected at least one input Bell pair"
+            tags ->
+                -- the swapped pair has the largest static distillation count 
+                -- among the consumed links
+                let outCount = maximum (fmap wtDistillations tags)
+                 in if all ((== Pure) . wtStateKind) tags
+                    -- pure output remains pure only when all inputs are pure
+                    -- then it decoheres for the round duration
+                    then weightedOutcomes pSuccess $
+                            decohereState pac roundCost (singletonPureWith outCount outBp)
+                    -- any mixed input makes the output pair mixed
+                    else [(singletonMixedWith outCount outBp, pSuccess)]
 
 distillLike
     :: ProbabilisticActionConfiguration

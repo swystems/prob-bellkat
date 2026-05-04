@@ -62,8 +62,7 @@ execute'
     => ProbAtomicOneStepPolicy (ListOutput QuantumOutput) DistillationCount
     -> StaticBellPairs
     -> MDP p StaticBellPairs
-execute' policy bps =
-    foldMap (\paa -> executePAA paa bps) (toList policy)
+execute' = executeWithTiming' DistanceBasedOps
 
 executeWith'
     :: RationalOrDouble p
@@ -71,7 +70,18 @@ executeWith'
     -> ProbAtomicOneStepPolicy (ListOutput QuantumOutput) DistillationCount
     -> StaticBellPairs
     -> MDP p StaticBellPairs
-executeWith' ep policy = cmap (applyStaticExecutionParams ep) . execute' policy
+executeWith' ep policy =
+    cmap (applyStaticExecutionParams ep)
+    . executeWithTiming' (epOperationTiming ep) policy
+
+executeWithTiming'
+    :: RationalOrDouble p
+    => OperationTiming
+    -> ProbAtomicOneStepPolicy (ListOutput QuantumOutput) DistillationCount
+    -> StaticBellPairs
+    -> MDP p StaticBellPairs
+executeWithTiming' timing policy bps =
+    foldMap (\paa -> executePAA timing paa bps) (toList policy)
 
 applyStaticExecutionParams :: ExecutionParams DistillationCount rTag cTag -> StaticBellPairs -> StaticBellPairs
 applyStaticExecutionParams EP{epNetworkCapacity = Nothing} = id
@@ -80,64 +90,67 @@ applyStaticExecutionParams EP{epNetworkCapacity = Just cap} =
 
 executePAA
     :: RationalOrDouble p
-    => ProbabilisticAtomicAction (ListOutput QuantumOutput) DistillationCount
+    => OperationTiming
+    -> ProbabilisticAtomicAction (ListOutput QuantumOutput) DistillationCount
     -> StaticBellPairs
     -> MDP p StaticBellPairs
-executePAA act bps =
+executePAA timing act bps =
     if holdsStaticTest (paaTest act) bps
        then mconcat
-            [ computeListOutput (paaOutput act) (StaticBellPairs chosen) (StaticBellPairs rest')
+            [ computeListOutput timing (paaOutput act) (StaticBellPairs chosen) (StaticBellPairs rest')
             | Partial { chosen, rest = rest' } <- findElemsNDT id (toList . paaInputBPs $ act) (unStaticBellPairs bps)
             ]
        else mempty
 
 computeListOutput
     :: RationalOrDouble p
-    => ListOutput QuantumOutput
+    => OperationTiming
+    -> ListOutput QuantumOutput
     -> StaticBellPairs
     -> StaticBellPairs
     -> MDP p StaticBellPairs
-computeListOutput (ListOutput xs) chosen untouched =
+computeListOutput timing (ListOutput xs) chosen untouched =
     parallelCompose (go xs chosen) (cpure untouched)
   where
     go [] restBps = cpure restBps
     go ((i, out):outs) (StaticBellPairs currentBps) =
         mconcat
-            [ parallelCompose (computePrimitiveOutput out (StaticBellPairs chosenBps))
+            [ parallelCompose (computePrimitiveOutput timing out (StaticBellPairs chosenBps))
                               (go outs (StaticBellPairs rest'))
             | Partial { chosen = chosenBps, rest = rest' } <- findElemsNDT id (toList . Mset.bellPairs $ i) currentBps
             ]
 
 computePrimitiveOutput
     :: RationalOrDouble p
-    => QuantumOutput
+    => OperationTiming
+    -> QuantumOutput
     -> StaticBellPairs
     -> MDP p StaticBellPairs
-computePrimitiveOutput QuantumOutput{qoOperation = FSkip} _ =
-    singleGenerator (primitiveCost FSkip) [mempty]
-computePrimitiveOutput QuantumOutput{qoOperation = FDestroy} _ =
-    singleGenerator (primitiveCost FDestroy) [mempty]
-computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FCreate p _)} chosen =
+computePrimitiveOutput timing QuantumOutput{qoOperation = FSkip} _ =
+    singleGenerator (primitiveCostWith timing FSkip) [mempty]
+computePrimitiveOutput timing QuantumOutput{qoOperation = FDestroy} _ =
+    singleGenerator (primitiveCostWith timing FDestroy) [mempty]
+computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FCreate p _)} chosen =
     requireCardinality "create" 0 chosen $
-        successOrFailure (primitiveCost op) p (StaticBellPairs $ Mset.singleton' outBp)
-computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FGenerate p _ _)} chosen =
+        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs $ Mset.singleton' outBp)
+computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FGenerate p _ _)} chosen =
     requireCardinality "generate" 0 chosen $
-        successOrFailure (primitiveCost op) p (StaticBellPairs $ Mset.singleton' outBp)
-computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FTransmit p _ _)} chosen =
+        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs $ Mset.singleton' outBp)
+computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FTransmit p _ _)} chosen =
     requireCardinality "transmit" 1 chosen $
-        successOrFailure (primitiveCost op) p (StaticBellPairs . Mset.singleton' $ outBpWithInputCount outBp chosen)
-computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSwap p _ _)} chosen =
+        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithInputCount outBp chosen)
+computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSwap p _ _)} chosen =
     requireCardinality "swap" 2 chosen $
-        successOrFailure (primitiveCost op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCount outBp chosen)
-computePrimitiveOutput QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSimSwap p _ distanceSpecs)} chosen =
+        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCount outBp chosen)
+computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSimSwap p _ distanceSpecs)} chosen =
     requireCardinality "simultaneous swap" (length distanceSpecs) chosen $
-        successOrFailure (primitiveCost op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCountN outBp chosen)
-computePrimitiveOutput QuantumOutput{qoOperation = op@(FDistill _ _)} chosen =
+        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCountN outBp chosen)
+computePrimitiveOutput timing QuantumOutput{qoOperation = op@(FDistill _ _)} chosen =
     requireCardinality "distill" 2 chosen $
         error $
             "executeMDPWith': FDistill is not supported in the static MDP yet; "
             <> "its success probability depends on runtime Werner tags that are erased here"
-            <> " (cost would have been " <> show (primitiveCost op) <> ")"
+            <> " (cost would have been " <> show (primitiveCostWith timing op) <> ")"
 
 outBpWithInputCount :: TaggedBellPair DistillationCount -> StaticBellPairs -> TaggedBellPair DistillationCount
 outBpWithInputCount outBp chosen =

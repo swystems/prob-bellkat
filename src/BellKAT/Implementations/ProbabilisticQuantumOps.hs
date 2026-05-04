@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 {- |
    Module : BellKAT.Implementations.ProbabilisticQuantumOps

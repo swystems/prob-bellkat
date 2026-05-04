@@ -48,7 +48,12 @@ import BellKAT.Utils.Convex (getGenerators)
 import BellKAT.Utils.Distribution as D
 import GHC.Exts (toList)
 import BellKAT.Utils.Multiset (labelledMempty)
-import BellKAT.Implementations.Configuration (ExecutionParams (..), NetworkCapacity, applyExecutionParams)
+import BellKAT.Implementations.Configuration
+  ( ExecutionParams (..)
+  , NetworkCapacity
+  , OperationTiming(..)
+  , applyExecutionParams
+  )
 import BellKAT.Utils.Automata.Transitions.Functorial (StateSystem(..))
 import BellKAT.QuantumPrelude
   ( ProbabilisticActionConfiguration(..)
@@ -283,7 +288,8 @@ spec = do
           initial = buildState [fresh1, fresh2, old1, old2] clock
           ep :: ExecutionParams () QuantumTag MaxClock
           ep = EP { epNetworkCapacity = Nothing
-                  , epFilter          = \tbp clk' -> isFresh tbp clk' (Just 0) 
+                  , epFilter          = \tbp clk' -> isFresh tbp clk' (Just 0)
+                  , epOperationTiming = DistanceBasedOps
                }
           Mset.LMS (filteredSet, _) = applyExecutionParams ep initial
           wernerParams = [ w | TaggedBellPair _ (QuantumTag _ w) <- toList filteredSet ]
@@ -343,6 +349,7 @@ spec = do
           ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
           ep = EP { epNetworkCapacity = Just capacity
                   , epFilter = \_ _ -> True
+                  , epOperationTiming = DistanceBasedOps
                   }
           pol :: QBKATPolicy
           pol = while ("A" /~? "B")
@@ -375,7 +382,11 @@ spec = do
             , pacDistances           = [(("A","B"),1), (("B","C"),1), (("C","D"),1), (("A","D"),3)]
             }
           ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = sswap ["B", "C"] ("A", "D")
           initial = ["A" ~ "B", "B" ~ "C", "C" ~ "D"] :: StaticBellPairs
@@ -408,6 +419,7 @@ spec = do
           ep :: ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
           ep = EP { epNetworkCapacity = Just capacity
                   , epFilter = \_ _ -> True
+                  , epOperationTiming = DistanceBasedOps
                   }
           pol :: QBKATPolicy
           pol = while ("A" /~? "B")
@@ -478,7 +490,11 @@ spec = do
             , pacDistances           = []
             }
           ep :: ExecutionParams DistillationCount () ()
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = create "C" <||> create "C"
           ss =
@@ -518,7 +534,11 @@ spec = do
             , pacDistances           = [(("A", "B"), 2), (("B", "C"), 1), (("C", "D"), 3)]
             }
           ep :: ExecutionParams DistillationCount () ()
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = ucreate ("A", "B") <||> swap "C" ("B", "D")
           initial = [TaggedBellPair ("B" ~ "C") (WernerTag 0 Pure), TaggedBellPair ("C" ~ "D") (WernerTag 0 Pure)] :: WernerBellPairs
@@ -557,7 +577,11 @@ spec = do
             , pacDistances           = [(("A", "B"), 1)]
             }
           ep :: ExecutionParams DistillationCount () ()
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = distill ("A", "B")
           initial = [TaggedBellPair ("A" ~ "B") (WernerTag 0 Mixed), TaggedBellPair ("A" ~ "B") (WernerTag 0 Pure)] :: WernerBellPairs
@@ -589,7 +613,11 @@ spec = do
             , pacDistances           = [(("A", "B"), 1), (("B", "C"), 1), (("A", "C"), 2)]
             }
           ep :: ExecutionParams DistillationCount () ()
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = (1 :: QBKATTag) ~. (swap "B" ("A", "C") .~ (1 :: QBKATTag))
           initial =
@@ -627,7 +655,11 @@ spec = do
             , pacDistances           = [(("A","B"),1), (("B","C"),1), (("C","D"),1), (("A","D"),3)]
             }
           ep :: ExecutionParams DistillationCount () ()
-          ep = EP { epNetworkCapacity = Nothing, epFilter = \_ _ -> True }
+          ep = EP
+            { epNetworkCapacity = Nothing
+            , epFilter = \_ _ -> True
+            , epOperationTiming = DistanceBasedOps
+            }
           pol :: QBKATPolicy
           pol = sswap ["B", "C"] ("A", "D")
           initial =

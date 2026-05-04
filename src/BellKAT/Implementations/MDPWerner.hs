@@ -45,7 +45,7 @@ import           BellKAT.Utils.MDP
     ( MDP(..)
     , MDP'
     , StepCost(..)
-    , combinedRoundCost
+    , combinedRoundCostWith
     , fromDistribution
     , mapMDPProbabilities
     , minimizeStateSystem
@@ -178,7 +178,7 @@ execute'
     -> WernerBellPairs
     -> MDP p WernerBellPairs
 execute' pac policy =
-    mapMDPProbabilities realToFrac . executeDouble pac Nothing policy
+    mapMDPProbabilities realToFrac . executeDouble pac Nothing DistanceBasedOps policy
 
 executeWith'
     :: RationalOrDouble p
@@ -188,27 +188,29 @@ executeWith'
     -> WernerBellPairs
     -> MDP p WernerBellPairs
 executeWith' pac ep policy =
-    mapMDPProbabilities realToFrac . executeDouble pac (epNetworkCapacity ep) policy
+    mapMDPProbabilities realToFrac . executeDouble pac (epNetworkCapacity ep) (epOperationTiming ep) policy
 
 executeDouble
     :: ProbabilisticActionConfiguration
     -> Maybe (NetworkCapacity DistillationCount)
+    -> OperationTiming
     -> ProbAtomicOneStepPolicy (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-executeDouble pac mbCap policy bps =
-    foldMap (\paa -> executePAA pac mbCap paa bps) (toList policy)
+executeDouble pac mbCap timing policy bps =
+    foldMap (\paa -> executePAA pac mbCap timing paa bps) (toList policy)
 
 executePAA
     :: ProbabilisticActionConfiguration
     -> Maybe (NetworkCapacity DistillationCount)
+    -> OperationTiming
     -> ProbabilisticAtomicAction (ListOutput BinaryOutput) DistillationCount
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-executePAA pac mbCap act bps =
+executePAA pac mbCap timing act bps =
     if holdsWernerGuardTest (paaTest act) bps
        then mconcat
-            [ computeListOutput pac mbCap (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
+            [ computeListOutput pac mbCap timing (paaOutput act) (WernerBellPairs chosen) (WernerBellPairs rest')
             | Partial { chosen, rest = rest' } <- findElemsNDT staticBellPair (toList . paaInputBPs $ act) (unWernerBellPairs bps)
             ]
        else mempty
@@ -216,11 +218,12 @@ executePAA pac mbCap act bps =
 computeListOutput
     :: ProbabilisticActionConfiguration
     -> Maybe (NetworkCapacity DistillationCount)
+    -> OperationTiming
     -> ListOutput BinaryOutput
     -> WernerBellPairs
     -> WernerBellPairs
     -> MDP Double WernerBellPairs
-computeListOutput pac mbCap (ListOutput xs) chosen untouched =
+computeListOutput pac mbCap timing (ListOutput xs) chosen untouched =
     setAllCosts roundCost $ -- Set all costs to the round cost
                             -- Decohere pairs not selected for the combined action
         cmap (finalizeWernerPieces mbCap) $
@@ -228,7 +231,7 @@ computeListOutput pac mbCap (ListOutput xs) chosen untouched =
         (go xs chosen)
         (fromDistribution (cmap retainedPieces (decohereState pac roundCost untouched)))
     where
-    roundCost = combinedRoundCost (boOperation . snd) xs
+    roundCost = combinedRoundCostWith timing (boOperation . snd) xs
 
     -- Decohere pairs inside chosen that ended up not being used for the primitive actions (i.e. those that are in restBps) for the difference between the round cost and the time taken by the local operations
     go [] restBps =

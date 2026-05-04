@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 
 {- |
    Module : BellKAT.Implementations.QuantumOps
@@ -46,15 +45,6 @@ import           Data.Aeson ((.=), (.:), (.:?))
 type SpaceUnit = Int     -- discrete and fixed (L) space unit
 type TimeUnit = Int      -- discrete and fixed (L/c) time unit
 type Werner = Double     -- representing fidelity, in the range [0,1]
-
--- | TODO: refactor as something to be set in the DSL
--- | If True, swaps are considered instantaneous (no time delay)
-instantaneousOps :: Bool
-#ifdef INSTANTANEOUS_OPS_FALSE
-instantaneousOps = False
-#else
-instantaneousOps = True
-#endif
 
 -- | Clock wrapper 
 newtype MaxClock = MaxClock { getMaxClock :: TimeUnit }
@@ -201,7 +191,7 @@ swapBPs p (tCohL, tCohL1, tCohL2) (d1, d2) (Mset.LMS (inBps, clock)) (TaggedBell
                 w1 = qtFidelity qTag1
                 w2 = qtFidelity qTag2
                 outCount = max (qtDistillations qTag1) (qtDistillations qTag2)
-                completionTime = if instantaneousOps then 0 else max d1 d2
+                completionTime = max d1 d2
                 productionTS = getMaxClock clock + completionTime
                 newTag = mkQuantumTag outCount productionTS $
                     w1 * w2 * decay (tCohL,  tCohL1) (getMaxClock clock - t1)
@@ -239,7 +229,7 @@ simSwapBPs p (edgeCohSpecs, endpointCohs) distanceSpecs (Mset.LMS (inBps, clock)
             Just matched ->
                 let
                     clockNow = getMaxClock clock
-                    completionTime = if instantaneousOps then 0 else sum (fmap snd distanceSpecs)
+                    completionTime = sum (fmap snd distanceSpecs)
                     productionTS = clockNow + completionTime
                     inputWernerProduct =
                         product [ qtFidelity qTag | (_, qTag, _) <- matched ]
@@ -302,7 +292,7 @@ distBPs (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) (TaggedBellPair outBp _) =
                 pDistD = (1 + w1 * w2) / 2
                 wDistD :: Double
                 wDistD = (w1 + w2 + 4 * w1 * w2) / (6 * pDistD)
-                completionTime = if instantaneousOps then 0 else d
+                completionTime = d
                 productionTS = getMaxClock clock + completionTime
                 newTag = mkQuantumTag outCount productionTS $
                     wDistD * decay (tCoh1, tCoh2) (getMaxClock clock - t1)

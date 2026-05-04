@@ -12,7 +12,7 @@ import Control.Exception (catch, IOException)
 
 import BellKAT.QuantumPrelude
   ( ProbabilisticActionConfiguration(..)
-  , NetworkBounds(..), CutoffSpec
+  , NetworkBounds(..), CutoffSpec, OperationTiming(..)
   , QBKATPolicy, QBKATTag, QBKATRuntimeTag
   , MaxClock(..)
   , NetworkState
@@ -32,6 +32,7 @@ type TestOutput = ListOutput QuantumOutput
 buildEP :: NetworkBounds QBKATTag -> ExecutionParams QBKATTag QBKATRuntimeTag MaxClock
 buildEP nb = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clk -> isFresh tbp clk (nbCutoff nb)
+                , epOperationTiming = nbOperationTiming nb
              }
 
 -- Compute JSON for a protocol run
@@ -61,7 +62,7 @@ expectMatchesSnap snapPath v = do
 
 spec :: Spec
 spec = describe "protocol snaps" $ do
-  -- Pa example (see quantum-examples/Pa.hs)
+  -- Pa example (see quantum-examples/qcnc/Pa.hs)
   it "Pa example: create->trans->swap (unbounded)" $ do
     let pac = PAC
           { pacTransmitProbability = [( ("C","A"), 8/10 ), ( ("C","B"), 7/10 )]
@@ -73,7 +74,7 @@ spec = describe "protocol snaps" $ do
           , pacCoherenceTime       = [("A",100),("B",100),("C",100)]
           , pacDistances           = [( ("A","C"),1 ), ( ("B","C"),1 ), ( ("A","B"),2 )]
           }
-        nb  = def
+        nb  = def { nbOperationTiming = InstantaneousOps }
         pol :: QBKATPolicy
         pol = (create "C" <||> create "C")
               <> (trans "C" ("A","C") <||> trans "C" ("B","C"))
@@ -81,7 +82,7 @@ spec = describe "protocol snaps" $ do
     expectMatchesSnap "test/snapshots/Pa.json"
       (evalProtocol pac nb pol mempty)
 
-  -- P5_Li_cutoff example (see quantum-examples/P5_Li_cutoff.hs)
+  -- P5_Li_cutoff example (see quantum-examples/qcnc/P5_Li_cutoff.hs)
   it "P5_Li_cutoff example: chain with cutoff, 108 iterations" $ do
     let pGen  = 1/4 :: Rational
         pSwap = 1/2 :: Rational
@@ -96,7 +97,11 @@ spec = describe "protocol snaps" $ do
                   , pacDistances           = [( ("A","B"),1 ), ( ("B","C"),1 ), ( ("A","C"),2 )]
                   }
         capacity = ["A" ~ "B", "A" ~ "C", "B" ~ "C"]
-        nb = NetworkBounds { nbCapacity = Just capacity, nbCutoff = Just (4 :: CutoffSpec) }
+        nb = def
+          { nbCapacity = Just capacity
+          , nbCutoff = Just (4 :: CutoffSpec)
+          , nbOperationTiming = InstantaneousOps
+          }
         pol :: QBKATPolicy
         pol = whileN 108 ("A" /~? "C")
               ( ( ite ("A" /~? "B") (ucreate ("A","B")) mempty
@@ -108,7 +113,7 @@ spec = describe "protocol snaps" $ do
     expectMatchesSnap "test/snapshots/P5_Li_cutoff.json"
       (evalProtocol pac nb pol mempty)
 
-  -- P5_Star example (see quantum-examples/P5_Star.hs)
+  -- P5_Star example (see quantum-examples/qcnc/P5_Star.hs)
   it "P5_Star example: star generations + swaps, 18 iterations" $ do
     let pac = PAC { pacTransmitProbability = []
                   , pacCreateProbability   = []
@@ -125,7 +130,10 @@ spec = describe "protocol snaps" $ do
                   }
         -- Duplicate entry for "C"~"H" preserved to mirror example file exactly.
         capacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
-        nb = NetworkBounds { nbCapacity = Just capacity, nbCutoff = Nothing }
+        nb = def
+          { nbCapacity = Just capacity
+          , nbOperationTiming = InstantaneousOps
+          }
         pol :: QBKATPolicy
         pol = whileN 18 ("A" /~? "C" &&* "B" /~? "C")
               ( ( ite ("A" /~? "H") (ucreate ("A","H")) mempty

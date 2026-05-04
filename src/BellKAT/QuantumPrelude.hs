@@ -19,6 +19,7 @@ module BellKAT.QuantumPrelude (
     ProbabilisticActionConfiguration(..),
     Location,
     NetworkCapacity,
+    OperationTiming(..),
     MaxClock(..),
     -- * Network bounds
     CutoffSpec,
@@ -49,7 +50,7 @@ import BellKAT.Definitions
 import BellKAT.Definitions.Atomic ()
 import BellKAT.Definitions.Structures
 import BellKAT.ActionEmbeddings (ProbabilisticActionConfiguration(..))
-import BellKAT.Implementations.Configuration (NetworkCapacity, ExecutionParams(..))
+import BellKAT.Implementations.Configuration (NetworkCapacity, OperationTiming(..), ExecutionParams(..))
 import BellKAT.Implementations.MDPProbability
     ( holdsStaticTest
     , toStaticBellPairs
@@ -98,10 +99,15 @@ type CutoffSpec = TimeUnit
 data NetworkBounds tag = NetworkBounds
     { nbCapacity :: Maybe (NetworkCapacity tag)
     , nbCutoff   :: Maybe CutoffSpec
+    , nbOperationTiming :: OperationTiming
     }
 
 instance Default (NetworkBounds tag) where
-    def = NetworkBounds { nbCapacity = Nothing, nbCutoff = Nothing }
+    def = NetworkBounds
+        { nbCapacity = Nothing
+        , nbCutoff = Nothing
+        , nbOperationTiming = DistanceBasedOps
+        }
 
 -- | Build a 'NetworkState' (multiset of tagged Bell pairs) from list
 createNetworkState :: [TaggedBellPair QBKATRuntimeTag] -> MaxClock -> NetworkState
@@ -196,14 +202,21 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                                           {- ^ initial network state -}
     let ep = EP { epNetworkCapacity = nbCapacity nb
                 , epFilter          = \tbp clock -> isFresh tbp clock (nbCutoff nb)
+                , epOperationTiming = nbOperationTiming nb
                 }
         qmdpEp = EP { epNetworkCapacity = nbCapacity nb
                     , epFilter          = \_ _ -> True
+                    , epOperationTiming = nbOperationTiming nb
                     }
         runPipeline = probStarPolicyOpPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         systemPipeline = probStarPolicyOpSystemPipeline' @p (Proxy :: Proxy QBKATOutput) pac ep ns
         mdpPipeline = probStarPolicyQMDPPipeline' @p pac ep (toStaticBellPairs ns)
-        automatonPipeline = probStarPolicyAutomatonPipeline (Proxy :: Proxy QBKATOutput) pac in do
+        automatonPipeline =
+            probStarPolicyAutomatonPipelineWithTiming
+                (Proxy :: Proxy QBKATOutput)
+                pac
+                (nbOperationTiming nb)
+    in do
         opts <- OA.execParser $ OA.info (qcoParser OA.<**> OA.helper) (OA.fullDesc <> OA.progDesc "QBKAT tool")
         case qcoMode opts of
           QMRun -> do

@@ -17,7 +17,9 @@ module BellKAT.Utils.MDP
     , totalTransitionCount
     , minimizeStateSystem
     , primitiveCost
+    , primitiveCostWith
     , combinedRoundCost
+    , combinedRoundCostWith
     , requireCardinality
     ) where
 
@@ -34,6 +36,7 @@ import           Control.Subcategory.Functor
 import           Control.Subcategory.Pointed
 
 import           BellKAT.Definitions.Core    (Op (..), Probability)
+import           BellKAT.Implementations.Configuration (OperationTiming(..), applyOperationTiming)
 import           BellKAT.Utils.Automata.Transitions.Functorial (StateSystem(..))
 import           BellKAT.Utils.Convex
 import           BellKAT.Utils.Convex.Constraint
@@ -220,27 +223,24 @@ primitiveCost FDestroy = 0
 primitiveCost FCreate{} = 1
 primitiveCost (FGenerate _ _ d) = d
 primitiveCost (FTransmit _ _ d) = d
--- primitiveCost (FSwap {}) = 0
 primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
--- primitiveCost (FSimSwap {}) = 0
 primitiveCost (FSimSwap _ _ simSwapDistanceSpecs) =
     case ds of
         [] -> 0
         _ -> max (sum ds - head ds) (sum ds - last ds)
     where
         ds = [d | (_, d) <- simSwapDistanceSpecs]
--- primitiveCost (FDistill _ _) = 0
 primitiveCost (FDistill _ d) = d
 
--- TODO: we want to refactor this in the DSL
--- if a DSL flag instantaneousOps is enabled by the user,
--- then swap and distill have cost 0
--- otherwise (and default) their cost depend on distances as in the commented code above 
-
+primitiveCostWith :: OperationTiming -> Op -> Int
+primitiveCostWith timing = primitiveCost . applyOperationTiming timing
 
 combinedRoundCost :: Foldable t => (a -> Op) -> t a -> Int
-combinedRoundCost toOp =
-    foldr (max . primitiveCost . toOp) 0
+combinedRoundCost = combinedRoundCostWith DistanceBasedOps
+
+combinedRoundCostWith :: Foldable t => OperationTiming -> (a -> Op) -> t a -> Int
+combinedRoundCostWith timing toOp =
+    foldr (max . primitiveCostWith timing . toOp) 0
 
 requireCardinality :: IsList s => String -> Int -> s -> a -> a
 requireCardinality opName expected bps result

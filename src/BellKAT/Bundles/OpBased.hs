@@ -15,7 +15,11 @@ import           BellKAT.Utils.Distribution
 import           BellKAT.ActionEmbeddings
 import           BellKAT.PolicyEmbeddings
 import           BellKAT.Implementations.Output
-import           BellKAT.Implementations.Configuration (ExecutionParams)
+import           BellKAT.Implementations.Configuration
+    ( ExecutionParams(..)
+    , OperationTiming(..)
+    , applyOperationTiming
+    )
 import           BellKAT.Implementations.MDPProbability (MDP, StaticBellPairs)
 import qualified BellKAT.Implementations.MDPProbability as MDPP
 import           BellKAT.Implementations.MDPWerner (WernerBellPairs)
@@ -39,6 +43,17 @@ probabilisticOpAutomatonStage = Stage
     { stageName = "constructing_guarded_op_automaton"
     , stageConfig = ()
     , stageFunction = \() -> meaning
+    }
+
+operationTimingStage
+    :: Functor f
+    => OperationTiming
+    -> Stage OperationTiming (f (CreateBellPairArgs Op tag)) (f (CreateBellPairArgs Op tag))
+operationTimingStage timing = Stage
+    { stageName = "operation_timing"
+    , stageConfig = timing
+    , stageFunction = \timing' -> fmap $ \cbp ->
+        cbp { cbpOp = applyOperationTiming timing' (cbpOp cbp) }
     }
 
 guardedAutomatonStage
@@ -156,7 +171,20 @@ probStarPolicyAutomatonPipeline
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output))
         (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
 probStarPolicyAutomatonPipeline (_ :: Proxy output) pac
-    = stage (probabilisticOpDesugarStage (Proxy :: Proxy (RTag output)) pac) 
+    = probStarPolicyAutomatonPipelineWithTiming (Proxy :: Proxy output) pac DistanceBasedOps
+
+probStarPolicyAutomatonPipelineWithTiming
+    :: forall output. (OpOutput output Op, Monoid output, Show output)
+    => (Tag (STag output), Default (STag output))
+    => forall test. (DecidableBoolean (test (STag output)), Show (test (STag output)))
+    => Proxy output
+    -> ProbabilisticActionConfiguration
+    -> OperationTiming
+    -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output))
+        (GASQ.GuardedAutomatonStepQuantum (test (STag output)) (PAOSQ.ProbAtomicOneStepPolicy output (STag output)))
+probStarPolicyAutomatonPipelineWithTiming (_ :: Proxy output) pac timing
+    = stage (probabilisticOpDesugarStage (Proxy :: Proxy (RTag output)) pac)
+    >>> stage (operationTimingStage timing)
     >>> stage probabilisticOpAutomatonStage
 
 probStarPolicyOpPipeline'
@@ -170,7 +198,8 @@ probStarPolicyOpPipeline'
     -> OutputBellPairs output 
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (CD p (OutputBellPairs output))
 probStarPolicyOpPipeline' proxy pac ep initialState = 
-    probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage' ep initialState)
+    probStarPolicyAutomatonPipelineWithTiming proxy pac (epOperationTiming ep)
+        >>> stage (guardedAutomatonStage' ep initialState)
 
 probStarPolicyOpPipeline
     :: forall output. (OpOutput output Op, Show (OutputM output (OutputBellPairs output)), Monoid output, Show output)
@@ -183,7 +212,8 @@ probStarPolicyOpPipeline
     -> OutputBellPairs output 
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (OutputM output (OutputBellPairs output))
 probStarPolicyOpPipeline proxy pac ep initialState = 
-    probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedAutomatonStage ep initialState)
+    probStarPolicyAutomatonPipelineWithTiming proxy pac (epOperationTiming ep)
+        >>> stage (guardedAutomatonStage ep initialState)
 
 probStarPolicyOpSystemPipeline'
     :: forall p. RationalOrDouble p
@@ -196,7 +226,8 @@ probStarPolicyOpSystemPipeline'
     -> OutputBellPairs output
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (GASQ.StateSystem (CD p) (OutputBellPairs output))
 probStarPolicyOpSystemPipeline' proxy pac ep initialState = 
-    probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage' ep initialState)
+    probStarPolicyAutomatonPipelineWithTiming proxy pac (epOperationTiming ep)
+        >>> stage (guardedToSystemStage' ep initialState)
 
 probStarPolicyOpSystemPipeline
     :: forall output. (OpOutput output Op, OutputM output ~ CD', Monoid output, Show output)
@@ -208,7 +239,8 @@ probStarPolicyOpSystemPipeline
     -> OutputBellPairs output
     -> Pipeline (Simple (OrderedGuardedPolicy (test (STag output))) (STag output)) (GASQ.StateSystem CD' (OutputBellPairs output))
 probStarPolicyOpSystemPipeline proxy pac ep initialState = 
-    probStarPolicyAutomatonPipeline proxy pac >>> stage (guardedToSystemStage ep initialState)
+    probStarPolicyAutomatonPipelineWithTiming proxy pac (epOperationTiming ep)
+        >>> stage (guardedToSystemStage ep initialState)
 
 probStarPolicyQMDPPipeline'
     :: forall p. RationalOrDouble p
@@ -219,7 +251,10 @@ probStarPolicyQMDPPipeline'
     -> Pipeline (Simple (OrderedGuardedPolicy (test DistillationCount)) DistillationCount)
         (GASQ.StateSystem (MDP p) StaticBellPairs)
 probStarPolicyQMDPPipeline' pac ep initialState =
-    probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput QuantumOutput)) pac
+    probStarPolicyAutomatonPipelineWithTiming
+        (Proxy :: Proxy (ListOutput QuantumOutput))
+        pac
+        (epOperationTiming ep)
         >>> stage (guardedToMDPStage' @p ep initialState)
 
 probStarPolicyWMDPPipeline'
@@ -231,7 +266,10 @@ probStarPolicyWMDPPipeline'
     -> Pipeline (Simple (OrderedGuardedPolicy (test DistillationCount)) DistillationCount)
         (GASQ.StateSystem (MDP p) WernerBellPairs)
 probStarPolicyWMDPPipeline' pac ep initialState =
-    probStarPolicyAutomatonPipeline (Proxy :: Proxy (ListOutput BinaryOutput)) pac
+    probStarPolicyAutomatonPipelineWithTiming
+        (Proxy :: Proxy (ListOutput BinaryOutput))
+        pac
+        (epOperationTiming ep)
         >>> stage (guardedToWernerMDPStage' @p pac ep initialState)
 
 applyProbStarPolicyOp'

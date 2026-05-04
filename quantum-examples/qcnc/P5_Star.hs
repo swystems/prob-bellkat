@@ -1,8 +1,8 @@
 import BellKAT.QuantumPrelude
 
-p :: QBKATPolicy
-p =
-        while ("A" /~? "C" &&* "B" /~? "C")
+p :: Int -> QBKATPolicy
+p nS =
+        whileN nS ("A" /~? "C" &&* "B" /~? "C")
         (   
             (   -- generations in parallel
                 ite ("A" /~? "H") (ucreate ("A", "H")) mempty
@@ -21,10 +21,13 @@ p =
 
 
 networkCapacity :: NetworkCapacity QBKATTag
-networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "A" ~ "C", "B" ~ "C"]
+networkCapacity = ["A" ~ "H", "B" ~ "H", "C" ~ "H", "C" ~ "H"]
 
 nb :: NetworkBounds QBKATTag
-nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
+nb = def
+    { nbCapacity = Just networkCapacity
+    , nbOperationTiming = InstantaneousOps
+    }
 
 actionConfig :: ProbabilisticActionConfiguration
 actionConfig =
@@ -59,5 +62,5 @@ actionConfig =
 
 main :: IO ()
 main =
-    let ev = hasSubset ["A" ~ "C"]
-    in qbkatMainD actionConfig nb ev p mempty
+    let ev       = "A" ~~? "C"
+    in qbkatMainD actionConfig nb ev (p 54) mempty

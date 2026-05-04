@@ -359,7 +359,7 @@ executables:
   quantP_oneswap:
     dependencies: 
       - bellkat
-    main: quantum-examples/P_oneswap.hs
+    main: quantum-examples/validation/P_oneswap.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -368,7 +368,7 @@ executables:
   quantP_onedist:
     dependencies: 
       - bellkat
-    main: quantum-examples/P_onedist.hs
+    main: quantum-examples/validation/P_onedist.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -377,7 +377,7 @@ executables:
   quantP_distswap:
     dependencies: 
       - bellkat
-    main: quantum-examples/P_distswap.hs
+    main: quantum-examples/validation/P_distswap.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -395,25 +395,7 @@ executables:
   quantPa:
     dependencies: 
       - bellkat
-    main: quantum-examples/Pa.hs
-    default-extensions:
-      - OverloadedStrings
-      - OverloadedLists
-    ghc-options:
-      - -rtsopts
-  quantPd:
-    dependencies: 
-      - bellkat
-    main: quantum-examples/Pd.hs
-    default-extensions:
-      - OverloadedStrings
-      - OverloadedLists
-    ghc-options:
-      - -rtsopts
-  quantPd_parallel:
-    dependencies: 
-      - bellkat
-    main: quantum-examples/Pd_parallel.hs
+    main: quantum-examples/qcnc/Pa.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -422,7 +404,7 @@ executables:
   quantP5_3_pompili:
     dependencies: 
       - bellkat
-    main: quantum-examples/P5_3_pompili.hs
+    main: quantum-examples/qcnc/P5_3_pompili.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -431,7 +413,7 @@ executables:
   quantP5_Li:
     dependencies: 
       - bellkat
-    main: quantum-examples/P5_Li.hs
+    main: quantum-examples/qcnc/P5_Li.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -440,7 +422,7 @@ executables:
   quantP5_Li_cutoff:
     dependencies: 
       - bellkat
-    main: quantum-examples/P5_Li_cutoff.hs
+    main: quantum-examples/qcnc/P5_Li_cutoff.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -449,7 +431,7 @@ executables:
   quantP5_LaCorte:
     dependencies: 
       - bellkat
-    main: quantum-examples/P5_LaCorte.hs
+    main: quantum-examples/qcnc/P5_LaCorte.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -458,7 +440,16 @@ executables:
   quantP5_Star:
     dependencies: 
       - bellkat
-    main: quantum-examples/P5_Star.hs
+    main: quantum-examples/qcnc/P5_Star.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP_star:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/validation/P_star.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists
@@ -490,5 +481,3 @@ tests:
     dependencies:
       - hspec
       - bellkat
-    cpp-options:
-      - -DINSTANTANEOUS_OPS_FALSE

@@ -27,6 +27,9 @@ p n =
         <> swap "B" ("A", "D")
     )
 
+nb :: NetworkBounds QBKATTag
+nb = def { nbOperationTiming = InstantaneousOps }
+
 actionConfig :: Bool -> Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig useFirst pGen w0 pSwap tCoh =
     PAC
@@ -88,4 +91,4 @@ main =
         pSwap = 3/4
         w0     = 95/100
         tCoh   = 1000
-    in qbkatMainD (actionConfig useFirstExp pGen w0 pSwap tCoh) def ev (p 27) mempty
+    in qbkatMainD (actionConfig useFirstExp pGen w0 pSwap tCoh) nb ev (p 27) mempty

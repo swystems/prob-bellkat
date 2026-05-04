@@ -15,7 +15,10 @@ from plot_extremal import derive_pmf_series, load_extremal_series
 # SHOW_PLOTS=1 RUN_VALIDATION_RUNNER=1 pytest -s scripts/tests/test_validation.py
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 STAR_LINKS = ("AC", "BC")
-STAR_REFERENCE_ATOL = 1e-6
+REFERENCE_ATOL = 1e-6
+PMF_REFERENCE_ATOL = {"oneswap": 5e-4}
+WERNER_REFERENCE_ATOL = {"oneswap": 5e-6}
+STAR_REFERENCE_ATOL = REFERENCE_ATOL
 
 
 def _env_flag(name: str) -> bool:
@@ -81,9 +84,11 @@ def _load_distribution_data(name: str) -> dict[str, np.ndarray | float | None]:
         rmse_werner = None
         max_werner = None
     else:
-        l1_werner = float(np.sum(np.abs(w_out - w_reference)))
-        rmse_werner = float(np.sqrt(np.mean((w_out - w_reference) ** 2)))
-        max_werner = float(np.max(np.abs(w_out - w_reference)))
+        finite_reference = np.isfinite(w_reference)
+        w_diff = w_out[finite_reference] - w_reference[finite_reference]
+        l1_werner = float(np.sum(np.abs(w_diff)))
+        rmse_werner = float(np.sqrt(np.mean(w_diff ** 2)))
+        max_werner = float(np.max(np.abs(w_diff)))
 
     return {
         "name": name,
@@ -251,6 +256,39 @@ def _assert_pure_plus_mixed_equals_total(data: dict[str, np.ndarray | float | No
     )
 
 
+def _assert_matches_reference_pickles(data: dict[str, np.ndarray | float | None]) -> None:
+    name = str(data["name"])
+    pmf_atol = PMF_REFERENCE_ATOL.get(name, REFERENCE_ATOL)
+    werner_atol = WERNER_REFERENCE_ATOL.get(name, REFERENCE_ATOL)
+    pmf_reference = np.asarray(data["pmf_reference"])
+    pmf_mdp = np.asarray(data["pmf_mdp"])
+
+    assert pmf_mdp.shape == pmf_reference.shape, (
+        f"{name} PMF shape mismatch: computed={pmf_mdp.shape}, reference={pmf_reference.shape}"
+    )
+    assert np.allclose(pmf_mdp, pmf_reference, atol=pmf_atol, rtol=0.0), (
+        f"{name} PMF does not match the reference pickle"
+    )
+
+    assert data["w_reference"] is not None, f"{name} is missing a Werner reference pickle"
+    w_out = np.asarray(data["w_out"])
+    w_reference = np.asarray(data["w_reference"])
+    assert w_out.shape == w_reference.shape, (
+        f"{name} Werner shape mismatch: computed={w_out.shape}, reference={w_reference.shape}"
+    )
+
+    finite_reference = np.isfinite(w_reference)
+    assert np.any(finite_reference), f"{name} Werner reference has no finite values"
+    assert np.allclose(
+        w_out[finite_reference],
+        w_reference[finite_reference],
+        atol=werner_atol,
+        rtol=0.0,
+    ), (
+        f"{name} Werner output does not match the reference pickle"
+    )
+
+
 def _report_metrics_and_optionally_plot(data: dict[str, np.ndarray | float | None]) -> None:
     pmf_reference = np.asarray(data["pmf_reference"])
     pmf_mdp = np.asarray(data["pmf_mdp"])
@@ -392,7 +430,7 @@ def prepare_validation_outputs() -> None:
     if not _env_flag("RUN_VALIDATION_RUNNER"):
         return
 
-    subprocess.run(["bash", "scripts/validation_runner.sh", "all"], check=True)
+    subprocess.run(["bash", "scripts/tests/test_validation_runner.sh", "all"], check=True)
 
 
 @pytest.fixture(scope="module")
@@ -413,6 +451,14 @@ def distswap_data() -> dict[str, np.ndarray | float | None]:
 @pytest.fixture(scope="module")
 def star_data() -> dict[str, dict[str, dict[str, Any]]]:
     return _load_star_validation_data()
+
+
+@pytest.mark.parametrize("fixture_name", ("oneswap_data", "onedist_data", "distswap_data"))
+def test_distribution_matches_reference_pickles(
+    request: pytest.FixtureRequest,
+    fixture_name: str,
+) -> None:
+    _assert_matches_reference_pickles(request.getfixturevalue(fixture_name))
 
 
 def test_oneswap_pmf_is_deterministic(oneswap_data: dict[str, np.ndarray | float | None]) -> None:

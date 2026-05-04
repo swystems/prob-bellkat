@@ -1,42 +1,45 @@
 import BellKAT.QuantumPrelude
 
 p :: QBKATPolicy 
-p = while (hasNotSubset ["A" ~ "B" .~ (1 :: QBKATTag)])
+p = while ("A" /~? "C")
     (       
-        -- if I already have a pair, generate only one more, 
-        -- otherwise generate two pairs
         (
             ite ("A" /~? "B") (ucreate ("A", "B")) mempty
         <||> 
-            ucreate ("A", "B")
+            ite ("B" /~? "C") (ucreate ("B", "C")) mempty
         )
         <> 
-            distill ("A", "B") .~ (1 :: QBKATTag)
+            swap "B" ("A", "C")
     )
 
 networkCapacity :: NetworkCapacity QBKATTag
-networkCapacity = ["A" ~ "B", "A" ~ "B"]
+networkCapacity = ["A" ~ "B", "B" ~ "C", "A" ~ "C"]
 
 nb :: NetworkBounds QBKATTag
-nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Nothing })
+nb = def
+    { nbCapacity = Just networkCapacity
+    , nbOperationTiming = InstantaneousOps
+    }
 
 actionConfig :: Double -> Int -> ProbabilisticActionConfiguration
 actionConfig w0 tCoh = PAC 
     { pacTransmitProbability = []
     , pacCreateProbability = []
     , pacCreateWerner = []
-    , pacUCreateProbability = [(("A", "B"), 1/3)]
-    , pacUCreateWerner = [(("A", "B"), w0)]
-    , pacSwapProbability = []
-    , pacCoherenceTime = [("A", tCoh), ("B", tCoh)]
+    , pacUCreateProbability = [(("A", "B"), 1/3), (("B", "C"), 1/5)]
+    , pacUCreateWerner = [(("A", "B"), w0), (("B", "C"), w0)]
+    , pacSwapProbability = [("B", 1/2)]
+    , pacCoherenceTime = [("A", tCoh), ("B", tCoh), ("C", tCoh)]
     , pacDistances =
     [ (("A", "B"), 1)
+    , (("B", "C"), 1)
+    , (("A", "C"), 2)
     ]
     }
 
 main :: IO ()
 main = 
-    let ev  = hasPureSubset ["A" ~ "B" .~ (1 :: QBKATTag)]
+    let ev  = "A" ~~? "C"
         w0  = 8/10
         tCoh = 10
     in qbkatMainD (actionConfig w0 tCoh) nb ev p mempty

@@ -22,7 +22,11 @@ cutoff :: CutoffSpec
 cutoff = 4
 
 nb :: NetworkBounds QBKATTag
-nb = (NetworkBounds { nbCapacity = Just networkCapacity, nbCutoff = Just cutoff })
+nb = def
+    { nbCapacity = Just networkCapacity
+    , nbCutoff = Just cutoff
+    , nbOperationTiming = InstantaneousOps
+    }
 
 actionConfig :: Rational -> Double -> Rational -> Int -> ProbabilisticActionConfiguration
 actionConfig pGen w0 pSwap tCoh =

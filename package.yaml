@@ -383,6 +383,24 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP_star:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/validation/P_star.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
+  quantP_swapasap:
+    dependencies: 
+      - bellkat
+    main: quantum-examples/validation/P_swapasap.hs
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   quantP_compare_swap:
     dependencies:
       - bellkat
@@ -441,15 +459,6 @@ executables:
     dependencies: 
       - bellkat
     main: quantum-examples/qcnc/P5_Star.hs
-    default-extensions:
-      - OverloadedStrings
-      - OverloadedLists
-    ghc-options:
-      - -rtsopts
-  quantP_star:
-    dependencies: 
-      - bellkat
-    main: quantum-examples/validation/P_star.hs
     default-extensions:
       - OverloadedStrings
       - OverloadedLists

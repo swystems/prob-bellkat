@@ -21,6 +21,7 @@ module BellKAT.Implementations.QuantumOps (
     simSwapBPs,
     createBP,
     transmitBP,
+    idleBPs,
     distBPs,
     generateBP,
     isFresh
@@ -154,6 +155,9 @@ instance Output QuantumOutput where
 
     computeOutput QuantumOutput{qoOutputBP = outBp, qoOperation = FTransmit p tCohs d} inClockedBps =
         [transmitBP p tCohs d inClockedBps outBp]
+
+    computeOutput QuantumOutput{qoOperation = FIdle tCohs} inClockedBps =
+        [idleBPs tCohs inClockedBps]
 
     computeOutput QuantumOutput{qoOperation = FDestroy} (Mset.LMS (_, clock)) =
         [cpure (labelledMempty clock)]
@@ -357,6 +361,28 @@ transmitBP p (tCoh1, tCoh2) d (Mset.LMS (inBps, clock)) outBp =
                     mkQuantumTag (qtDistillations qTag) productionTS (w * decay (tCoh1, tCoh2) (getMaxClock clock - t))
             in produceBP p newTag (MaxClock productionTS)
         _ -> error "transmitBP: expected exactly one input tagged Bell pair"
+
+-- | Reserve stored Bell pairs for a zero-duration idle action.
+-- The selected pairs are preserved. Any age up to the current clock is folded
+-- into the fidelity; the enclosing round clock is advanced by other actions.
+idleBPs :: [(TimeUnit, TimeUnit)]
+        -> LabelledBellPairs MaxClock QuantumTag
+        -> D' (LabelledBellPairs MaxClock QuantumTag)
+idleBPs tCohs (Mset.LMS (inBps, clock))
+    | length inputs == length tCohs =
+        cpure (Mset.LMS (Mset.fromList (zipWith idleOne tCohs inputs), clock))
+    | otherwise =
+        error "idleBPs: coherence spec count does not match input Bell pair count"
+  where
+    inputs = toList inBps
+    clockNow = getMaxClock clock
+
+    idleOne tCohs' (TaggedBellPair bp qTag) =
+        TaggedBellPair bp $
+            mkQuantumTag
+                (qtDistillations qTag)
+                clockNow
+                (qtFidelity qTag * decay tCohs' (clockNow - qtTimestamp qTag))
 
 -- | UnstableCreate: Output = UnstableCreate p BellPair(locA~locB) 
 -- | generation (creation and transmission combined) of a new Bell pair. 

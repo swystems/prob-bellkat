@@ -268,6 +268,9 @@ computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperatio
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FTransmit p _ d} chosen =
     requireCardinality "transmit" 1 chosen $
         cmap producedPieces $ transmitLike pac (fromRational p) d roundCost outBp chosen
+computePrimitiveOutput pac roundCost BinaryOutput{boOperation = FIdle tCohs} chosen =
+    requireCardinality "idle" (length tCohs) chosen $
+        cmap retainedPieces $ idleLike pac roundCost chosen
 computePrimitiveOutput pac roundCost BinaryOutput{boOutputBP = outBp, boOperation = FSwap p _ ds} chosen =
     requireCardinality "swap" 2 chosen $
         cmap producedPieces $ swapLike pac (fromRational p) (max (fst ds) (snd ds)) roundCost outBp chosen
@@ -319,6 +322,14 @@ transmitLike pac pSuccess localCost roundCost outBp chosen =
                         [(singletonMixedWith outCount outBp, pSuccess)]
             _ ->
                 error "transmitLike: expected exactly one input Bell pair"
+
+idleLike
+    :: ProbabilisticActionConfiguration
+    -> Int
+    -> WernerBellPairs
+    -> MDP Double WernerBellPairs
+idleLike pac roundCost chosen =
+    fromDistribution (decohereState pac roundCost chosen)
 
 swapLike
     :: ProbabilisticActionConfiguration

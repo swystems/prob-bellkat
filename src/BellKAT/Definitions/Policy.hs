@@ -17,6 +17,7 @@ import           BellKAT.Definitions.Structures
 data Action
     = Swap Location (Location, Location)
     | SimSwap [Location] (Location, Location)
+    | Idle [(Location, Location)]
     | Transmit Location (Location, Location)
     | Distill (Location, Location)
     | Create Location
@@ -203,6 +204,7 @@ instance Arbitrary Action where
     arbitrary = oneof
         [ Swap <$> arbitrary <*> arbitrary
         , SimSwap <$> listOf1 arbitrary <*> arbitrary
+        , Idle <$> listOf1 arbitrary
         , Create <$> arbitrary
         , Transmit <$> arbitrary <*> arbitrary
         , Distill <$> arbitrary

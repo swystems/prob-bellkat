@@ -24,6 +24,9 @@ swap loc locs = defaultTagged $ Swap loc locs
 sswap :: DSLFunctions p => [Location] -> (Location, Location) -> p
 sswap repeaters locs = defaultTagged $ SimSwap repeaters locs
 
+idle :: DSLFunctions p => [(Location, Location)] -> p
+idle locs = defaultTagged $ Idle locs
+
 create :: DSLFunctions p => Location -> p
 create loc = defaultTagged $ Create loc
 

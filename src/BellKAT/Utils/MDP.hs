@@ -217,12 +217,15 @@ minimizeStateSystem ss = SS
         mdp <- Map.lookup st perState
         deterministicZeroCostSuccessor mdp
 
+-- TODO: idle and create are now of cost 1 because otherwise they might yield a 0-cost cycle, which breaks the minimization procedure
+-- maybe there is a way to avoid this
 primitiveCost :: Op -> Int
 primitiveCost FSkip = 0
 primitiveCost FDestroy = 0
 primitiveCost FCreate{} = 1
 primitiveCost (FGenerate _ _ d) = d
 primitiveCost (FTransmit _ _ d) = d
+primitiveCost FIdle{} = 1
 primitiveCost (FSwap _ _ (d1, d2)) = max d1 d2
 primitiveCost (FSimSwap _ _ simSwapDistanceSpecs) =
     case ds of

@@ -138,7 +138,10 @@ computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op
         successOrFailure (primitiveCostWith timing op) p (StaticBellPairs $ Mset.singleton' outBp)
 computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FTransmit p _ _)} chosen =
     requireCardinality "transmit" 1 chosen $
-        successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithInputCount outBp chosen)
+    successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithInputCount outBp chosen)
+computePrimitiveOutput timing QuantumOutput{qoOperation = op@(FIdle tCohs)} chosen =
+    requireCardinality "idle" (length tCohs) chosen $
+        singleGenerator (primitiveCostWith timing op) [chosen]
 computePrimitiveOutput timing QuantumOutput{qoOutputBP = outBp, qoOperation = op@(FSwap p _ _)} chosen =
     requireCardinality "swap" 2 chosen $
         successOrFailure (primitiveCostWith timing op) p (StaticBellPairs . Mset.singleton' $ outBpWithMaxInputCount outBp chosen)

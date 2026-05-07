@@ -122,6 +122,8 @@ data Op =
     | FGenerate Probability StateQuality Distance
     | FTransmit Probability (CoherenceTime, CoherenceTime) Distance
     -- ^ all yield a probabilistic choice: singleton over the given TBP or empty
+    | FIdle [(CoherenceTime, CoherenceTime)]
+    -- ^ consumes and reproduces stored Bell pairs while reserving them for a round
     -- | TODO: the tag here is redundant
     | FDestroy
     -- ^ yields mempty (destroyed Bell pair)

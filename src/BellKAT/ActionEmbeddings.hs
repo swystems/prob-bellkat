@@ -44,15 +44,17 @@ mapDesugarActions = fmap . desugarActions
 simpleActionMeaning :: TaggedAction t -> CreateBellPairArgs' t
 simpleActionMeaning ta = case taAction ta of
     (Swap l (l1, l2))     -> CreateBellPairArgs
-        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
+        [l ~ l1 @ taTagIn ta, l ~ l2 @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0
     (SimSwap repeaters (l1, l2)) ->
         let path = l1 : repeaters <> [l2]
          in CreateBellPairArgs
             (simSwapInputBPs (taTagIn ta) path)
             ((l1 ~ l2) @ taTagOut ta)
             1.0
+    (Idle locs) -> CreateBellPairArgs
+        (idleInputBPs (taTagIn ta) locs) (idleOutputBP (taTagOut ta) locs) 1.0
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0 
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 1.0
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 1.0 
     (Destroy (l1, l2))            -> CreateBellPairArgs
@@ -75,6 +77,9 @@ simpleOpActionMeaning ta = case taAction ta of
             (simSwapInputBPs (taTagIn ta) path)
             ((l1 ~ l2) @ taTagOut ta)
             (FSimSwap 1.0 (simSwapDefaultCoherenceSpecs path, (1, 1)) (simSwapDefaultDistanceSpecs path))
+    (Idle locs) -> CreateBellPairArgs
+        (idleInputBPs (taTagIn ta) locs) (idleOutputBP (taTagOut ta) locs)
+        (FIdle (replicate (length locs) (1, 1)))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (FTransmit 1.0 (1, 1) 1)
@@ -126,6 +131,9 @@ probabilisticActionMeaning pac ta = case taAction ta of
             (simSwapInputBPs (taTagIn ta) path)
             ((l1 ~ l2) @ taTagOut ta)
             (product (fmap (swapProbability pac) repeaters))
+    (Idle locs) -> CreateBellPairArgs
+        (idleInputBPs (taTagIn ta) locs) (idleOutputBP (taTagOut ta) locs)
+        1.0
     (Transmit l (l1, l2)) -> CreateBellPairArgs
         [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (transmitProbability pac l (l1, l2))
@@ -155,8 +163,11 @@ probabilisticOpActionMeaning pac ta = case taAction ta of
                 (product (fmap (swapProbability pac) repeaters))
                 (simSwapCoherenceSpecs pac path, coherenceTimePair pac locs)
                 (simSwapDistanceSpecs pac path))
+    (Idle locs) -> CreateBellPairArgs
+        (idleInputBPs (taTagIn ta) locs) (idleOutputBP (taTagOut ta) locs)
+        (FIdle (fmap (coherenceTimePair pac) locs))
     (Transmit l (l1, l2)) -> CreateBellPairArgs
-        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta) 
+        [l ~ l @ taTagIn ta] (l1 ~ l2 @ taTagOut ta)
         (FTransmit (transmitProbability pac l (l1, l2)) (coherenceTimePair pac (l1, l2)) (distancePair pac (l1, l2)))
     (Create l)            -> CreateBellPairArgs
         [] (l ~ l @ taTagOut ta ) 
@@ -232,11 +243,20 @@ distancePair pac (l1, l2) =
             case pacDistances pac Map.!? (l2, l1) of
                 Just d' -> d'
                 Nothing -> error $ "no distance for " <> show (l1, l2) <> " or " <> show (l2, l1)
-
         Just d -> d
 
 distanceTriplet :: ProbabilisticActionConfiguration -> (Location, Location, Location) -> (SpaceUnit, SpaceUnit)
 distanceTriplet pac (l, l1, l2) = (distancePair pac (l, l1), distancePair pac (l, l2))
+
+idleInputBPs :: t -> [(Location, Location)] -> [TaggedBellPair t]
+idleInputBPs tag locs =
+    [l1 ~ l2 @ tag | (l1, l2) <- locs]
+
+idleOutputBP :: t -> [(Location, Location)] -> TaggedBellPair t
+idleOutputBP tag locs =
+    case locs of
+        (l1, l2):_ -> l1 ~ l2 @ tag
+        [] -> error "idle: expected at least one Bell pair"
 
 simSwapInputBPs :: tag -> [Location] -> [TaggedBellPair tag]
 simSwapInputBPs tag path =

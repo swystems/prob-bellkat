@@ -10,7 +10,9 @@ module BellKAT.Implementations.MDPExtremal
     , SchedulerSelection(..)
     , ExtremalResult(..)
     , computeExtremalReachability
+    , extremalDPTablesToJSON
     , renderExtremalResult
+    , renderExtremalDPTables
     ) where
 
 import qualified Data.Aeson                  as A
@@ -136,6 +138,25 @@ instance (Ord s, Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) =>
                         ]
                 ]
 
+extremalDPTablesToJSON
+    :: (Ord s, Show s, IsList s, Show (Item s), RationalOrDouble p)
+    => ExtremalResult s p
+    -> A.Value
+extremalDPTablesToJSON result =
+    A.object
+        [ "columns" A..= initialStateTimeSeries result
+        , "min" A..= tableRowsToJSON (erMinTable result)
+        , "max" A..= tableRowsToJSON (erMaxTable result)
+        ]
+  where
+    tableRowsToJSON table =
+        [ A.object
+            [ "state" A..= stateToJSON st
+            , "values" A..= fmap toDouble (cdfRow table st (erResolvedBudget result))
+            ]
+        | st <- erStates result
+        ]
+
 stateToJSON :: (Show s, IsList s, Show (Item s)) => ConcreteMDPState s -> A.Value
 stateToJSON st@(pc, bps) =
     A.object
@@ -238,6 +259,27 @@ renderExtremalResult result =
            , renderSchedulerChoices "Worst scheduler choices (min CDF):" (erMinSchedulerChoices result)
            , renderSchedulerChoices "Best scheduler choices (max CDF):" (erMaxSchedulerChoices result)
            ]
+
+renderExtremalDPTables :: (Ord s, RationalOrDouble p, Show s) => ExtremalResult s p -> String
+renderExtremalDPTables result =
+    unlines
+        [ "DP table dump"
+        , ""
+        , renderDPTable "Min DP table:" (erMinTable result)
+        , ""
+        , renderDPTable "Max DP table:" (erMaxTable result)
+        ]
+  where
+    renderDPTable title table =
+        unlines $
+            title :
+            lines
+                ( renderTable
+                    ("state" : fmap (("t=" <>) . show) (initialStateTimeSeries result))
+                    [ show st : fmap show (cdfRow table st (erResolvedBudget result))
+                    | st <- erStates result
+                    ]
+                )
 
 renderStateList :: Show s => [ConcreteMDPState s] -> String
 renderStateList [] = "none"

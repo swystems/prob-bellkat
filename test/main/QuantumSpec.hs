@@ -40,6 +40,8 @@ import BellKAT.Implementations.MDPExtremal
   , erMaxTable
   , erMinTable
   , erResolvedBudget
+  , extremalDPTablesToJSON
+  , renderExtremalDPTables
   , renderExtremalResult
   )
 import BellKAT.Implementations.QuantumOps
@@ -451,19 +453,28 @@ spec = do
               then Map.lookup (erInitialState resultCoverage) (erMinTable resultCoverage) >>= IM.lookup (resolvedCoverageBudget - 1)
               else Nothing
           renderedExtremal = renderExtremalResult resultBudget
+          renderedDPTables = renderExtremalDPTables resultBudget
           Just (A.Object jsonExtremal) = A.decode (A.encode resultBudget)
           Just (A.Object jsonSeries) = AKM.lookup "series" jsonExtremal
+          A.Object jsonDPTables = extremalDPTablesToJSON resultBudget
 
       erResolvedBudget resultBudget `shouldBe` 10
       cMin10 `shouldSatisfy` (>= 0)
       cMax10 `shouldSatisfy` (<= 1)
       cMin10 `shouldSatisfy` (<= cMax10)
       renderedExtremal `shouldSatisfy` isInfixOf "t   pmf_min[t]"
+      renderedDPTables `shouldSatisfy` isInfixOf "DP table dump"
+      renderedDPTables `shouldSatisfy` isInfixOf "Min DP table:"
+      renderedDPTables `shouldSatisfy` isInfixOf "Max DP table:"
       jsonExtremal `shouldSatisfy` AKM.member "series"
       jsonSeries `shouldSatisfy` AKM.member "cdf_min"
       jsonSeries `shouldSatisfy` AKM.member "cdf_max"
       jsonSeries `shouldSatisfy` not . AKM.member "pmf_min"
       jsonSeries `shouldSatisfy` not . AKM.member "t"
+      jsonDPTables `shouldSatisfy` AKM.member "columns"
+      AKM.lookup "columns" jsonDPTables `shouldBe` Just (A.toJSON ([0..10] :: [Int]))
+      jsonDPTables `shouldSatisfy` AKM.member "min"
+      jsonDPTables `shouldSatisfy` AKM.member "max"
 
       erResolvedBudget resultCoverage `shouldSatisfy` (>= 10)
       case erCoverageStatus resultCoverage of

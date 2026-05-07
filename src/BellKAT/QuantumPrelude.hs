@@ -68,6 +68,8 @@ import BellKAT.Implementations.ProbabilisticQuantumOps
 import BellKAT.Implementations.MDPExtremal
     ( ExtremalQuery(..)
     , computeExtremalReachability
+    , extremalDPTablesToJSON
+    , renderExtremalDPTables
     , renderExtremalResult
     )
 import BellKAT.Implementations.Output (ListOutput, staticBellPairs, staticTag, OutputBellPairs)
@@ -115,6 +117,7 @@ createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 
 data MDPCLIOpts = MDPCLIOpts
     { mcoComputeExtremal :: Bool
+    , mcoDumpDP :: Bool
     , mcoCoverage :: Maybe Double
     , mcoBudget :: Maybe Int
     }
@@ -133,6 +136,10 @@ mdpCLIParser =
             ( OA.long "compute-extremal"
                 <> OA.help "Compute extremal cost-bounded reachability from the derived MDP"
             )
+        <*> OA.flag False True
+            ( OA.long "dump-dp"
+                <> OA.help "Dump the full extremal dynamic-programming table(s)"
+            )
         <*> OA.optional
             ( OA.option OA.auto
                 ( OA.long "coverage"
@@ -149,7 +156,7 @@ mdpCLIParser =
             )
 
 resolveExtremalQuery :: MDPCLIOpts -> Either String (Maybe ExtremalQuery)
-resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoCoverage, mcoBudget}
+resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoDumpDP, mcoCoverage, mcoBudget}
     | hasCoverage && hasBudget =
         Left "Use either --coverage or --truncation, not both."
     | not wantsExtremal =
@@ -159,11 +166,11 @@ resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoCoverage, mcoBudget}
             (Just coverage, Nothing) -> Right . Just $ ExtremalCoverage coverage
             (Nothing, Just budget) -> Right . Just $ ExtremalBudget budget
             _ ->
-                Left "Pass either --coverage or --truncation when requesting --compute-extremal."
+                Left "Pass either --coverage or --truncation when requesting extremal solving or --dump-dp."
   where
     hasCoverage = maybe False (const True) mcoCoverage
     hasBudget = maybe False (const True) mcoBudget
-    wantsExtremal = mcoComputeExtremal || hasCoverage || hasBudget
+    wantsExtremal = mcoComputeExtremal || mcoDumpDP || hasCoverage || hasBudget
 
 qcoParser :: OA.Parser QbkatCLIOpts
 qcoParser = QCO
@@ -248,17 +255,27 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                             ioError (userError err)
                         Right result ->
                             if qcoJSON opts
-                               then BS.putStr . A.encode $
-                                    A.object
-                                        [ "mdp_rendered" A..= show mdp
-                                        , "transition_count" A..= transitionCount
-                                        , "extremal" A..= result
-                                        ]
+                               then
+                                    let fields =
+                                            [ "mdp_rendered" A..= show mdp
+                                            , "transition_count" A..= transitionCount
+                                            , "extremal" A..= result
+                                            ]
+                                            <>
+                                            if mcoDumpDP mdpOpts
+                                               then [ "dp_tables" A..= extremalDPTablesToJSON result ]
+                                               else []
+                                     in BS.putStr . A.encode $ A.object fields
                                else do
                                     putStrLn (show mdp)
                                     putStrLn ("Total transitions T: " <> show transitionCount)
                                     putStrLn ""
                                     putStrLn (renderExtremalResult result)
+                                    if mcoDumpDP mdpOpts
+                                       then do
+                                            putStrLn ""
+                                            putStrLn (renderExtremalDPTables result)
+                                       else pure ()
           QMQMDP mdpOpts -> do
               initialQState <-
                   case initialWernerState ns of
@@ -285,17 +302,27 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                             ioError (userError err)
                         Right result ->
                             if qcoJSON opts
-                               then BS.putStr . A.encode $
-                                    A.object
-                                        [ "mdp_rendered" A..= show qmdp
-                                        , "transition_count" A..= transitionCount
-                                        , "extremal" A..= result
-                                        ]
+                               then
+                                    let fields =
+                                            [ "mdp_rendered" A..= show qmdp
+                                            , "transition_count" A..= transitionCount
+                                            , "extremal" A..= result
+                                            ]
+                                            <>
+                                            if mcoDumpDP mdpOpts
+                                               then [ "dp_tables" A..= extremalDPTablesToJSON result ]
+                                               else []
+                                     in BS.putStr . A.encode $ A.object fields
                                else do
                                     putStrLn (show qmdp)
                                     putStrLn ("Total transitions T: " <> show transitionCount)
                                     putStrLn ""
                                     putStrLn (renderExtremalResult result)
+                                    if mcoDumpDP mdpOpts
+                                       then do
+                                            putStrLn ""
+                                            putStrLn (renderExtremalDPTables result)
+                                       else pure ()
           QMAutomaton ->
               runLoggedPipeline automatonPipeline protocol >>= print
           QMProbability -> do

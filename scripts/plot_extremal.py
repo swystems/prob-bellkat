@@ -64,16 +64,16 @@ def load_extremal_payload(path):
         payload = json.load(handle)
 
     if "extremal" in payload:
-        payload = payload["extremal"]
+        return payload["extremal"]
 
+
+def load_extremal_series(path):
+    payload = load_extremal_payload(path)
     if "series" not in payload:
         raise SystemExit("Could not find an extremal series payload in the provided JSON file.")
 
     return payload["series"]
 
-
-def load_extremal_series(path):
-    return load_extremal_payload(path)
 
 
 def pmf_from_cdf(cdf):
@@ -164,6 +164,8 @@ def configure_matplotlib():
             "xtick.major.size": 3.0,
             "ytick.major.size": 3.0,
             "lines.linewidth": 1.6,
+            "text.usetex": True,
+            "text.latex.preamble": r"\usepackage{amsmath}",
             "pdf.fonttype": 42,
             "ps.fonttype": 42,
         }

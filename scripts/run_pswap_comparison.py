@@ -494,7 +494,13 @@ def plot_combined_werners(plt, figure_dir, protocol_paths):
             mixed_series,
         )
         color = COLORS[index % len(COLORS)]
-
+        
+        # Skip the initial points where werner is 0 as they clutter the plot
+        t, werner_min, werner_max = zip(*[
+            (t_i, w_min, w_max)
+            for t_i, w_min, w_max in zip(t, werner_min, werner_max)
+            if w_min > 0.0 or w_max > 0.0
+        ])
         ax.plot(
             t,
             werner_min,
@@ -512,7 +518,7 @@ def plot_combined_werners(plt, figure_dir, protocol_paths):
 
     ax.set_xlabel(r"$t$")
     ax.set_ylabel("Average Werner parameter")
-    ax.set_ylim(0.0, 1.0)
+    # ax.set_ylim(0.0, 1.0)
     ax.set_title(QMDP_MODE.upper())
     style_axes(ax)
     ax.legend(frameon=False, loc="best", ncol=2)
@@ -553,14 +559,14 @@ def main():
             truncation,
             output_dir,
         )
-        qmdp_static_path, qmdp_static_elapsed = run_case(
-            args.executable,
-            protocol,
-            QMDP_MODE,
-            STATIC_EVENT,
-            truncation,
-            output_dir,
-        )
+        # qmdp_static_path, qmdp_static_elapsed = run_case(
+        #     args.executable,
+        #     protocol,
+        #     QMDP_MODE,
+        #     STATIC_EVENT,
+        #     truncation,
+        #     output_dir,
+        # )
         pure_path, pure_elapsed = run_case(
             args.executable,
             protocol,
@@ -580,11 +586,11 @@ def main():
 
         split_check = assert_static_pmf_equals_pure_plus_mixed(
             protocol,
-            qmdp_static_path,
+            mdp_static_path,
             pure_path,
             mixed_path,
         )
-        skr = compute_secret_key_rates(qmdp_static_path, pure_path, mixed_path)
+        skr = compute_secret_key_rates(mdp_static_path, pure_path, mixed_path)
 
         pmf_protocol_paths.append((protocol, mdp_static_path))
         werner_protocol_paths.append((protocol, pure_path, mixed_path))
@@ -598,13 +604,13 @@ def main():
                     "seconds": f"{mdp_static_elapsed:.6f}",
                     "json_path": str(mdp_static_path),
                 },
-                {
-                    "protocol": protocol,
-                    "mode": QMDP_MODE,
-                    "event": STATIC_EVENT,
-                    "seconds": f"{qmdp_static_elapsed:.6f}",
-                    "json_path": str(qmdp_static_path),
-                },
+                # {
+                #     "protocol": protocol,
+                #     "mode": QMDP_MODE,
+                #     "event": STATIC_EVENT,
+                #     "seconds": f"{qmdp_static_elapsed:.6f}",
+                #     "json_path": str(qmdp_static_path),
+                # },
                 {
                     "protocol": protocol,
                     "mode": QMDP_MODE,
@@ -622,7 +628,7 @@ def main():
             ]
         )
         print(f"{protocol} {MDP_MODE}/{STATIC_EVENT}: {mdp_static_elapsed:.2f}s -> {mdp_static_path}")
-        print(f"{protocol} {QMDP_MODE}/{STATIC_EVENT}: {qmdp_static_elapsed:.2f}s -> {qmdp_static_path}")
+        # print(f"{protocol} {QMDP_MODE}/{STATIC_EVENT}: {qmdp_static_elapsed:.2f}s -> {qmdp_static_path}")
         print(f"{protocol} {QMDP_MODE}/{PURE_EVENT}: {pure_elapsed:.2f}s -> {pure_path}")
         print(f"{protocol} {QMDP_MODE}/{MIXED_EVENT}: {mixed_elapsed:.2f}s -> {mixed_path}")
         if split_check == "exact":

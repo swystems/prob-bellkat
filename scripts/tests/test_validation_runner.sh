@@ -4,7 +4,7 @@ set -euo pipefail
 set -x
 
 mode="${1:-star}"
-output_dir="output"
+output_dir="output/validation"
 figure_dir="$output_dir/figures"
 swap_example="quantum-examples/validation/P_oneswap.hs"
 distill_example="quantum-examples/validation/P_onedist.hs"
@@ -23,9 +23,15 @@ run_extremal() {
 	local executable="$1"
 	local mdp_mode="$2"
 	local truncation="$3"
-	local suffix="${4:-}"
+	local suffix=""
+	shift 3
+	if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
+		suffix="$1"
+		shift
+	fi
+	local extra_args=("$@")
 
-	cabal -v0 run "$executable" -- --json "$mdp_mode" --compute-extremal --truncation "$truncation" > "$output_dir/${executable}${suffix}.json"
+	cabal -v0 run "$executable" -- "${extra_args[@]}" --json "$mdp_mode" --compute-extremal --truncation "$truncation" > "$output_dir/${executable}${suffix}.json"
 }
 
 replace_event() {
@@ -33,12 +39,12 @@ replace_event() {
 	local pattern="$2"
 	local replacement="$3"
 
-	sed -i '' "s|$pattern|$replacement|g" "$example_file"
+	perl -0pi -e "s|$pattern|$replacement|g" "$example_file"
 }
 
 restore_examples() {
-	replace_event "$swap_example" 'let ev[[:space:]]*=[[:space:]]*"A" =~? "C"' 'let ev  = "A" ~~? "C"' || true
-	replace_event "$swap_example" 'let ev[[:space:]]*=[[:space:]]*"A" -~? "C"' 'let ev  = "A" ~~? "C"' || true
+	replace_event "$swap_example" 'let ev[[:space:]]*=[[:space:]]*"A" =~\? "C"' 'let ev  = "A" ~~? "C"' || true
+	replace_event "$swap_example" 'let ev[[:space:]]*=[[:space:]]*"A" -~\? "C"' 'let ev  = "A" ~~? "C"' || true
 	replace_event "$distill_example" 'hasMixedSubset' 'hasPureSubset' || true
 	replace_event "$distswap_example" 'hasMixedSubset' 'hasPureSubset' || true
 	replace_event "$star_example" 'hasSubset \["B" ~ "C"\]' 'hasSubset ["A" ~ "C"]' || true
@@ -91,13 +97,13 @@ run_swap() {
 	# assume it starts with "let ev = \"A\" ~~? \"C\""
 	run_extremal "$executable" mdp "$truncation"
 
-	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" ~~? "C"' 'let ev  = "A" =~? "C"'
+	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" ~~\? "C"' 'let ev  = "A" =~? "C"'
 	run_extremal "$executable" qmdp "$truncation" _mixed
 
-	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" =~? "C"' 'let ev  = "A" -~? "C"'
+	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" =~\? "C"' 'let ev  = "A" -~? "C"'
 	run_extremal "$executable" qmdp "$truncation" _pure
 
-	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" -~? "C"' 'let ev  = "A" ~~? "C"'
+	replace_event "$example_file" 'let ev[[:space:]]*=[[:space:]]*"A" -~\? "C"' 'let ev  = "A" ~~? "C"'
 
 	plot_static "$executable"
 	plot_pure_mixed "$executable"
@@ -143,6 +149,30 @@ run_star() {
 
 }
 
+run_swapasap() {
+	local executable="quantP_swapasap"
+	local label
+	local p_gen
+	local t_coh
+	local truncation
+
+	while read -r label p_gen t_coh truncation; do
+		[ -n "$label" ] || continue
+
+		run_extremal "$executable" mdp "$truncation" "_${label}" --event=static --p-gen="$p_gen" --t-coh="$t_coh"
+		run_extremal "$executable" qmdp "$truncation" "_${label}_pure" --event=pure --p-gen="$p_gen" --t-coh="$t_coh"
+		run_extremal "$executable" qmdp "$truncation" "_${label}_mixed" --event=mixed --p-gen="$p_gen" --t-coh="$t_coh"
+
+		plot_static "${executable}_${label}"
+		plot_pure_mixed "${executable}_${label}"
+	done <<'EOF'
+p020_t1000 0.2 1000 200
+p010_t1000 0.1 1000 300
+p005_t5000 0.05 5000 600
+p0001_t50000 0.001 50000 25000
+EOF
+}
+
 case "$mode" in
 	swap)
 		run_swap
@@ -156,14 +186,18 @@ case "$mode" in
 	star)
 		run_star
 		;;
+	swapasap|swap-asap)
+		run_swapasap
+		;;
 	all)
 		run_swap
 		run_distill
 		run_distill_swap
 		run_star
+		run_swapasap
 		;;
 	*)
-		echo "Usage: $0 [swap|distill|distill-swap|star|all]"
+		echo "Usage: $0 [swap|distill|distill-swap|star|swapasap|all]"
 		exit 1
 		;;
 esac

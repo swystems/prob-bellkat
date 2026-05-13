@@ -12,7 +12,7 @@ SUFFIXES = {
 }
 
 REPO_ROOT = Path.cwd().resolve()
-OUTPUT_DIR = REPO_ROOT / "output"
+OUTPUT_DIR = REPO_ROOT / "output" / "validation"
 
 
 def discover_complete_examples():
@@ -51,9 +51,9 @@ EXAMPLES = discover_complete_examples()
 
 def test_complete_example_sets_exist():
     assert EXAMPLES, (
-        "No complete static/pure/mixed output trios were found in output/. "
-        "Expected files named output/<example>.json, "
-        "output/<example>_pure.json, and output/<example>_mixed.json."
+        "No complete static/pure/mixed output trios were found in output/validation/. "
+        "Expected files named output/validation/<example>.json, "
+        "output/validation/<example>_pure.json, and output/validation/<example>_mixed.json."
     )
 
 

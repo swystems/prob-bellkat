@@ -15,10 +15,18 @@ from plot_extremal import derive_pmf_series, load_extremal_series
 # SHOW_PLOTS=1 RUN_VALIDATION_RUNNER=1 pytest -s scripts/tests/test_validation.py
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 STAR_LINKS = ("AC", "BC")
+VALIDATION_OUTPUT_DIR = Path("output/validation")
 REFERENCE_ATOL = 1e-6
 PMF_REFERENCE_ATOL = {"oneswap": 5e-4}
 WERNER_REFERENCE_ATOL = {"oneswap": 5e-6}
 STAR_REFERENCE_ATOL = REFERENCE_ATOL
+SWAPASAP_REFERENCE_ATOL = 1e-9
+SWAPASAP_CASES = (
+    {"label": "p020_t1000", "p_gen": 0.2, "t_coh": 1000, "truncation": 200},
+    {"label": "p010_t1000", "p_gen": 0.1, "t_coh": 1000, "truncation": 300},
+    {"label": "p005_t5000", "p_gen": 0.05, "t_coh": 5000, "truncation": 600},
+    {"label": "p0001_t50000", "p_gen": 0.001, "t_coh": 50000, "truncation": 25000},
+)
 
 
 def _env_flag(name: str) -> bool:
@@ -47,15 +55,15 @@ def _load_distribution_data(name: str) -> dict[str, np.ndarray | float | None]:
     pmf_main_max = None
     has_main = True
     try:
-        series_main = load_extremal_series(f"output/quantP_{name}.json")
+        series_main = load_extremal_series(VALIDATION_OUTPUT_DIR / f"quantP_{name}.json")
         pmf_min, pmf_max = derive_pmf_series(series_main)
         pmf_main_min = np.array(pmf_min)
         pmf_main_max = np.array(pmf_max)
     except FileNotFoundError:
         has_main = False
 
-    series_pure = load_extremal_series(f"output/quantP_{name}_pure.json")
-    series_mixed = load_extremal_series(f"output/quantP_{name}_mixed.json")
+    series_pure = load_extremal_series(VALIDATION_OUTPUT_DIR / f"quantP_{name}_pure.json")
+    series_mixed = load_extremal_series(VALIDATION_OUTPUT_DIR / f"quantP_{name}_mixed.json")
     pmf_pure_min, pmf_pure_max = derive_pmf_series(series_pure)
     pmf_mixed_min, pmf_mixed_max = derive_pmf_series(series_mixed)
 
@@ -152,6 +160,25 @@ def _load_json_pmf(path: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array(pmf_min), np.array(pmf_max)
 
 
+def _appendix_d_lambda3(p_gen: float, memory_lambda: float) -> float:
+    q = 1.0 - p_gen
+    lambda_ = memory_lambda
+    return (
+        (1.0 - q) ** 3
+        / ((lambda_ - q) ** 2 * (1.0 - lambda_ * q) ** 2)
+        * (
+            lambda_**2 * (1.0 - lambda_ * q) ** 2 / (1.0 - q * lambda_**2)
+            + 2.0
+            * lambda_
+            * q
+            * (1.0 - lambda_ * q)
+            * (lambda_**2 - 1.0)
+            / (1.0 - lambda_ * q**2)
+            + q**2 * (lambda_**2 - 1.0) ** 2 / (1.0 - q**3)
+        )
+    )
+
+
 def _werner_from_json(pure_path: str, mixed_path: str) -> dict[str, np.ndarray]:
     pure_min, pure_max = _load_json_pmf(pure_path)
     mixed_min, mixed_max = _load_json_pmf(mixed_path)
@@ -194,7 +221,7 @@ def _load_star_validation_data() -> dict[str, dict[str, dict[str, Any]]]:
         pmf_t, pmf_reference = _load_reference_series(
             f"scripts/tests/dump/qcnc_star_pmf_{link_lower}.pkl"
         )
-        pmf_min, pmf_max = _load_json_pmf(f"output/quantP5_Star_{link}.json")
+        pmf_min, pmf_max = _load_json_pmf(VALIDATION_OUTPUT_DIR / f"quantP_star_{link}.json")
         pmf_computed = _select_timesteps(pmf_min, pmf_t)
         pmf_computed_max = _select_timesteps(pmf_max, pmf_t)
 
@@ -202,8 +229,8 @@ def _load_star_validation_data() -> dict[str, dict[str, dict[str, Any]]]:
             f"scripts/tests/dump/qcnc_star_werner_{link_lower}.pkl"
         )
         werner_json = _werner_from_json(
-            f"output/quantP5_Star_{link}_pure.json",
-            f"output/quantP5_Star_{link}_mixed.json",
+            VALIDATION_OUTPUT_DIR / f"quantP_star_{link}_pure.json",
+            VALIDATION_OUTPUT_DIR / f"quantP_star_{link}_mixed.json",
         )
         werner_computed = _select_timesteps(werner_json["werner_min"], werner_t)
         werner_computed_max = _select_timesteps(werner_json["werner_max"], werner_t)
@@ -228,6 +255,41 @@ def _load_star_validation_data() -> dict[str, dict[str, dict[str, Any]]]:
         }
 
     return data
+
+
+def _load_swapasap_validation_data(case: dict[str, Any]) -> dict[str, Any]:
+    label = case["label"]
+    static_min, static_max = _load_json_pmf(
+        VALIDATION_OUTPUT_DIR / f"quantP_swapasap_{label}.json"
+    )
+    pure_min, pure_max = _load_json_pmf(
+        VALIDATION_OUTPUT_DIR / f"quantP_swapasap_{label}_pure.json"
+    )
+    mixed_min, mixed_max = _load_json_pmf(
+        VALIDATION_OUTPUT_DIR / f"quantP_swapasap_{label}_mixed.json"
+    )
+
+    if not (len(static_min) == len(pure_min) == len(mixed_min)):
+        raise AssertionError(
+            "swap-ASAP static, pure, and mixed PMF series must have matching lengths."
+        )
+
+    memory_lambda = float(np.exp(-1.0 / case["t_coh"]))
+    appendix_d = _appendix_d_lambda3(case["p_gen"], memory_lambda)
+
+    return {
+        **case,
+        "static_min": static_min,
+        "static_max": static_max,
+        "pure_min": pure_min,
+        "pure_max": pure_max,
+        "mixed_min": mixed_min,
+        "mixed_max": mixed_max,
+        "computed_lambda": float(np.sum(pure_min)),
+        "appendix_d_lambda": appendix_d,
+        "static_tail": float(1.0 - np.sum(static_min)),
+        "memory_lambda": memory_lambda,
+    }
 
 
 def _assert_pmf_is_deterministic(data: dict[str, np.ndarray | float | None]) -> None:
@@ -453,6 +515,10 @@ def star_data() -> dict[str, dict[str, dict[str, Any]]]:
     return _load_star_validation_data()
 
 
+def _swapasap_case_id(case: dict[str, Any]) -> str:
+    return str(case["label"])
+
+
 @pytest.mark.parametrize("fixture_name", ("oneswap_data", "onedist_data", "distswap_data"))
 def test_distribution_matches_reference_pickles(
     request: pytest.FixtureRequest,
@@ -545,3 +611,61 @@ def test_star_reports_metrics_and_optionally_plots(
     star_data: dict[str, dict[str, dict[str, Any]]],
 ) -> None:
     _report_star_metrics_and_optionally_plot(star_data)
+
+
+@pytest.mark.parametrize("case", SWAPASAP_CASES, ids=_swapasap_case_id)
+def test_swapasap_pmf_is_deterministic(case: dict[str, Any]) -> None:
+    swapasap_data = _load_swapasap_validation_data(case)
+    assert np.allclose(
+        swapasap_data["static_min"],
+        swapasap_data["static_max"],
+        atol=SWAPASAP_REFERENCE_ATOL,
+    )
+    assert np.allclose(
+        swapasap_data["pure_min"],
+        swapasap_data["pure_max"],
+        atol=SWAPASAP_REFERENCE_ATOL,
+    )
+    assert np.allclose(
+        swapasap_data["mixed_min"],
+        swapasap_data["mixed_max"],
+        atol=SWAPASAP_REFERENCE_ATOL,
+    )
+
+
+@pytest.mark.parametrize("case", SWAPASAP_CASES, ids=_swapasap_case_id)
+def test_swapasap_pure_plus_mixed_equals_total(case: dict[str, Any]) -> None:
+    swapasap_data = _load_swapasap_validation_data(case)
+    assert np.allclose(
+        swapasap_data["pure_min"] + swapasap_data["mixed_min"],
+        swapasap_data["static_min"],
+        atol=SWAPASAP_REFERENCE_ATOL,
+    )
+
+
+@pytest.mark.parametrize("case", SWAPASAP_CASES, ids=_swapasap_case_id)
+def test_swapasap_matches_appendix_d_expression(case: dict[str, Any]) -> None:
+    swapasap_data = _load_swapasap_validation_data(case)
+    assert swapasap_data["static_tail"] < SWAPASAP_REFERENCE_ATOL
+    assert swapasap_data["computed_lambda"] == pytest.approx(
+        swapasap_data["appendix_d_lambda"],
+        abs=SWAPASAP_REFERENCE_ATOL,
+        rel=0.0,
+    )
+
+
+def test_swapasap_reports_metrics() -> None:
+    print("[swap-asap] Appendix D validation:")
+    for case in SWAPASAP_CASES:
+        swapasap_data = _load_swapasap_validation_data(case)
+        print(
+            f"  {swapasap_data['label']}: "
+            f"p_gen={swapasap_data['p_gen']:.12g}, "
+            f"t_coh={swapasap_data['t_coh']}, "
+            f"trunc={swapasap_data['truncation']}"
+        )
+        print(f"    lambda = {swapasap_data['memory_lambda']:.12e}")
+        print(f"    E[Lambda_3] qMDP     = {swapasap_data['computed_lambda']:.12e}")
+        print(f"    E[Lambda_3] Appendix = {swapasap_data['appendix_d_lambda']:.12e}")
+        print(f"    diff                 = {swapasap_data['computed_lambda'] - swapasap_data['appendix_d_lambda']:.12e}")
+        print(f"    tail          = {swapasap_data['static_tail']:.12e}")

@@ -182,6 +182,9 @@ setPGen value = withParameters (\parameters -> parameters{Net.npReferencePGen = 
 setW0 :: Double -> Scenario -> Scenario
 setW0 value = withParameters (\parameters -> parameters{Net.npReferenceW0 = value})
 
+setUniformW0 :: Double -> Scenario -> Scenario
+setUniformW0 value = withParameters (Net.withUniformW0 value)
+
 setPSwap :: Double -> Scenario -> Scenario
 setPSwap value = withParameters (Net.withUniformSwapProbability value)
 
@@ -198,6 +201,7 @@ stripExampleArgs = go defaultScenario []
     go _ _ ["--p-ge"] = Left "Missing value for --p-ge."
     go _ _ ["--p-gen"] = Left "Missing value for --p-gen."
     go _ _ ["--w0"] = Left "Missing value for --w0."
+    go _ _ ["--uniform-w0"] = Left "Missing value for --uniform-w0."
     go _ _ ["--p-swap"] = Left "Missing value for --p-swap."
     go _ _ ["--t-coh"] = Left "Missing value for --t-coh."
     go scenario kept ("--protocol" : name : rest) =
@@ -212,6 +216,9 @@ stripExampleArgs = go defaultScenario []
             go updated kept rest
     go scenario kept ("--w0" : raw : rest) =
         setDouble "--w0" setW0 raw scenario >>= \updated ->
+            go updated kept rest
+    go scenario kept ("--uniform-w0" : raw : rest) =
+        setDouble "--uniform-w0" setUniformW0 raw scenario >>= \updated ->
             go updated kept rest
     go scenario kept ("--p-swap" : raw : rest) =
         setDouble "--p-swap" setPSwap raw scenario >>= \updated ->
@@ -233,6 +240,9 @@ stripExampleArgs = go defaultScenario []
         | Just raw <- stripPrefix "--w0=" arg =
             setDouble "--w0" setW0 raw scenario >>= \updated ->
                 go updated kept rest
+        | Just raw <- stripPrefix "--uniform-w0=" arg =
+            setDouble "--uniform-w0" setUniformW0 raw scenario >>= \updated ->
+                go updated kept rest
         | Just raw <- stripPrefix "--p-swap=" arg =
             setDouble "--p-swap" setPSwap raw scenario >>= \updated ->
                 go updated kept rest
@@ -248,6 +258,8 @@ validateScenario scenario
         Left "--p-ge/--p-gen must be a 50 km reference probability in the interval (0, 1]."
     | Net.npReferenceW0 parameters < 0 || Net.npReferenceW0 parameters > 1 =
         Left "--w0 must be a 50 km reference Werner parameter in the interval [0, 1]."
+    | maybe False invalidProbability (Net.npUniformW0 parameters) =
+        Left "--uniform-w0 must be in the interval [0, 1]."
     | any invalidProbability (Map.elems (Net.npSwapProbabilities parameters)) =
         Left "--p-swap must be in the interval [0, 1]."
     | any (<= 0) (Map.elems (Net.npCoherenceTimes parameters)) =

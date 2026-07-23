@@ -126,6 +126,15 @@ def parse_args():
         help="Plot PMF bands, CDF bands, or both in the joint figure.",
     )
     parser.add_argument(
+        "--plot-truncation",
+        type=int,
+        default=None,
+        help=(
+            "Display the joint plots only through this time, without changing "
+            "the computed model horizon."
+        ),
+    )
+    parser.add_argument(
         "--plot-profile",
         choices=tuple(PLOT_SETTINGS),
         default=DEFAULT_PROFILE,
@@ -214,6 +223,8 @@ def validate_args(args):
     validate_probability("--w0-override", args.w0_override)
     if args.t_coh <= 0:
         raise SystemExit("--t-coh must be positive.")
+    if args.plot_truncation is not None and args.plot_truncation <= 0:
+        raise SystemExit("--plot-truncation must be a positive integer.")
 
 
 def selected_goals(args):
@@ -408,10 +419,46 @@ def plot_joint_bands(
     no_legend=False,
     no_y_axis_label=False,
     no_y_ticks=False,
+    plot_truncation=None,
 ):
     fig, ax = plt.subplots(
         figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES)
     )
+    draw_joint_bands(
+        ax,
+        goal_paths,
+        plot_kind,
+        no_shades=no_shades,
+        no_legend=no_legend,
+        no_y_axis_label=no_y_axis_label,
+        no_y_ticks=no_y_ticks,
+        plot_truncation=plot_truncation,
+    )
+
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_goals",
+        f"{plot_kind}_bands",
+        plot_profile,
+    )
+    save_figure(fig, figure_path, bbox_inches=None)
+    plt.close(fig)
+    print(f"Saved joint {plot_kind.upper()} band figure to {figure_path}")
+    return figure_path
+
+
+def draw_joint_bands(
+    ax,
+    goal_paths,
+    plot_kind,
+    *,
+    no_shades=False,
+    no_legend=False,
+    no_y_axis_label=False,
+    no_y_ticks=False,
+    show_x_axis=True,
+    plot_truncation=None,
+):
     for goal, json_path in goal_paths:
         series = load_extremal_series(json_path)
         t, lower, upper = band_series(series, plot_kind)
@@ -442,7 +489,9 @@ def plot_joint_bands(
             linewidth=MAX_BOUNDARY_LINEWIDTH,
         )
 
-    ax.set_xlabel(TIME_AXIS_LABEL)
+    ax.set_xlabel(TIME_AXIS_LABEL if show_x_axis else "")
+    if not show_x_axis:
+        ax.tick_params(axis="x", which="both", bottom=False, labelbottom=False)
     configure_probability_y_axis(
         ax,
         plot_kind,
@@ -451,23 +500,14 @@ def plot_joint_bands(
     )
 
     style_axes(ax)
+    if plot_truncation is not None:
+        ax.set_xlim(0, plot_truncation)
     if not no_legend:
         ax.legend(
             handles=goal_legend_handles([goal for goal, _ in goal_paths]),
             frameon=False,
             loc="best",
         )
-
-    figure_path = output_path(
-        figure_dir,
-        "nondet_topology_goals",
-        f"{plot_kind}_bands",
-        plot_profile,
-    )
-    save_figure(fig, figure_path, bbox_inches=None)
-    plt.close(fig)
-    print(f"Saved joint {plot_kind.upper()} band figure to {figure_path}")
-    return figure_path
 
 
 def resolved_budget(payload):
@@ -655,6 +695,7 @@ def main():
             no_legend=args.no_legend,
             no_y_axis_label=args.no_y_axis_label,
             no_y_ticks=args.no_y_ticks,
+            plot_truncation=args.plot_truncation,
         )
         plot_joint_bands(
             plt,
@@ -666,6 +707,7 @@ def main():
             no_legend=args.no_legend,
             no_y_axis_label=args.no_y_axis_label,
             no_y_ticks=args.no_y_ticks,
+            plot_truncation=args.plot_truncation,
         )
     else:
         plot_joint_bands(
@@ -678,6 +720,7 @@ def main():
             no_legend=args.no_legend,
             no_y_axis_label=args.no_y_axis_label,
             no_y_ticks=args.no_y_ticks,
+            plot_truncation=args.plot_truncation,
         )
 
     write_summary(output_dir / "nondet_topology_goals_summary.csv", rows)

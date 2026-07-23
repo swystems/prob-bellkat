@@ -18,11 +18,16 @@ from scripts.analysis.swap_comparison.common import (
 )
 from scripts.plot.config import (
     DEFAULT_PROFILE,
+    JOINT_PLOTS_WSPACE,
+    LINE_WIDTH_INCHES,
     NONDET_HEIGHT_INCHES,
     NONDET_LINE_WIDTH_INCHES,
     PLOT_SETTINGS,
+    SWAP_COMPARISON_COMBINED_HEIGHT_INCHES,
+    SWAP_COMPARISON_COMBINED_LINE_WIDTH_INCHES,
     TIME_AXIS_LABEL,
     get_plot_profile,
+    hide_overlapping_inner_x_tick_label,
     output_path,
     save_figure,
 )
@@ -40,6 +45,8 @@ from scripts.run_nondet_topology_goals import (
     configure_probability_y_axis,
     coverage_budget,
     coverage_status,
+    draw_joint_bands as draw_goal_joint_bands,
+    existing_goal_json_path,
     goal_legend_handles,
     resolved_budget,
     selected_goals,
@@ -52,6 +59,8 @@ STATIC_EVENT = "static"
 DEFAULT_TRUNCATION = 100
 LINE_ALPHA = 0.82
 BAND_ALPHA = 0.14
+JOINT_LAYOUTS = ("stacked", "side-by-side", "both")
+NONDET_STACKED_HSPACE = 0.025
 
 
 @dataclass(frozen=True)
@@ -64,8 +73,8 @@ class Protocol:
 
 
 PROTOCOLS = (
-    Protocol("left-to-right", "Left-to-right", "#005AB5", "-", ""),
-    Protocol("right-to-left", "Right-to-left", "#DC3220", "--", "."),
+    Protocol("left-to-right", "L2R", "#005AB5", "-", ""),
+    Protocol("right-to-left", "R2L", "#DC3220", "--", "."),
 )
 PROTOCOL_BY_NAME = {protocol.name: protocol for protocol in PROTOCOLS}
 
@@ -178,6 +187,37 @@ def parse_args():
         help="Show only the protocol legend in the joint CDF comparison.",
     )
     parser.add_argument(
+        "--joint-goals-dir",
+        "--stacked-goals-dir",
+        dest="joint_goals_dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory containing existing adapted-loop goal JSON files. "
+            "When supplied, also create the joint evaluation figure selected "
+            "by --joint-layout."
+        ),
+    )
+    parser.add_argument(
+        "--joint-layout",
+        choices=JOINT_LAYOUTS,
+        default="stacked",
+        help=(
+            "Layout for the joint goal/protocol evaluation figure. Defaults "
+            "to stacked; both writes separate stacked and side-by-side PDFs."
+        ),
+    )
+    parser.add_argument(
+        "--plot-truncation",
+        type=int,
+        default=None,
+        help=(
+            "Display plots only through this time, without changing the "
+            "computed model horizon. Joint panels use it as their x-axis "
+            "maximum."
+        ),
+    )
+    parser.add_argument(
         "--no-y-axis-label",
         action="store_true",
         help="Omit the y-axis label from the CDF comparison figures.",
@@ -205,6 +245,8 @@ def validate_args(args):
     validate_probability("--w0-override", args.w0_override)
     if args.t_coh <= 0:
         raise SystemExit("--t-coh must be positive.")
+    if args.plot_truncation is not None and args.plot_truncation <= 0:
+        raise SystemExit("--plot-truncation must be a positive integer.")
 
 
 def selected_protocols(args):
@@ -346,6 +388,7 @@ def plot_goal_bands(
     no_shades=False,
     no_y_axis_label=False,
     no_y_ticks=False,
+    plot_truncation=None,
 ):
     fig, ax = plt.subplots(
         figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES)
@@ -381,6 +424,8 @@ def plot_goal_bands(
     )
 
     style_axes(ax)
+    if plot_truncation is not None:
+        ax.set_xlim(0, plot_truncation)
     ax.legend(
         handles=protocol_band_handles(
             [protocol for protocol, _ in protocol_paths],
@@ -415,10 +460,48 @@ def plot_joint_bands(
     protocol_legend_only=False,
     no_y_axis_label=False,
     no_y_ticks=False,
+    plot_truncation=None,
 ):
     fig, ax = plt.subplots(
         figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES)
     )
+    draw_joint_bands(
+        ax,
+        goals,
+        paths_by_goal,
+        plot_kind,
+        no_shades=no_shades,
+        protocol_legend_only=protocol_legend_only,
+        no_y_axis_label=no_y_axis_label,
+        no_y_ticks=no_y_ticks,
+        plot_truncation=plot_truncation,
+    )
+
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_protocols",
+        f"{plot_kind}_bands",
+        plot_profile,
+    )
+    save_figure(fig, figure_path, bbox_inches=None)
+    plt.close(fig)
+    print(f"Saved joint protocol/goal {plot_kind.upper()} comparison to {figure_path}")
+    return figure_path
+
+
+def draw_joint_bands(
+    ax,
+    goals,
+    paths_by_goal,
+    plot_kind,
+    *,
+    no_shades=False,
+    protocol_legend_only=False,
+    no_y_axis_label=False,
+    no_y_ticks=False,
+    show_x_axis=True,
+    plot_truncation=None,
+):
 
     for goal in goals:
         for protocol, json_path in paths_by_goal[goal.name]:
@@ -443,7 +526,9 @@ def plot_joint_bands(
                 linewidth=MAX_BOUNDARY_LINEWIDTH,
             )
 
-    ax.set_xlabel(TIME_AXIS_LABEL)
+    ax.set_xlabel(TIME_AXIS_LABEL if show_x_axis else "")
+    if not show_x_axis:
+        ax.tick_params(axis="x", which="both", bottom=False, labelbottom=False)
     configure_probability_y_axis(
         ax,
         plot_kind,
@@ -452,6 +537,8 @@ def plot_joint_bands(
     )
 
     style_axes(ax)
+    if plot_truncation is not None:
+        ax.set_xlim(0, plot_truncation)
     protocol_handles = protocol_band_handles(
         [protocol for protocol, _ in paths_by_goal[goals[0].name]],
         lambda _protocol: "#777777",
@@ -470,15 +557,155 @@ def plot_joint_bands(
         loc="best" if protocol_legend_only else "lower right",
     )
 
+
+def add_shared_cdf_y_label(fig, *, no_y_axis_label, x):
+    if not no_y_axis_label:
+        fig.supylabel("Cumulative probability", x=x, fontsize=8)
+
+
+def hide_stacked_inner_y_ticks(fig, upper_ax, lower_ax):
+    """Hide the two endpoint ticks that meet between stacked panels."""
+    fig.canvas.draw()
+    upper_ticks = upper_ax.yaxis.get_major_ticks()
+    lower_ticks = lower_ax.yaxis.get_major_ticks()
+    if upper_ticks:
+        upper_ticks[0].label1.set_visible(False)
+        upper_ticks[0].tick1line.set_visible(False)
+    if lower_ticks:
+        lower_ticks[-1].label1.set_visible(False)
+        lower_ticks[-1].tick1line.set_visible(False)
+
+
+def plot_stacked_evaluation_bands(
+    plt,
+    figure_dir,
+    goal_paths,
+    goals,
+    paths_by_goal,
+    plot_profile,
+    *,
+    no_shades=False,
+    no_y_axis_label=False,
+    no_y_ticks=False,
+    plot_truncation=None,
+):
+    fig, (goal_ax, protocol_ax) = plt.subplots(
+        2,
+        1,
+        sharex=True,
+        figsize=(LINE_WIDTH_INCHES, 2 * NONDET_HEIGHT_INCHES),
+    )
+    draw_goal_joint_bands(
+        goal_ax,
+        goal_paths,
+        "cdf",
+        no_shades=no_shades,
+        no_y_axis_label=True,
+        no_y_ticks=no_y_ticks,
+        show_x_axis=False,
+        plot_truncation=plot_truncation,
+    )
+    draw_joint_bands(
+        protocol_ax,
+        goals,
+        paths_by_goal,
+        "cdf",
+        no_shades=no_shades,
+        protocol_legend_only=True,
+        no_y_axis_label=True,
+        no_y_ticks=no_y_ticks,
+        plot_truncation=plot_truncation,
+    )
+    add_shared_cdf_y_label(fig, no_y_axis_label=no_y_axis_label, x=0.025)
+    if not no_y_ticks:
+        hide_stacked_inner_y_ticks(fig, goal_ax, protocol_ax)
+    fig.subplots_adjust(
+        left=0.16,
+        right=0.98,
+        bottom=0.17,
+        top=0.98,
+        hspace=NONDET_STACKED_HSPACE,
+    )
+
     figure_path = output_path(
         figure_dir,
-        "nondet_topology_protocols",
-        f"{plot_kind}_bands",
+        "nondet_topology_evaluation",
+        "cdf_bands",
         plot_profile,
     )
-    save_figure(fig, figure_path, bbox_inches=None)
+    save_figure(fig, figure_path, tight_layout=False, bbox_inches=None)
     plt.close(fig)
-    print(f"Saved joint protocol/goal {plot_kind.upper()} comparison to {figure_path}")
+    print(f"Saved stacked nondeterministic evaluation figure to {figure_path}")
+    return figure_path
+
+
+def plot_side_by_side_evaluation_bands(
+    plt,
+    figure_dir,
+    goal_paths,
+    goals,
+    paths_by_goal,
+    plot_profile,
+    *,
+    no_shades=False,
+    no_y_axis_label=False,
+    no_y_ticks=False,
+    plot_truncation=None,
+):
+    fig, (goal_ax, protocol_ax) = plt.subplots(
+        1,
+        2,
+        sharey=True,
+        figsize=(
+            SWAP_COMPARISON_COMBINED_LINE_WIDTH_INCHES,
+            SWAP_COMPARISON_COMBINED_HEIGHT_INCHES,
+        ),
+        gridspec_kw={"width_ratios": (1.0, 1.0), "wspace": JOINT_PLOTS_WSPACE},
+    )
+    draw_goal_joint_bands(
+        goal_ax,
+        goal_paths,
+        "cdf",
+        no_shades=no_shades,
+        no_y_axis_label=no_y_axis_label,
+        no_y_ticks=no_y_ticks,
+        plot_truncation=plot_truncation,
+    )
+    draw_joint_bands(
+        protocol_ax,
+        goals,
+        paths_by_goal,
+        "cdf",
+        no_shades=no_shades,
+        protocol_legend_only=True,
+        no_y_axis_label=True,
+        no_y_ticks=no_y_ticks,
+        plot_truncation=plot_truncation,
+    )
+    protocol_ax.tick_params(
+        axis="y",
+        which="both",
+        left=False,
+        labelleft=False,
+    )
+    fig.subplots_adjust(
+        left=0.10,
+        right=0.98,
+        bottom=0.21,
+        top=0.98,
+        wspace=JOINT_PLOTS_WSPACE,
+    )
+    hide_overlapping_inner_x_tick_label(fig, goal_ax, protocol_ax)
+
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_evaluation",
+        "cdf_bands_side_by_side",
+        plot_profile,
+    )
+    save_figure(fig, figure_path, tight_layout=False, bbox_inches=None)
+    plt.close(fig)
+    print(f"Saved side-by-side nondeterministic evaluation figure to {figure_path}")
     return figure_path
 
 
@@ -653,6 +880,7 @@ def main():
                 no_shades=args.no_shades,
                 no_y_axis_label=args.no_y_axis_label,
                 no_y_ticks=args.no_y_ticks,
+                plot_truncation=args.plot_truncation,
             )
 
     for plot_kind in plot_kinds:
@@ -667,7 +895,40 @@ def main():
             protocol_legend_only=args.protocol_legend_only,
             no_y_axis_label=args.no_y_axis_label,
             no_y_ticks=args.no_y_ticks,
+            plot_truncation=args.plot_truncation,
         )
+
+    if args.joint_goals_dir is not None:
+        goal_paths = [
+            (goal, existing_goal_json_path(args.joint_goals_dir, goal))
+            for goal in goals
+        ]
+        if args.joint_layout in ("stacked", "both"):
+            plot_stacked_evaluation_bands(
+                plt,
+                figure_dir,
+                goal_paths,
+                goals,
+                paths_by_goal,
+                plot_profile,
+                no_shades=args.no_shades,
+                no_y_axis_label=args.no_y_axis_label,
+                no_y_ticks=args.no_y_ticks,
+                plot_truncation=args.plot_truncation,
+            )
+        if args.joint_layout in ("side-by-side", "both"):
+            plot_side_by_side_evaluation_bands(
+                plt,
+                figure_dir,
+                goal_paths,
+                goals,
+                paths_by_goal,
+                plot_profile,
+                no_shades=args.no_shades,
+                no_y_axis_label=args.no_y_axis_label,
+                no_y_ticks=args.no_y_ticks,
+                plot_truncation=args.plot_truncation,
+            )
 
     write_summary(output_dir / "nondet_topology_protocols_summary.csv", rows)
     print_summary(rows)

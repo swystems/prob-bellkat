@@ -20,6 +20,7 @@ module Common.NetworkConfig
     , edgeW0
     , withUniformCoherenceTime
     , withUniformSwapProbability
+    , withUniformW0
     , networkBoundsFor
     , actionConfigFor
     ) where
@@ -31,6 +32,7 @@ import GHC.Exts (fromList)
 data NetworkParameters = NetworkParameters
     { npReferencePGen :: Double
     , npReferenceW0 :: Double
+    , npUniformW0 :: Maybe Double
     , npSwapProbabilities :: Map.Map Location Double
     , npCoherenceTimes :: Map.Map Location Int
     , npEdgeSkew :: Double
@@ -43,6 +45,7 @@ defaultNetworkParameters :: NetworkParameters
 defaultNetworkParameters = NetworkParameters
     { npReferencePGen = hardwarePGen referenceLengthUnits
     , npReferenceW0 = hardwareW0 referenceLengthUnits
+    , npUniformW0 = Nothing
     , npSwapProbabilities = Map.fromList
         [ (location, 1 / 2)
         | location <- repeaterNodes
@@ -152,10 +155,13 @@ edgePGen parameters edge =
 
 edgeW0 :: NetworkParameters -> (Location, Location) -> Double
 edgeW0 parameters edge =
-    clamp 0 1 $
-        npReferenceW0 parameters
-        + hardwareW0 distanceUnits
-        - hardwareW0 referenceLengthUnits
+    case npUniformW0 parameters of
+        Just uniformW0 -> uniformW0
+        Nothing ->
+            clamp 0 1 $
+                npReferenceW0 parameters
+                + hardwareW0 distanceUnits
+                - hardwareW0 referenceLengthUnits
   where
     distanceUnits = explicitChannelLength edge
 
@@ -176,6 +182,9 @@ withUniformSwapProbability probability parameters =
             | location <- repeaterNodes
             ]
         }
+
+withUniformW0 :: Double -> NetworkParameters -> NetworkParameters
+withUniformW0 w0 parameters = parameters{npUniformW0 = Just w0}
 
 networkBoundsFor :: [(Location, Location)] -> NetworkBounds QBKATTag
 networkBoundsFor capacityPairs =

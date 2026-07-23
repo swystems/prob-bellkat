@@ -49,8 +49,9 @@ MIXED_EVENT = "mixed"
 COLORS = ("#cddb87","#ee7833", "#7c0006", "#cc9cff", "#01b56c")
 LINE_ALPHA = 0.65
 PROTOCOL_LEGEND_LABELS = {
-    "left-to-right": "L-to-R",
-    "right-to-left": "R-to-L",
+    "swap-asap": "asap",
+    "left-to-right": "L2R",
+    "right-to-left": "R2L",
 }
 
 PMF_ASSERTION_TOLERANCE = 1e-4
@@ -61,7 +62,6 @@ PLOT_KINDS = (PMF_PLOT_KIND, CDF_PLOT_KIND, BOTH_PLOT_KIND)
 
 # Physical generation baseline for a 50 km link in Common.NetworkConfig.
 PHYSICAL_P_GE_50_KM = 9.187e-4
-PHYSICAL_W0_50_KM = 0.9524
 
 
 def generation_scaling_factor(reference_p_ge: float) -> float:
@@ -69,14 +69,14 @@ def generation_scaling_factor(reference_p_ge: float) -> float:
     return reference_p_ge / PHYSICAL_P_GE_50_KM
 
 
+def reference_p_ge_from_scaling_factor(scaling_factor: float) -> float:
+    """Convert a generation scaling factor to the 50 km reference probability."""
+    return scaling_factor * PHYSICAL_P_GE_50_KM
+
+
 def edge_generation_scaling_factor(edge_skew: float) -> float:
     """Convert the internal divisor for the slow edge to a multiplicative factor."""
     return 1.0 / edge_skew
-
-
-def werner_scaling_factor(reference_w0: float) -> float:
-    """Express a 50 km reference Werner parameter relative to its baseline."""
-    return reference_w0 / PHYSICAL_W0_50_KM
 
 
 def detail_range(value):
@@ -777,7 +777,7 @@ def compute_secret_key_rate_from_split(pure_path, mixed_path):
 def protocol_legend_label(protocol, skr_by_protocol, show_skr):
     label = PROTOCOL_LEGEND_LABELS.get(protocol, protocol)
     if not show_skr:
-        return label
+        return f"QBKAT {label}"
     skr = skr_by_protocol.get(protocol)
     if skr is None:
         return label

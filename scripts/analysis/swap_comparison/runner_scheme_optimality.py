@@ -24,9 +24,9 @@ from scripts.analysis.swap_comparison.common import (
     format_duration,
     generation_scaling_factor,
     load_coverage_budget,
+    reference_p_ge_from_scaling_factor,
     run_command,
     validate_extremal_json,
-    werner_scaling_factor,
 )
 from scripts.plot.config import (
     DEFAULT_PROFILE,
@@ -49,8 +49,8 @@ DOUBLING_PROTOCOL = "doubling"
 SEQUENTIAL_PROTOCOLS = ("left-to-right", "right-to-left")
 PROTOCOLS = (BASELINE_PROTOCOL, DOUBLING_PROTOCOL, *SEQUENTIAL_PROTOCOLS)
 PROTOCOL_PLOT_LABELS = {
-    "left-to-right": "L-to-R",
-    "right-to-left": "R-to-L",
+    "left-to-right": "L2R",
+    "right-to-left": "R2L",
 }
 FILE_PREFIX = "swap_scheme_optimality"
 FIGURE_PREFIX = "swap_scheme_optimality"
@@ -59,18 +59,17 @@ DEFAULT_OPTIMALITY_TRUNCATION = 5000
 DOUBLING_EXPERIMENT = "doubling-asap"
 SEQUENTIAL_EXPERIMENT = "sequential-asap"
 EXPERIMENTS = (DOUBLING_EXPERIMENT, SEQUENTIAL_EXPERIMENT)
-DEFAULT_P_GEN_VALUES_A = "0.005,0.05,0.5"
-DEFAULT_P_SWAP_VALUES_A = "0.5,0.75,1.0"
-DEFAULT_P_GEN_VALUES_B = "0.005,0.05,0.5"
-DEFAULT_EDGE_SKEW_VALUES_B = "1,4,16"
+DEFAULT_GENERATION_SCALING_VALUES_A = "8,32,128,512,1024"
+DEFAULT_P_SWAP_VALUES_A = "0.25,0.5,0.75,1"
+DEFAULT_GENERATION_SCALING_VALUES_B = "8,32,128,512,1024"
+DEFAULT_EDGE_SKEW_VALUES_B = "1,2,4,8,16,32"
 EVALUATION_A_EDGE_SKEW = 1.0
 EVALUATION_A_W0 = 0.955
 EVALUATION_B_W0 = 0.955
-LOG_AXES = {"p-gen", "edge-skew"}
+LOG_AXES = {"generation-scaling", "edge-skew"}
 AXIS_LABELS = {
-    "p-gen": r"$p_{\mathrm{ge}}$ scaling",
-    "w0": r"$w_0$ scaling",
-    "p-swap": r"Swap probability $p_{\mathrm{sw}}$",
+    "generation-scaling": r"$p_{\mathrm{ge}}$ scaling",
+    "p-swap": r"$p_{\mathrm{sw}}$",
     "edge-skew": r"$p_{\mathrm{ge}}^{ZE}$ scaling",
 }
 
@@ -120,32 +119,32 @@ DEFAULT_JOBS = (
     RatioJob(
         experiment=DOUBLING_EXPERIMENT,
         name="doubling_over_swap_asap",
-        x_axis="p-gen",
+        x_axis="generation-scaling",
         y_axis="p-swap",
-        x_values_attr="p_gen_values_a",
-        x_values_flag="--p-ge-values-a",
+        x_values_attr="generation_scaling_values_a",
+        x_values_flag="--generation-scaling-values-a",
         y_values_attr="p_swap_values_a",
         y_values_flag="--p-sw-values-a",
         fixed_axes=(("edge-skew", EVALUATION_A_EDGE_SKEW), ("w0", EVALUATION_A_W0)),
         cmap="RdBu",
         numerator_protocols=(DOUBLING_PROTOCOL,),
         numerator_label="doubling",
-        caption=r"$\mathrm{SKR\ ratio}$",
+        caption=r"$\mathrm{SKR}(\mathrm{doubling}/\mathrm{asap})$",
     ),
     RatioJob(
         experiment=SEQUENTIAL_EXPERIMENT,
         name="sequential_over_swap_asap",
-        x_axis="p-gen",
+        x_axis="generation-scaling",
         y_axis="edge-skew",
-        x_values_attr="p_gen_values_b",
-        x_values_flag="--p-ge-values-b",
+        x_values_attr="generation_scaling_values_b",
+        x_values_flag="--generation-scaling-values-b",
         y_values_attr="edge_skew_values_b",
         y_values_flag="--edge-skew-values-b",
         fixed_axes=(("w0", EVALUATION_B_W0),),
         cmap="PiYG",
         numerator_protocols=SEQUENTIAL_PROTOCOLS,
-        numerator_label="best sequential",
-        caption=r"$\mathrm{SKR\ ratio}$",
+        numerator_label="sequential",
+        caption=r"$\mathrm{SKR}(\mathrm{sequential}/\mathrm{asap})$",
     ),
 )
 
@@ -154,9 +153,9 @@ def parse_args():
         description=(
             "Run a compact topology-aware swap-scheme optimality analysis. "
             "Evaluation (a), when requested, plots doubling/swap-asap over "
-            "50 km p_ge and p_swap with homogeneous edges at fixed w0. "
+            "generation scaling and p_swap with homogeneous edges at fixed w0. "
             "Evaluation (b) plots the best sequential "
-            "order/swap-asap over 50 km p_ge and right-edge skew at fixed w0."
+            "order/swap-asap over generation scaling and right-edge skew at fixed w0."
         )
     )
     budget_group = parser.add_mutually_exclusive_group()
@@ -177,11 +176,10 @@ def parse_args():
         ),
     )
     parser.add_argument(
-        "--p-ge-values-a",
-        "--p-gen-values-a",
-        dest="p_gen_values_a",
+        "--generation-scaling-values-a",
+        dest="generation_scaling_values_a",
         default=None,
-        help="Comma-separated 50 km reference p_ge values for doubling vs. swap-asap.",
+        help="Comma-separated generation scaling factors for doubling vs. swap-asap.",
     )
     parser.add_argument(
         "--p-sw-values-a",
@@ -191,24 +189,16 @@ def parse_args():
         help="Comma-separated swap success probabilities for doubling vs. swap-asap.",
     )
     parser.add_argument(
-        "--p-ge-values-b",
-        "--p-gen-values-b",
-        dest="p_gen_values_b",
+        "--generation-scaling-values-b",
+        dest="generation_scaling_values_b",
         default=None,
-        help="Comma-separated 50 km reference p_ge values for sequential vs. swap-asap.",
+        help="Comma-separated generation scaling factors for sequential vs. swap-asap.",
     )
     parser.add_argument(
         "--edge-skew-values-b",
         default=None,
         help="Comma-separated rightmost-link skew penalties for sequential vs. swap-asap.",
     )
-    parser.add_argument("--p-ge-values", "--p-gen-values", dest="legacy_p_gen_values", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--w0-values", dest="legacy_w0_values", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--w0-values-a", dest="ignored_w0_values_a", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--edge-skew-values", dest="legacy_edge_skew_values", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--p-ge", "--fixed-p-ge", dest="ignored_fixed_p_gen", type=float, default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--w0", "--fixed-w0", dest="ignored_fixed_w0", type=float, default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--edge-skew", "--fixed-edge-skew", dest="ignored_fixed_edge_skew", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--t-coh", "--fixed-t-coh", dest="fixed_t_coh", type=int, default=None, help="Fixed coherence time; omitted values use the executable default.")
     parser.add_argument("--p-swap", "--fixed-p-swap", dest="fixed_p_swap", type=float, default=None, help="Fixed swap probability; omitted values use the executable default.")
     parser.add_argument(
@@ -258,7 +248,6 @@ def parse_args():
         help="Run a tiny truncation-1 sweep under an output smoke directory.",
     )
     args = parser.parse_args()
-    apply_legacy_axis_values(args)
     configure_experiments(args)
     if args.smoke_test:
         if args.plots_only:
@@ -267,22 +256,21 @@ def parse_args():
         args.coverage = None
         args.truncation = 1
         if DOUBLING_EXPERIMENT in args.selected_experiments:
-            args.p_gen_values_a = smoke_value_text(args.p_gen_values_a, "--p-ge-values-a")
+            args.generation_scaling_values_a = smoke_value_text(
+                args.generation_scaling_values_a,
+                "--generation-scaling-values-a",
+            )
             args.p_swap_values_a = smoke_value_text(args.p_swap_values_a, "--p-sw-values-a")
         if SEQUENTIAL_EXPERIMENT in args.selected_experiments:
-            args.p_gen_values_b = smoke_value_text(args.p_gen_values_b, "--p-ge-values-b")
+            args.generation_scaling_values_b = smoke_value_text(
+                args.generation_scaling_values_b,
+                "--generation-scaling-values-b",
+            )
             args.edge_skew_values_b = smoke_value_text(args.edge_skew_values_b, "--edge-skew-values-b")
         args.output_dir = args.output_dir / "smoke"
         if args.markdown == default_markdown:
             args.markdown = args.output_dir / "swap-scheme-optimality.md"
     return args
-
-
-def apply_legacy_axis_values(args) -> None:
-    if args.legacy_p_gen_values is not None:
-        args.p_gen_values_b = args.legacy_p_gen_values
-    if args.legacy_edge_skew_values is not None:
-        args.edge_skew_values_b = args.legacy_edge_skew_values
 
 
 def configure_experiments(args) -> None:
@@ -301,13 +289,13 @@ def configure_experiments(args) -> None:
 
     args.selected_experiments = selected
     if DOUBLING_EXPERIMENT in selected:
-        if args.p_gen_values_a is None:
-            args.p_gen_values_a = DEFAULT_P_GEN_VALUES_A
+        if args.generation_scaling_values_a is None:
+            args.generation_scaling_values_a = DEFAULT_GENERATION_SCALING_VALUES_A
         if args.p_swap_values_a is None:
             args.p_swap_values_a = DEFAULT_P_SWAP_VALUES_A
     if SEQUENTIAL_EXPERIMENT in selected:
-        if args.p_gen_values_b is None:
-            args.p_gen_values_b = DEFAULT_P_GEN_VALUES_B
+        if args.generation_scaling_values_b is None:
+            args.generation_scaling_values_b = DEFAULT_GENERATION_SCALING_VALUES_B
         if args.edge_skew_values_b is None:
             args.edge_skew_values_b = DEFAULT_EDGE_SKEW_VALUES_B
 
@@ -356,10 +344,11 @@ def validate_args(args) -> None:
 
 
 def validate_axis_value(axis: str, value: float, flag: str) -> None:
-    if axis == "p-gen":
-        validate_probability(flag, value)
-    elif axis == "w0":
-        validate_probability(flag, value, allow_zero=True)
+    if axis == "generation-scaling":
+        reference_p_ge = reference_p_ge_from_scaling_factor(value)
+        if value <= 0 or reference_p_ge > 1:
+            maximum = 1 / reference_p_ge_from_scaling_factor(1)
+            raise SystemExit(f"{flag} entries must be in the interval (0, {maximum:.6g}].")
     elif axis == "p-swap":
         validate_probability(flag, value, allow_zero=True)
     elif axis == "edge-skew":
@@ -424,8 +413,11 @@ def point_for_job(job: RatioJob, x_value: float, y_value: float, args) -> Scheme
     values = fixed_values(args)
     for axis, value in job.fixed_axes:
         values[axis] = value
-    values[job.x_axis] = x_value
-    values[job.y_axis] = y_value
+    for axis, value in ((job.x_axis, x_value), (job.y_axis, y_value)):
+        if axis == "generation-scaling":
+            values["p-gen"] = reference_p_ge_from_scaling_factor(value)
+        else:
+            values[axis] = value
     return point_from_values(values)
 
 
@@ -681,18 +673,15 @@ def axis_label(axis: str) -> str:
 
 def plotted_axis_value(axis: str, value: float | int | None) -> float:
     numeric_value = require_axis_number(axis, value)
-    if axis == "p-gen":
-        return generation_scaling_factor(numeric_value)
-    elif axis == "edge-skew":
+    if axis == "edge-skew":
         return edge_generation_scaling_factor(numeric_value)
     return numeric_value
 
 
 def plotted_axis_tick_label(axis: str, value: float | int | None) -> str:
     numeric_value = require_axis_number(axis, value)
-    if axis == "p-gen":
-        scaling = generation_scaling_factor(numeric_value)
-        return f"{scaling:.1f}" if scaling < 100 else f"{scaling:.0f}"
+    if axis == "generation-scaling":
+        return f"{numeric_value:g}"
     if axis == "edge-skew":
         denominator = round(numeric_value)
         return r"$1$" if denominator == 1 else rf"$1/{denominator}$"
@@ -867,7 +856,17 @@ def plot_joint_ratios(plt, figure_dir: Path, results: dict[SchemePoint, PointRes
 
 def write_protocol_csv(path: Path, results: dict[SchemePoint, PointResult]) -> None:
     with open(path, "w", encoding="utf-8", newline="") as handle:
-        fieldnames = ("scenario", "p_ge", "w0", "edge_skew", "t_coh", "p_swap", "protocol", "skr")
+        fieldnames = (
+            "scenario",
+            "generation_scaling",
+            "p_ge",
+            "w0",
+            "edge_skew",
+            "t_coh",
+            "p_swap",
+            "protocol",
+            "skr",
+        )
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for point_result in results.values():
@@ -876,6 +875,11 @@ def write_protocol_csv(path: Path, results: dict[SchemePoint, PointResult]) -> N
                 writer.writerow(
                     {
                         "scenario": scenario_tag(point),
+                        "generation_scaling": value_text(
+                            generation_scaling_factor(point.p_gen)
+                            if point.p_gen is not None
+                            else None
+                        ),
                         "p_ge": value_text(point.p_gen),
                         "w0": value_text(point.w0),
                         "edge_skew": value_text(point.edge_skew),
@@ -892,6 +896,7 @@ def write_ratio_csv(path: Path, results: dict[SchemePoint, PointResult], args) -
         fieldnames = (
             "job",
             "scenario",
+            "generation_scaling",
             "p_ge",
             "w0",
             "edge_skew",
@@ -912,6 +917,11 @@ def write_ratio_csv(path: Path, results: dict[SchemePoint, PointResult], args) -
                         {
                             "job": job.name,
                             "scenario": scenario_tag(point),
+                            "generation_scaling": value_text(
+                                generation_scaling_factor(point.p_gen)
+                                if point.p_gen is not None
+                                else None
+                            ),
                             "p_ge": value_text(point.p_gen),
                             "w0": value_text(point.w0),
                             "edge_skew": value_text(point.edge_skew),
@@ -947,8 +957,8 @@ def write_report(
     if DEFAULT_JOBS[0] in jobs:
         configuration_lines.append(
             "- evaluation (a), doubling vs. swap-asap: "
-            f"`generation_scaling_eta={plotted_values_text('p-gen', args.p_gen_values_a, '--p-ge-values-a')}`, "
-            f"`p_swap={args.p_swap_values_a}`, `w0_scaling_eta_w={werner_scaling_factor(EVALUATION_A_W0):.4g}`, "
+            f"`generation_scaling_eta={args.generation_scaling_values_a}`, "
+            f"`p_swap={args.p_swap_values_a}`, `w0={EVALUATION_A_W0:g}`, "
             f"`right_edge_scaling_eta_ZE={edge_generation_scaling_factor(EVALUATION_A_EDGE_SKEW):g}`"
         )
     else:
@@ -956,9 +966,9 @@ def write_report(
     if DEFAULT_JOBS[1] in jobs:
         configuration_lines.append(
             "- evaluation (b), best sequential vs. swap-asap: "
-            f"`generation_scaling_eta={plotted_values_text('p-gen', args.p_gen_values_b, '--p-ge-values-b')}`, "
+            f"`generation_scaling_eta={args.generation_scaling_values_b}`, "
             f"`right_edge_scaling_eta_ZE={plotted_values_text('edge-skew', args.edge_skew_values_b, '--edge-skew-values-b')}`, "
-            f"`w0_scaling_eta_w={werner_scaling_factor(EVALUATION_B_W0):.4g}`"
+            f"`w0={EVALUATION_B_W0:g}`"
         )
     lines = [
         "# Swap Scheme Optimality",

@@ -23,11 +23,10 @@ from scripts.analysis.swap_comparison.common import (
     compute_secret_key_rate_from_split,
     executable_command,
     format_duration,
-    generation_scaling_factor,
     load_extremal_payload,
     load_extremal_series,
+    reference_p_ge_from_scaling_factor,
     run_command,
-    werner_scaling_factor,
 )
 from scripts.plot.config import (
     DEFAULT_PROFILE,
@@ -48,15 +47,18 @@ DISTILL_PROTOCOL = "dist-swap"
 FILE_PREFIX = "distillation_comparison"
 FIGURE_PREFIX = "distillation_comparison"
 DEFAULT_OUTPUT_DIR = Path("output/distillation-comparison")
-DEFAULT_TRUNCATION = 5000
-DEFAULT_P_GE_VALUES_A = "0.008,0.016,0.032,0.064,0.128,0.256,0.512,1.0"
-DEFAULT_W0_VALUES_A = "0.925,0.94,0.955,0.970"
+DEFAULT_TRUNCATION = 2000
+DEFAULT_GENERATION_SCALING = 128.0
+DEFAULT_UNIFORM_W0_VALUES = "0.925,0.94,0.955,0.97,0.985,1.0"
+DEFAULT_T_COH_VALUES = "14400,57600,230400,921600,3686400"
+DEFAULT_P_SWAP = 0.5
+MINIMUM_COVERAGE = 0.99
 
 
 @dataclass(frozen=True)
 class DistillationPoint:
     p_ge: float
-    w0: float
+    uniform_w0: float
     p_swap: float | None
     t_coh: int | None
 
@@ -72,28 +74,27 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description=(
             "Compare plain swap against X-Y-only dist-swap on A-X-Y-C and plot "
-            "SKR_swap / SKR_dist-swap over p_ge and w0."
+            "SKR_swap / SKR_dist-swap over uniform w0 and coherence time."
         )
     )
     parser.add_argument("--truncation", type=int, default=DEFAULT_TRUNCATION)
     parser.add_argument(
-        "--p-ge-values-a",
-        "--p-gen-values-a",
-        "--p-ge-values",
-        "--p-gen-values",
-        dest="p_ge_values_a",
-        default=DEFAULT_P_GE_VALUES_A,
-        help="Comma-separated 50 km reference p_ge values.",
+        "--generation-scaling",
+        type=float,
+        default=DEFAULT_GENERATION_SCALING,
+        help="Fixed generation scaling factor.",
     )
     parser.add_argument(
-        "--w0-values-a",
-        "--w0-values",
-        dest="w0_values_a",
-        default=DEFAULT_W0_VALUES_A,
-        help="Comma-separated 50 km reference w0 values.",
+        "--uniform-w0-values",
+        default=DEFAULT_UNIFORM_W0_VALUES,
+        help="Comma-separated Werner parameters applied identically to every link.",
     )
-    parser.add_argument("--p-swap", "--fixed-p-swap", dest="p_swap", type=float, default=None)
-    parser.add_argument("--t-coh", "--fixed-t-coh", dest="t_coh", type=int, default=None)
+    parser.add_argument(
+        "--t-coh-values",
+        default=DEFAULT_T_COH_VALUES,
+        help="Comma-separated coherence times applied identically to every memory.",
+    )
+    parser.add_argument("--p-swap", type=float, default=DEFAULT_P_SWAP)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument(
         "--markdown",
@@ -125,8 +126,14 @@ def parse_args():
             parser.error("--smoke-test cannot be combined with --plots-only.")
         default_markdown = DEFAULT_OUTPUT_DIR / "distillation-comparison.md"
         args.truncation = 1
-        args.p_ge_values_a = first_value(args.p_ge_values_a, "--p-ge-values-a")
-        args.w0_values_a = first_value(args.w0_values_a, "--w0-values-a")
+        args.uniform_w0_values = first_value(
+            args.uniform_w0_values,
+            "--uniform-w0-values",
+        )
+        args.t_coh_values = first_value(
+            args.t_coh_values,
+            "--t-coh-values",
+        )
         args.output_dir = args.output_dir / "smoke"
         if args.markdown == default_markdown:
             args.markdown = args.output_dir / "distillation-comparison.md"
@@ -148,6 +155,20 @@ def parse_float_values(raw_values: str, flag: str) -> tuple[float, ...]:
     return values
 
 
+def parse_int_values(raw_values: str, flag: str) -> tuple[int, ...]:
+    try:
+        values = tuple(
+            int(value.strip())
+            for value in raw_values.split(",")
+            if value.strip()
+        )
+    except ValueError as exc:
+        raise SystemExit(f"{flag} entries must be integers.") from exc
+    if not values:
+        raise SystemExit(f"{flag} must contain at least one value.")
+    return values
+
+
 def validate_probability(flag: str, value: float, *, allow_zero: bool = False) -> None:
     lower_ok = value >= 0 if allow_zero else value > 0
     if not lower_ok or value > 1:
@@ -158,29 +179,38 @@ def validate_probability(flag: str, value: float, *, allow_zero: bool = False) -
 def validate_args(args) -> None:
     if args.truncation < 0:
         raise SystemExit("--truncation must be non-negative.")
-    for value in p_ge_values(args):
-        validate_probability("--p-ge-values-a", value)
-    for value in w0_values(args):
-        validate_probability("--w0-values-a", value, allow_zero=True)
-    if args.p_swap is not None:
-        validate_probability("--p-swap", args.p_swap, allow_zero=True)
-    if args.t_coh is not None and args.t_coh <= 0:
-        raise SystemExit("--t-coh must be positive.")
+    reference_p_ge = reference_p_ge_from_scaling_factor(args.generation_scaling)
+    if args.generation_scaling <= 0 or reference_p_ge > 1:
+        maximum = 1 / reference_p_ge_from_scaling_factor(1)
+        raise SystemExit(
+            f"--generation-scaling must be in the interval (0, {maximum:.6g}]."
+        )
+    for value in uniform_w0_values(args):
+        validate_probability("--uniform-w0-values", value, allow_zero=True)
+    for value in t_coh_values(args):
+        if value <= 0:
+            raise SystemExit("--t-coh-values entries must be positive.")
+    validate_probability("--p-swap", args.p_swap, allow_zero=True)
 
 
-def p_ge_values(args) -> tuple[float, ...]:
-    return parse_float_values(args.p_ge_values_a, "--p-ge-values-a")
+def uniform_w0_values(args) -> tuple[float, ...]:
+    return parse_float_values(args.uniform_w0_values, "--uniform-w0-values")
 
 
-def w0_values(args) -> tuple[float, ...]:
-    return parse_float_values(args.w0_values_a, "--w0-values-a")
+def t_coh_values(args) -> tuple[int, ...]:
+    return parse_int_values(args.t_coh_values, "--t-coh-values")
 
 
 def all_points(args) -> list[DistillationPoint]:
     return [
-        DistillationPoint(p_ge=p_ge, w0=w0, p_swap=args.p_swap, t_coh=args.t_coh)
-        for w0 in w0_values(args)
-        for p_ge in p_ge_values(args)
+        DistillationPoint(
+            p_ge=reference_p_ge_from_scaling_factor(args.generation_scaling),
+            uniform_w0=uniform_w0,
+            p_swap=args.p_swap,
+            t_coh=t_coh,
+        )
+        for t_coh in t_coh_values(args)
+        for uniform_w0 in uniform_w0_values(args)
     ]
 
 
@@ -201,14 +231,19 @@ def value_text(value: float | int | None) -> str:
 def scenario_tag(point: DistillationPoint) -> str:
     return (
         f"p{value_tag(point.p_ge)}"
-        f"_w{value_tag(point.w0)}"
+        f"_uw{value_tag(point.uniform_w0)}"
         f"_pswap{value_tag(point.p_swap)}"
         f"_t{value_tag(point.t_coh)}"
     )
 
 
 def command_args_for_point(point: DistillationPoint) -> list[str]:
-    command = ["--p-ge", f"{point.p_ge:.17g}", "--w0", f"{point.w0:.17g}"]
+    command = [
+        "--p-ge",
+        f"{point.p_ge:.17g}",
+        "--uniform-w0",
+        f"{point.uniform_w0:.17g}",
+    ]
     if point.p_swap is not None:
         command.extend(("--p-swap", f"{point.p_swap:.17g}"))
     if point.t_coh is not None:
@@ -357,12 +392,41 @@ def swap_over_dist(result: PointResult) -> float:
     return swap_skr / dist_skr if dist_skr > 0 else math.nan
 
 
+def minimum_coverage_by_protocol(
+    results: dict[DistillationPoint, PointResult],
+) -> dict[str, float]:
+    return {
+        protocol: min(result.coverage_by_protocol[protocol] for result in results.values())
+        for protocol in PROTOCOLS
+    }
+
+
+def validate_minimum_coverage(results: dict[DistillationPoint, PointResult]) -> None:
+    minimums = minimum_coverage_by_protocol(results)
+    summary = ", ".join(f"{protocol}={value:.12g}" for protocol, value in minimums.items())
+    print(f"Minimum completion coverage at R: {summary}", flush=True)
+    failures = {
+        protocol: value
+        for protocol, value in minimums.items()
+        if value < MINIMUM_COVERAGE
+    }
+    if failures:
+        detail = ", ".join(
+            f"{protocol}={value:.12g}" for protocol, value in failures.items()
+        )
+        raise SystemExit(
+            f"Completion coverage is below {MINIMUM_COVERAGE:g}: {detail}. "
+            "Increase --truncation and resume."
+        )
+
+
 def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None:
     with open(path, "w", encoding="utf-8", newline="") as handle:
         fieldnames = (
             "scenario",
+            "generation_scaling",
             "p_ge",
-            "w0",
+            "uniform_w0",
             "p_swap",
             "t_coh",
             "swap_skr",
@@ -380,8 +444,9 @@ def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None
             writer.writerow(
                 {
                     "scenario": scenario_tag(point),
+                    "generation_scaling": f"{point.p_ge / reference_p_ge_from_scaling_factor(1):.12g}",
                     "p_ge": value_text(point.p_ge),
-                    "w0": value_text(point.w0),
+                    "uniform_w0": value_text(point.uniform_w0),
                     "p_swap": value_text(point.p_swap),
                     "t_coh": value_text(point.t_coh),
                     "swap_skr": f"{swap_skr:.12g}",
@@ -395,30 +460,27 @@ def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None
 
 
 def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResult], args) -> Path:
-    reference_p_ge_values = p_ge_values(args)
-    x_values = [generation_scaling_factor(value) for value in reference_p_ge_values]
-    all_x_ticklabels = [
-        f"{value:.1f}" if value < 100 else f"{value:.0f}"
-        for value in x_values
-    ]
+    x_values = list(uniform_w0_values(args))
+    all_x_ticklabels = [f"{value:g}" for value in x_values]
     x_ticks, x_ticklabels = thinned_ticks(x_values, all_x_ticklabels, 5)
-    reference_w0_values = w0_values(args)
-    y_values = [werner_scaling_factor(value) for value in reference_w0_values]
+    y_values = list(t_coh_values(args))
+    all_y_ticklabels = [f"{value:,}" for value in y_values]
+    y_ticks, y_ticklabels = thinned_ticks(y_values, all_y_ticklabels, 3)
     ratio = [
         [
             swap_over_dist(
                 results[
                     DistillationPoint(
-                        p_ge=x_value,
-                        w0=y_value,
+                        p_ge=reference_p_ge_from_scaling_factor(args.generation_scaling),
+                        uniform_w0=x_value,
                         p_swap=args.p_swap,
-                        t_coh=args.t_coh,
+                        t_coh=y_value,
                     )
                 ]
             )
-            for x_value in reference_p_ge_values
+            for x_value in x_values
         ]
-        for y_value in reference_w0_values
+        for y_value in y_values
     ]
 
     fig, ax = plt.subplots(
@@ -431,13 +493,16 @@ def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResu
         y_values,
         ratio,
         cmap="BrBG",
-        colorbar_label=r"$\mathrm{SKR\ ratio}$",
-        xlabel=r"$p_{\mathrm{ge}}$ scaling",
-        ylabel=r"$w_0$ scaling",
-        log_x=True,
+        colorbar_label=(
+            r"$\mathrm{SKR}(\mathrm{swap}/"
+            r"\mathrm{dist\text{-}swap})$"
+        ),
+        xlabel=r"$w_0$",
+        ylabel=r"$t_{\mathrm{coh}}$",
+        log_y=True,
         x_ticks=x_ticks,
-        y_ticks=(y_values[0], 1.0, y_values[-1]),
-        y_ticklabels=(f"{y_values[0]:.2f}", r"$1$", f"{y_values[-1]:.2f}"),
+        y_ticks=y_ticks,
+        y_ticklabels=y_ticklabels,
         x_ticklabels=x_ticklabels,
     )
 
@@ -452,16 +517,15 @@ def relative_link(from_path: Path, to_path: Path) -> str:
     return os.path.relpath(to_path, start=from_path.parent)
 
 
-def write_report(markdown_path: Path, args, csv_path: Path, figure_path: Path | None) -> None:
+def write_report(
+    markdown_path: Path,
+    args,
+    csv_path: Path,
+    figure_path: Path | None,
+    results: dict[DistillationPoint, PointResult],
+) -> None:
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
-    scaling_values = ",".join(
-        f"{generation_scaling_factor(value):.4g}"
-        for value in p_ge_values(args)
-    )
-    w0_scaling_values = ",".join(
-        f"{werner_scaling_factor(value):.4g}"
-        for value in w0_values(args)
-    )
+    minimums = minimum_coverage_by_protocol(results)
     lines = [
         "# Distillation Comparison",
         "",
@@ -469,11 +533,14 @@ def write_report(markdown_path: Path, args, csv_path: Path, figure_path: Path | 
         "",
         "## Configuration",
         "",
-        f"- `generation_scaling_eta={scaling_values}`",
-        f"- `w0_scaling_eta_w={w0_scaling_values}`",
+        f"- `generation_scaling_eta={args.generation_scaling:g}`",
+        f"- `uniform_w0={args.uniform_w0_values}`",
+        f"- `t_coh={args.t_coh_values}`",
         f"- `p_swap={value_text(args.p_swap)}`",
-        f"- `t_coh={value_text(args.t_coh)}`",
         f"- `truncation={args.truncation}`",
+        f"- required minimum completion coverage: `{MINIMUM_COVERAGE}`",
+        "- observed minimum completion coverage: "
+        + ", ".join(f"`{protocol}={value:.12g}`" for protocol, value in minimums.items()),
         "- `dist-swap`: distill `X-Y` only; generate `A-X` and `Y-C` once",
         f"- command: `{' '.join(sys.argv)}`",
         "",
@@ -523,6 +590,8 @@ def main() -> None:
     csv_path = args.output_dir / f"{FILE_PREFIX}_skr.csv"
     write_csv(csv_path, results)
     print(f"Wrote SKRs to {csv_path}", flush=True)
+    if not args.smoke_test:
+        validate_minimum_coverage(results)
 
     figure_path = None
     if args.smoke_test:
@@ -532,7 +601,7 @@ def main() -> None:
         figure_path = plot_ratio(plt, figure_dir, results, args)
         print(f"Saved distillation comparison figure to {figure_path}", flush=True)
 
-    write_report(args.markdown, args, csv_path, figure_path)
+    write_report(args.markdown, args, csv_path, figure_path, results)
     print(f"Wrote markdown report to {args.markdown}", flush=True)
 
 

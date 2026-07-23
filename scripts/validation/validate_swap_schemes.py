@@ -62,10 +62,10 @@ WERNER_START_TIME = 1  # The conditional Werner value is undefined at t=0.
 VALIDATION_LABELS = {
     ("doubling", "qbkat"): "QBKAT doubling",
     ("doubling", "reference"): r"Li $\mathit{et\ al.}$ doubling",
-    ("left-to-right", "qbkat"): "QBKAT L-to-R",
-    ("left-to-right", "reference"): r"La Corte $\mathit{et\ al.}$ L-to-R",
-    ("right-to-left", "qbkat"): "QBKAT R-to-L",
-    ("right-to-left", "reference"): r"La Corte $\mathit{et\ al.}$ R-to-L",
+    ("left-to-right", "qbkat"): "QBKAT L2R",
+    ("left-to-right", "reference"): r"La Corte $\mathit{et\ al.}$ L2R",
+    ("right-to-left", "qbkat"): "QBKAT R2L",
+    ("right-to-left", "reference"): r"La Corte $\mathit{et\ al.}$ R2L",
 }
 PMF_KEYS = ("pmf", "delivery_pmf", "probabilities", "probability")
 CDF_KEYS = ("cdf", "delivery_cdf")

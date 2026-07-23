@@ -68,8 +68,8 @@ PROTOCOL_MARKERS = {
     "at-last": "*",
 }
 PROTOCOL_MARKER_LABELS = {
-    "left-to-right": "left-to-right",
-    "right-to-left": "right-to-left",
+    "left-to-right": "L2R",
+    "right-to-left": "R2L",
     "doubling": "doubling",
     "at-last": "at-last",
 }

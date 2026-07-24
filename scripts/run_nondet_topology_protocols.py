@@ -424,6 +424,7 @@ def plot_goal_bands(
     )
 
     style_axes(ax)
+    ax.margins(x=0)
     if plot_truncation is not None:
         ax.set_xlim(0, plot_truncation)
     ax.legend(
@@ -537,6 +538,7 @@ def draw_joint_bands(
     )
 
     style_axes(ax)
+    ax.margins(x=0)
     if plot_truncation is not None:
         ax.set_xlim(0, plot_truncation)
     protocol_handles = protocol_band_handles(

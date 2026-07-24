@@ -41,7 +41,7 @@ from scripts.plot.config import (
     output_path,
     save_figure,
 )
-from scripts.plot.contour import draw_ratio_contour, thinned_ticks
+from scripts.plot.contour import RATIO_CONTOUR_LEVELS, draw_ratio_contour, thinned_ticks
 
 
 BASELINE_PROTOCOL = "swap-asap"
@@ -89,6 +89,7 @@ class RatioJob:
     numerator_protocols: tuple[str, ...]
     numerator_label: str
     caption: str
+    contour_levels: int = RATIO_CONTOUR_LEVELS
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,7 @@ DEFAULT_JOBS = (
         numerator_protocols=(DOUBLING_PROTOCOL,),
         numerator_label="doubling",
         caption=r"$\mathrm{SKR}(\mathrm{doubling}/\mathrm{asap})$",
+        contour_levels=301,
     ),
     RatioJob(
         experiment=SEQUENTIAL_EXPERIMENT,
@@ -141,7 +143,7 @@ DEFAULT_JOBS = (
         y_values_attr="edge_skew_values_b",
         y_values_flag="--edge-skew-values-b",
         fixed_axes=(("w0", EVALUATION_B_W0),),
-        cmap="PiYG",
+        cmap="BrBG",
         numerator_protocols=SEQUENTIAL_PROTOCOLS,
         numerator_label="sequential",
         caption=r"$\mathrm{SKR}(\mathrm{sequential}/\mathrm{asap})$",
@@ -797,6 +799,7 @@ def draw_ratio(fig, ax, job: RatioJob, results: dict[SchemePoint, PointResult], 
         y_ticks=y_ticks,
         x_ticklabels=x_ticklabels,
         y_ticklabels=y_ticklabels,
+        levels=job.contour_levels,
     )
     if len(job.numerator_protocols) > 1:
         annotate_best_protocol(

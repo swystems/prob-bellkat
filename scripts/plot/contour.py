@@ -94,9 +94,8 @@ def draw_ratio_contour(
     ax.tick_params(axis="both", labelsize=RATIO_TICK_LABEL_SIZE)
     ax.set_xticklabels(
         x_ticklabels if x_ticklabels is not None else [tick_label(value) for value in x],
-        rotation=45,
-        ha="right",
-        rotation_mode="anchor",
+        rotation=0,
+        ha="center",
     )
     ax.set_yticklabels(
         y_ticklabels if y_ticklabels is not None else [tick_label(value) for value in y]

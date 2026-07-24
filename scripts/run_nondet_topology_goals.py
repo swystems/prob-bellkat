@@ -500,6 +500,7 @@ def draw_joint_bands(
     )
 
     style_axes(ax)
+    ax.margins(x=0)
     if plot_truncation is not None:
         ax.set_xlim(0, plot_truncation)
     if not no_legend:

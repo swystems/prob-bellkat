@@ -460,25 +460,28 @@ def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None
 
 
 def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResult], args) -> Path:
-    x_values = list(uniform_w0_values(args))
-    all_x_ticklabels = [f"{value:g}" for value in x_values]
-    x_ticks, x_ticklabels = thinned_ticks(x_values, all_x_ticklabels, 5)
-    y_values = list(t_coh_values(args))
-    all_y_ticklabels = [f"{value:,}" for value in y_values]
-    y_ticks, y_ticklabels = thinned_ticks(y_values, all_y_ticklabels, 3)
+    raw_x_values = list(t_coh_values(args))
+    time_exponent = int(math.floor(math.log10(max(raw_x_values))))
+    time_scale = 10**time_exponent
+    x_values = [value / time_scale for value in raw_x_values]
+    all_x_ticklabels = [f"{value:.4g}" for value in x_values]
+    x_ticks, x_ticklabels = thinned_ticks(x_values, all_x_ticklabels, 3)
+    y_values = list(uniform_w0_values(args))
+    all_y_ticklabels = [f"{value:g}" for value in y_values]
+    y_ticks, y_ticklabels = thinned_ticks(y_values, all_y_ticklabels, 4)
     ratio = [
         [
             swap_over_dist(
                 results[
                     DistillationPoint(
                         p_ge=reference_p_ge_from_scaling_factor(args.generation_scaling),
-                        uniform_w0=x_value,
+                        uniform_w0=y_value,
                         p_swap=args.p_swap,
-                        t_coh=y_value,
+                        t_coh=x_value,
                     )
                 ]
             )
-            for x_value in x_values
+            for x_value in raw_x_values
         ]
         for y_value in y_values
     ]
@@ -492,14 +495,17 @@ def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResu
         x_values,
         y_values,
         ratio,
-        cmap="BrBG",
+        cmap="PiYG",
         colorbar_label=(
             r"$\mathrm{SKR}(\mathrm{swap}/"
             r"\mathrm{dist\text{-}swap})$"
         ),
-        xlabel=r"$w_0$",
-        ylabel=r"$t_{\mathrm{coh}}$",
-        log_y=True,
+        xlabel=(
+            r"$t_{\mathrm{coh}}$ ($t_{\mathrm{unit}}$)"
+            rf" ($10^{{{time_exponent}}}$)"
+        ),
+        ylabel=r"$w_0$",
+        log_x=True,
         x_ticks=x_ticks,
         y_ticks=y_ticks,
         y_ticklabels=y_ticklabels,

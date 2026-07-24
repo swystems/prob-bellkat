@@ -531,6 +531,19 @@ def load_coverage_budget(protocol, coverage, json_path):
     if not isinstance(coverage_status, dict):
         raise SystemExit(f"{json_path} does not contain a coverage_status object.")
 
+    cached_target = coverage_status.get("target")
+    if not isinstance(cached_target, (int, float)):
+        raise SystemExit(
+            f"{protocol} cached coverage result {json_path} does not contain a numeric "
+            "coverage_status.target; refusing to reuse it."
+        )
+    if not math.isclose(float(cached_target), float(coverage), rel_tol=0.0, abs_tol=1e-12):
+        raise SystemExit(
+            f"{protocol} cached coverage target mismatch in {json_path}: "
+            f"requested {coverage:g}, cached {cached_target:g}. "
+            "Remove or regenerate the cached coverage result before resuming."
+        )
+
     status = coverage_status.get("status")
     coverage_value = coverage_status.get("value")
     if status != "reached":
@@ -939,13 +952,18 @@ def add_pmf_detail_inset(
     inset_ax.set_facecolor("white")
     inset_ax.patch.set_alpha(0.96)
     if show_link:
-        pmf_ax.indicate_inset_zoom(
+        inset_indicator = pmf_ax.indicate_inset_zoom(
             inset_ax,
             edgecolor="0.65",
             linewidth=0.5,
             alpha=0.4,
             zorder=4,
         )
+        connectors = getattr(inset_indicator, "connectors", None)
+        if connectors is None:
+            _, connectors = inset_indicator
+        for connector in connectors:
+            connector.set_visible(True)
 
 
 def plot_combined_reachability(

@@ -41,13 +41,19 @@ from scripts.plot.config import (
 from scripts.plot.contour import draw_ratio_contour, thinned_ticks
 
 
-PROTOCOLS = ("swap", "dist-swap")
+PROTOCOLS = ("swap", "dist-swap", "swap-dist")
 BASELINE_PROTOCOL = "swap"
-DISTILL_PROTOCOL = "dist-swap"
-FILE_PREFIX = "distillation_comparison"
+DISTILL_PROTOCOLS = ("dist-swap", "swap-dist")
+PROTOCOL_PLOT_LABELS = {
+    "dist-swap": "D-S",
+    "swap-dist": "S-D",
+}
+# Keep the new data namespace separate from cached results for the previous
+# X-Y-only experiment.
+FILE_PREFIX = "distillation_order_comparison"
 FIGURE_PREFIX = "distillation_comparison"
 DEFAULT_OUTPUT_DIR = Path("output/distillation-comparison")
-DEFAULT_TRUNCATION = 2000
+DEFAULT_TRUNCATION = 5000
 DEFAULT_GENERATION_SCALING = 128.0
 DEFAULT_UNIFORM_W0_VALUES = "0.925,0.94,0.955,0.97,0.985,1.0"
 DEFAULT_T_COH_VALUES = "14400,57600,230400,921600,3686400"
@@ -73,8 +79,9 @@ class PointResult:
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Compare plain swap against X-Y-only dist-swap on A-X-Y-C and plot "
-            "SKR_swap / SKR_dist-swap over uniform w0 and coherence time."
+            "Compare swap-only with distill-swap and swap-distill on A-X-Y-C. "
+            "The contour plots swap-only over the best distillation ordering "
+            "and marks the D-S/S-D winner boundary."
         )
     )
     parser.add_argument("--truncation", type=int, default=DEFAULT_TRUNCATION)
@@ -121,10 +128,11 @@ def parse_args():
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args()
+    default_markdown = DEFAULT_OUTPUT_DIR / "distillation-comparison.md"
+    use_output_dir_for_markdown = args.markdown == default_markdown
     if args.smoke_test:
         if args.plots_only:
             parser.error("--smoke-test cannot be combined with --plots-only.")
-        default_markdown = DEFAULT_OUTPUT_DIR / "distillation-comparison.md"
         args.truncation = 1
         args.uniform_w0_values = first_value(
             args.uniform_w0_values,
@@ -135,8 +143,8 @@ def parse_args():
             "--t-coh-values",
         )
         args.output_dir = args.output_dir / "smoke"
-        if args.markdown == default_markdown:
-            args.markdown = args.output_dir / "distillation-comparison.md"
+    if use_output_dir_for_markdown:
+        args.markdown = args.output_dir / "distillation-comparison.md"
     return args
 
 
@@ -386,10 +394,18 @@ def evaluate_point(
     )
 
 
-def swap_over_dist(result: PointResult) -> float:
+def best_distillation_protocol(result: PointResult) -> str:
+    return max(
+        DISTILL_PROTOCOLS,
+        key=lambda protocol: result.skr_by_protocol[protocol],
+    )
+
+
+def swap_over_best_distillation(result: PointResult) -> float:
     swap_skr = result.skr_by_protocol[BASELINE_PROTOCOL]
-    dist_skr = result.skr_by_protocol[DISTILL_PROTOCOL]
-    return swap_skr / dist_skr if dist_skr > 0 else math.nan
+    best_protocol = best_distillation_protocol(result)
+    best_distillation_skr = result.skr_by_protocol[best_protocol]
+    return swap_skr / best_distillation_skr if best_distillation_skr > 0 else math.nan
 
 
 def minimum_coverage_by_protocol(
@@ -433,14 +449,22 @@ def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None
             "swap_coverage_at_truncation",
             "dist_swap_skr",
             "dist_swap_coverage_at_truncation",
+            "swap_dist_skr",
+            "swap_dist_coverage_at_truncation",
+            "best_distillation_protocol",
+            "best_distillation_skr",
+            "swap_over_best_distillation",
             "dist_swap_over_swap",
-            "swap_over_dist_swap",
+            "swap_dist_over_swap",
         )
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for point, result in results.items():
             swap_skr = result.skr_by_protocol[BASELINE_PROTOCOL]
-            dist_skr = result.skr_by_protocol[DISTILL_PROTOCOL]
+            dist_swap_skr = result.skr_by_protocol["dist-swap"]
+            swap_dist_skr = result.skr_by_protocol["swap-dist"]
+            best_protocol = best_distillation_protocol(result)
+            best_distillation_skr = result.skr_by_protocol[best_protocol]
             writer.writerow(
                 {
                     "scenario": scenario_tag(point),
@@ -451,15 +475,90 @@ def write_csv(path: Path, results: dict[DistillationPoint, PointResult]) -> None
                     "t_coh": value_text(point.t_coh),
                     "swap_skr": f"{swap_skr:.12g}",
                     "swap_coverage_at_truncation": f"{result.coverage_by_protocol[BASELINE_PROTOCOL]:.12g}",
-                    "dist_swap_skr": f"{dist_skr:.12g}",
-                    "dist_swap_coverage_at_truncation": f"{result.coverage_by_protocol[DISTILL_PROTOCOL]:.12g}",
-                    "dist_swap_over_swap": f"{dist_skr / swap_skr:.12g}" if swap_skr > 0 else "nan",
-                    "swap_over_dist_swap": f"{swap_skr / dist_skr:.12g}" if dist_skr > 0 else "nan",
+                    "dist_swap_skr": f"{dist_swap_skr:.12g}",
+                    "dist_swap_coverage_at_truncation": f"{result.coverage_by_protocol['dist-swap']:.12g}",
+                    "swap_dist_skr": f"{swap_dist_skr:.12g}",
+                    "swap_dist_coverage_at_truncation": f"{result.coverage_by_protocol['swap-dist']:.12g}",
+                    "best_distillation_protocol": best_protocol,
+                    "best_distillation_skr": f"{best_distillation_skr:.12g}",
+                    "swap_over_best_distillation": (
+                        f"{swap_skr / best_distillation_skr:.12g}"
+                        if best_distillation_skr > 0
+                        else "nan"
+                    ),
+                    "dist_swap_over_swap": (
+                        f"{dist_swap_skr / swap_skr:.12g}"
+                        if swap_skr > 0
+                        else "nan"
+                    ),
+                    "swap_dist_over_swap": (
+                        f"{swap_dist_skr / swap_skr:.12g}"
+                        if swap_skr > 0
+                        else "nan"
+                    ),
                 }
             )
 
 
-def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResult], args) -> Path:
+def annotate_best_distillation(
+    ax,
+    x_values: list[float],
+    y_values: list[float],
+    protocol_grid: list[list[str]],
+) -> None:
+    """Mark the pointwise D-S/S-D maximum, matching the sequential-order plot."""
+    plotted_protocols = tuple(
+        protocol
+        for protocol in DISTILL_PROTOCOLS
+        if any(protocol in row for row in protocol_grid)
+    )
+    if len(plotted_protocols) == 2:
+        winner_codes = [
+            [plotted_protocols.index(protocol) for protocol in row]
+            for row in protocol_grid
+        ]
+        ax.contour(
+            x_values,
+            y_values,
+            winner_codes,
+            levels=[0.5],
+            colors="#303030",
+            linewidths=0.45,
+            linestyles="--",
+        )
+
+    for protocol in plotted_protocols:
+        coordinates = [
+            (x_values[x_index], y_values[y_index])
+            for y_index, row in enumerate(protocol_grid)
+            for x_index, winner in enumerate(row)
+            if winner == protocol
+        ]
+        label_x = math.exp(
+            sum(math.log(x_value) for x_value, _ in coordinates)
+            / len(coordinates)
+        )
+        label_y = sum(y_value for _, y_value in coordinates) / len(coordinates)
+        ax.text(
+            label_x,
+            label_y,
+            PROTOCOL_PLOT_LABELS[protocol],
+            ha="center",
+            va="center",
+            fontsize=5.5,
+            fontweight="bold",
+            color="#202020",
+            bbox={"facecolor": "white", "alpha": 0.72, "edgecolor": "none", "pad": 0.7},
+            zorder=4,
+        )
+
+
+def plot_ratio(
+    plt,
+    figure_dir: Path,
+    results: dict[DistillationPoint, PointResult],
+    args,
+) -> Path:
     raw_x_values = list(t_coh_values(args))
     time_exponent = int(math.floor(math.log10(max(raw_x_values))))
     time_scale = 10**time_exponent
@@ -469,21 +568,27 @@ def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResu
     y_values = list(uniform_w0_values(args))
     all_y_ticklabels = [f"{value:g}" for value in y_values]
     y_ticks, y_ticklabels = thinned_ticks(y_values, all_y_ticklabels, 4)
-    ratio = [
+    result_grid = [
         [
-            swap_over_dist(
-                results[
-                    DistillationPoint(
-                        p_ge=reference_p_ge_from_scaling_factor(args.generation_scaling),
-                        uniform_w0=y_value,
-                        p_swap=args.p_swap,
-                        t_coh=x_value,
-                    )
-                ]
-            )
+            results[
+                DistillationPoint(
+                    p_ge=reference_p_ge_from_scaling_factor(args.generation_scaling),
+                    uniform_w0=y_value,
+                    p_swap=args.p_swap,
+                    t_coh=x_value,
+                )
+            ]
             for x_value in raw_x_values
         ]
         for y_value in y_values
+    ]
+    ratio = [
+        [swap_over_best_distillation(result) for result in row]
+        for row in result_grid
+    ]
+    protocol_grid = [
+        [best_distillation_protocol(result) for result in row]
+        for row in result_grid
     ]
 
     fig, ax = plt.subplots(
@@ -496,10 +601,7 @@ def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResu
         y_values,
         ratio,
         cmap="PiYG",
-        colorbar_label=(
-            r"$\mathrm{SKR}(\mathrm{swap}/"
-            r"\mathrm{dist\text{-}swap})$"
-        ),
+        colorbar_label=r"$\mathrm{SKR}(\mathrm{wo.\ dist.}/\mathrm{w.\ dist.})$",
         xlabel=(
             r"$t_{\mathrm{coh}}$ ($t_{\mathrm{unit}}$)"
             rf" ($10^{{{time_exponent}}}$)"
@@ -511,9 +613,15 @@ def plot_ratio(plt, figure_dir: Path, results: dict[DistillationPoint, PointResu
         y_ticklabels=y_ticklabels,
         x_ticklabels=x_ticklabels,
     )
+    annotate_best_distillation(ax, x_values, y_values, protocol_grid)
 
     plot_profile = get_plot_profile(args.plot_profile)
-    figure_path = output_path(figure_dir, FIGURE_PREFIX, "swap_over_dist_swap", plot_profile)
+    figure_path = output_path(
+        figure_dir,
+        FIGURE_PREFIX,
+        "swap_over_best_distillation",
+        plot_profile,
+    )
     save_figure(fig, figure_path, bbox_inches=None)
     plt.close(fig)
     return figure_path
@@ -547,7 +655,9 @@ def write_report(
         f"- required minimum completion coverage: `{MINIMUM_COVERAGE}`",
         "- observed minimum completion coverage: "
         + ", ".join(f"`{protocol}={value:.12g}`" for protocol, value in minimums.items()),
-        "- `dist-swap`: distill `X-Y` only; generate `A-X` and `Y-C` once",
+        "- `swap`: swap raw `A-X` and `X-Y` at `X`, then swap at `Y`",
+        "- `dist-swap` (D-S): distill `A-X` and `X-Y`, then swap at `X` and `Y`",
+        "- `swap-dist` (S-D): swap twice at `X`, distill the two `A-Y` pairs, then swap at `Y`",
         f"- command: `{' '.join(sys.argv)}`",
         "",
         "## Data",
@@ -560,7 +670,7 @@ def write_report(
             [
                 "## Figure",
                 "",
-                f"![swap over dist-swap]({relative_link(markdown_path, figure_path)})",
+                f"![without distillation over best with distillation]({relative_link(markdown_path, figure_path)})",
                 "",
             ]
         )

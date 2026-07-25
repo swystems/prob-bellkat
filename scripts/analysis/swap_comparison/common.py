@@ -790,7 +790,7 @@ def compute_secret_key_rate_from_split(pure_path, mixed_path):
 def protocol_legend_label(protocol, skr_by_protocol, show_skr):
     label = PROTOCOL_LEGEND_LABELS.get(protocol, protocol)
     if not show_skr:
-        return f"QBKAT {label}"
+        return f"{label}"
     skr = skr_by_protocol.get(protocol)
     if skr is None:
         return label
@@ -952,8 +952,12 @@ def add_pmf_detail_inset(
     inset_ax.set_facecolor("white")
     inset_ax.patch.set_alpha(0.96)
     if show_link:
-        inset_indicator = pmf_ax.indicate_inset_zoom(
-            inset_ax,
+        detail_y_min, detail_y_max = inset_ax.get_ylim()
+        _, parent_y_max = pmf_ax.get_ylim()
+        indicator_y_max = min(detail_y_max, parent_y_max)
+        inset_indicator = pmf_ax.indicate_inset(
+            (start, detail_y_min, end - start, indicator_y_max - detail_y_min),
+            inset_ax=inset_ax,
             edgecolor="0.65",
             linewidth=0.5,
             alpha=0.4,

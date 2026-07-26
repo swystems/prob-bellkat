@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Set any of these to 1 to regenerate only that experiment's plots.
+DISTILLATION_PLOTS_ONLY="${DISTILLATION_PLOTS_ONLY:-0}"
+OPTIMALITY_PLOTS_ONLY="${OPTIMALITY_PLOTS_ONLY:-0}"
+COMPARISON_PLOTS_ONLY="${COMPARISON_PLOTS_ONLY:-0}"
+SCHEDULER_PLOTS_ONLY="${SCHEDULER_PLOTS_ONLY:-0}"
+VALIDATION_PLOTS_ONLY="${VALIDATION_PLOTS_ONLY:-0}"
+
+LOG_FILE="${LOG_FILE:-run-10.log}"
+RUN_TMPDIR="${RUN_TMPDIR:-/private/tmp}"
+
+TRUNCATION="${TRUNCATION:-2000}"
+GENERATION_SCALING="${GENERATION_SCALING:-128}"
+UNIFORM_W0_VALUES="${UNIFORM_W0_VALUES:-0.925,0.94,0.955,0.97,0.985,1.0}"
+T_COH_VALUES="${T_COH_VALUES:-900,3600,14400,57600,230400,921600,3686400}"
+P_SWAP="${P_SWAP:-0.5}"
+OPTIMALITY_SCALING_VALUES="${OPTIMALITY_SCALING_VALUES:-4,16,64,256,1024}"
+OPTIMALITY_P_SWAP_VALUES="${OPTIMALITY_P_SWAP_VALUES:-0.25,0.5,0.75,1}"
+EDGE_SKEW_VALUES="${EDGE_SKEW_VALUES:-1,2,4,8,16,32}"
+COVERAGE="${COVERAGE:-0.99}"
+DETAIL_RANGE="${DETAIL_RANGE:-8267,8277}"
+PLOT_PROFILE="${PLOT_PROFILE:-paper}"
+SCHEDULER_TRUNCATION="${SCHEDULER_TRUNCATION:-2000}" # 101347
+SCHEDULER_QUALITY_TRUNCATION="${SCHEDULER_QUALITY_TRUNCATION:-$SCHEDULER_TRUNCATION}"
+SCHEDULER_T_COH="${SCHEDULER_T_COH:-1440000}"
+SCHEDULER_JOBS="${SCHEDULER_JOBS:-1}"
+SCHEDULER_FIGURE_DIR="${SCHEDULER_FIGURE_DIR:-../qbkat-overleaf/plots}"
+SCHEDULER_SKIP_UNION_QUALITY="${SCHEDULER_SKIP_UNION_QUALITY:-1}"
+VALIDATION_MC_SHOTS="${VALIDATION_MC_SHOTS:-10000000}"
+VALIDATION_BIN_WIDTH="${VALIDATION_BIN_WIDTH:-100}"
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$repo_dir"
+
+distillation=(
+  .venv/bin/python scripts/run_distillation_comparison.py
+  --truncation "$TRUNCATION"
+  --generation-scaling "$GENERATION_SCALING"
+  --uniform-w0-values "$UNIFORM_W0_VALUES"
+  --t-coh-values "$T_COH_VALUES"
+  --p-swap "$P_SWAP"
+  --plot-profile "$PLOT_PROFILE"
+)
+
+optimality=(
+  .venv/bin/python -m scripts.run_swap_scheme_optimality
+  --experiment doubling-asap
+  --experiment sequential-asap
+  --generation-scaling-values-a "$OPTIMALITY_SCALING_VALUES"
+  --p-sw-values-a "$OPTIMALITY_P_SWAP_VALUES"
+  --generation-scaling-values-b "$OPTIMALITY_SCALING_VALUES"
+  --edge-skew-values-b "$EDGE_SKEW_VALUES"
+  --plot-profile "$PLOT_PROFILE"
+)
+
+comparison=(
+  .venv/bin/python -m scripts.run_swap_scheme_comparison
+  --joint-plots
+  --show-detail "$DETAIL_RANGE"
+  --show-detail-link
+)
+
+schedulers=(
+  .venv/bin/python scripts/run_nondet_topology_schedulers.py
+  --truncation "$SCHEDULER_TRUNCATION"
+  --plot-truncation "$SCHEDULER_TRUNCATION"
+  --quality-truncation "$SCHEDULER_QUALITY_TRUNCATION"
+  --quality-plot-truncation "$SCHEDULER_QUALITY_TRUNCATION"
+  --t-coh "$SCHEDULER_T_COH"
+  --jobs "$SCHEDULER_JOBS"
+  --joint-protocols-cdf-werner
+  --no-shade
+  --figure-dir "$SCHEDULER_FIGURE_DIR"
+)
+
+validation=(
+  .venv/bin/python scripts/run_swap_scheme_validation.py
+  --protocol doubling
+  --protocol left-to-right
+  --include-mc
+  --mc-shots "$VALIDATION_MC_SHOTS"
+  --bin-width "$VALIDATION_BIN_WIDTH"
+  --plot-profile "$PLOT_PROFILE"
+)
+
+if [[ "$DISTILLATION_PLOTS_ONLY" == 1 ]]; then
+  distillation+=(--plots-only)
+else
+  distillation+=(--resume)
+fi
+
+if [[ "$OPTIMALITY_PLOTS_ONLY" == 1 ]]; then
+  optimality+=(--plots-only)
+else
+  optimality+=(--coverage "$COVERAGE" --resume)
+fi
+
+if [[ "$COMPARISON_PLOTS_ONLY" == 1 ]]; then
+  comparison+=(--plots-only)
+else
+  comparison+=(--coverage "$COVERAGE")
+fi
+
+if [[ "$SCHEDULER_PLOTS_ONLY" == 1 ]]; then
+  schedulers+=(--plots-only)
+else
+  schedulers+=(--resume)
+fi
+
+if [[ "$VALIDATION_PLOTS_ONLY" == 1 ]]; then
+  validation+=(--plots-only)
+fi
+
+if [[ "$SCHEDULER_SKIP_UNION_QUALITY" == 1 ]]; then
+  schedulers+=(--skip-union-quality)
+fi
+
+quote_command() {
+  local quoted
+  printf -v quoted '%q ' "$@"
+  printf '%s' "${quoted% }"
+}
+
+pipeline=""
+pipeline+="$(quote_command "${schedulers[@]}")"
+pipeline+=" && $(quote_command "${validation[@]}")"
+pipeline+=" && $(quote_command "${distillation[@]}")"
+pipeline+=" && $(quote_command "${comparison[@]}")"
+pipeline+=" && $(quote_command "${optimality[@]}")"
+
+nohup caffeinate -dims env \
+  PYTHONUNBUFFERED=1 TMPDIR="$RUN_TMPDIR" TMP="$RUN_TMPDIR" TEMP="$RUN_TMPDIR" \
+  nix develop -c zsh -lc "$pipeline" >"$LOG_FILE" 2>&1 &
+
+pid=$!
+printf 'Started run as PID %s; logging to %s/%s\n' "$pid" "$repo_dir" "$LOG_FILE"

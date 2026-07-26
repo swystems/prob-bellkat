@@ -168,9 +168,41 @@ def parse_args() -> argparse.Namespace:
         help="Hide the legend only in the standalone Werner validation plot.",
     )
     parser.add_argument(
+        "--include-mc",
+        action="store_true",
+        help=(
+            "Run the bundled Monte Carlo validation for doubling and L2R "
+            "sequential swapping, and add its binned samples to the plots."
+        ),
+    )
+    parser.add_argument(
+        "--mc-shots",
+        type=int,
+        default=10_000_000,
+        help="Number of Monte Carlo shots per supported protocol. Defaults to 10^7.",
+    )
+    parser.add_argument(
+        "--bin-width",
+        type=int,
+        default=100,
+        help=(
+            "Shared time-bin width used for every plotted dataset when "
+            "--include-mc is present. Defaults to 100."
+        ),
+    )
+    parser.add_argument(
+        "--mc-seed",
+        type=int,
+        default=20260725,
+        help="Base random seed; sequential swapping uses this value plus one.",
+    )
+    parser.add_argument(
         "--plots-only",
         action="store_true",
-        help="Skip Cabal runs and validate/plot from existing JSON in --output-dir.",
+        help=(
+            "Skip Cabal runs and validate/plot from existing JSON in --output-dir. "
+            "A requested Monte Carlo simulation still runs."
+        ),
     )
     parser.add_argument(
         "--reuse-existing",
@@ -208,6 +240,14 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         parser.error("--werner-pmf-threshold must be non-negative.")
     if args.tail_tolerance < 0.0:
         parser.error("--tail-tolerance must be non-negative.")
+    if args.mc_shots < 1:
+        parser.error("--mc-shots must be positive.")
+    if args.bin_width < 1:
+        parser.error("--bin-width must be positive.")
+    if args.include_mc and args.p_swap <= 0.0:
+        parser.error("--include-mc requires --p-swap to be positive.")
+    if args.include_mc and args.truncation < 1:
+        parser.error("--include-mc requires a positive --truncation.")
 
 
 if __name__ == "__main__":

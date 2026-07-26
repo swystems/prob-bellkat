@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 import pickle
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,7 @@ from scripts.plot.config import (
     output_path,
     save_figure,
     style_axes,
+    use_informative_y_ticks,
 )
 from scripts.plot.plot_extremal import (
     derive_average_werner_series,
@@ -58,14 +61,31 @@ REFERENCE_COLORS = {
 QBKAT_LINESTYLE = "-"
 REFERENCE_LINESTYLE = "--"
 REFERENCE_LINEWIDTH = 1.6
+MC_MARKERS = {
+    "doubling": "o",
+    "left-to-right": "s",
+    "right-to-left": "s",
+}
+MC_COLORS = {
+    "doubling": "#008E74",
+    "left-to-right": "#D55E00",
+    "right-to-left": "#D55E00",
+}
+MC_MARKERSIZE = 1.35
+MC_ALPHA = 0.3
+MC_DECAY_FACTOR = 2.0
+MC_LINKS = 4
 WERNER_START_TIME = 1  # The conditional Werner value is undefined at t=0.
 VALIDATION_LABELS = {
     ("doubling", "qbkat"): "QBKAT doubling",
     ("doubling", "reference"): r"Li $\mathit{et\ al.}$ doubling",
+    ("doubling", "mc"): "MC doubling",
     ("left-to-right", "qbkat"): "QBKAT L2R",
     ("left-to-right", "reference"): r"La Corte $\mathit{et\ al.}$ L2R",
+    ("left-to-right", "mc"): "MC sequential",
     ("right-to-left", "qbkat"): "QBKAT R2L",
     ("right-to-left", "reference"): r"La Corte $\mathit{et\ al.}$ R2L",
+    ("right-to-left", "mc"): "MC sequential",
 }
 PMF_KEYS = ("pmf", "delivery_pmf", "probabilities", "probability")
 CDF_KEYS = ("cdf", "delivery_cdf")
@@ -95,6 +115,27 @@ class ReferenceSeries:
     cdf: np.ndarray | None = None
     werner: np.ndarray | None = None
     final_lambda: float | None = None
+
+
+@dataclass(frozen=True)
+class BinnedSeries:
+    time: np.ndarray
+    pmf: np.ndarray
+    werner: np.ndarray
+    widths: np.ndarray
+
+
+@dataclass(frozen=True)
+class MonteCarloSeries:
+    protocol: str
+    time: np.ndarray
+    pmf: np.ndarray
+    werner: np.ndarray
+    widths: np.ndarray
+    sample_count: np.ndarray
+    shots: int
+    runtime_seconds: float
+    coverage: float
 
 
 def memory_lambda(t_coh: int) -> float:
@@ -160,11 +201,16 @@ def output_json_path(output_dir: Path, file_prefix: str, protocol: str, event: s
     return output_dir / f"{file_prefix}_{protocol_tag(protocol)}_qmdp_{event}.json"
 
 
-def run_qmdp_case(args: Any, protocol: str, event: str, output_dir: Path) -> Path:
+def run_qmdp_case(
+    args: Any,
+    protocol: str,
+    event: str,
+    output_dir: Path,
+) -> tuple[Path, float | None]:
     path = output_json_path(output_dir, args.file_prefix, protocol, event)
     if args.reuse_existing and path.is_file():
         print(f"{protocol} qmdp/{event}: reusing {path}")
-        return path
+        return path, None
 
     command = [
         *executable_command(args.executable),
@@ -187,20 +233,56 @@ def run_qmdp_case(args: Any, protocol: str, event: str, output_dir: Path) -> Pat
         "--truncation",
         str(args.truncation),
     ]
-    run_command(command, stdout_path=path, status_label=f"{protocol} qmdp/{event}")
-    return path
+    elapsed = run_command(
+        command,
+        stdout_path=path,
+        status_label=f"{protocol} qmdp/{event}",
+    )
+    return path, elapsed
 
 
-def run_protocol_outputs(args: Any, protocols: tuple[str, ...], output_dir: Path) -> None:
+def run_protocol_outputs(
+    args: Any,
+    protocols: tuple[str, ...],
+    output_dir: Path,
+) -> list[dict[str, Any]]:
     if not args.no_build:
         command = build_command(args.executable)
         if command is not None:
             run_command(command, status_label=f"cabal build {args.executable}")
 
+    timing_rows: list[dict[str, Any]] = []
     output_dir.mkdir(parents=True, exist_ok=True)
     for protocol in protocols:
-        run_qmdp_case(args, protocol, "pure", output_dir)
-        run_qmdp_case(args, protocol, "mixed", output_dir)
+        event_seconds: dict[str, float] = {}
+        for event in ("pure", "mixed"):
+            path, elapsed = run_qmdp_case(args, protocol, event, output_dir)
+            if elapsed is not None and protocol in ("doubling", "left-to-right"):
+                event_seconds[event] = elapsed
+                timing_rows.append(
+                    {
+                        "method": "QBKAT",
+                        "protocol": (
+                            "doubling" if protocol == "doubling" else "sequential"
+                        ),
+                        "event": event,
+                        "seconds": f"{elapsed:.6f}",
+                        "details": str(path),
+                    }
+                )
+        if len(event_seconds) == 2:
+            timing_rows.append(
+                {
+                    "method": "QBKAT",
+                    "protocol": (
+                        "doubling" if protocol == "doubling" else "sequential"
+                    ),
+                    "event": "pure+mixed",
+                    "seconds": f"{sum(event_seconds.values()):.6f}",
+                    "details": "sum of the two QMDP event evaluations",
+                }
+            )
+    return timing_rows
 
 
 def load_protocol_series(output_dir: Path, file_prefix: str, protocol: str) -> ProtocolSeries:
@@ -535,6 +617,308 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def merge_timing_rows(
+    path: Path,
+    new_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Preserve unaffected timings when a plots-only run refreshes MC data."""
+    if not path.is_file():
+        return new_rows
+    with open(path, encoding="utf-8", newline="") as handle:
+        existing_rows = list(csv.DictReader(handle))
+    replaced = {
+        (str(row.get("method")), str(row.get("protocol")), str(row.get("event")))
+        for row in new_rows
+    }
+    retained = [
+        row
+        for row in existing_rows
+        if (
+            str(row.get("method")),
+            str(row.get("protocol")),
+            str(row.get("event")),
+        )
+        not in replaced
+    ]
+    return [*retained, *new_rows]
+
+
+def make_shared_bin_edges(
+    series_by_protocol: dict[str, ProtocolSeries],
+    references: dict[str, ReferenceSeries],
+    bin_width: int,
+) -> np.ndarray:
+    """Return identical half-open time bins for every plotted dataset."""
+    horizons: list[int] = []
+    for protocol in plotted_protocols(series_by_protocol):
+        series = series_by_protocol[protocol]
+        horizons.append(min(len(series.pmf), len(series.werner)))
+        reference = references.get(protocol)
+        if reference is not None:
+            if reference.pmf is not None:
+                horizons.append(len(reference.pmf))
+            if reference.werner is not None:
+                horizons.append(len(reference.werner))
+    if not horizons or min(horizons) < 1:
+        raise SystemExit("Cannot construct shared bins from empty validation series.")
+
+    horizon = min(horizons)
+    edges = np.arange(0, horizon + 1, bin_width, dtype=np.int64)
+    if len(edges) == 0 or edges[0] != 0:
+        edges = np.insert(edges, 0, 0)
+    if edges[-1] != horizon:
+        edges = np.append(edges, horizon)
+    return edges
+
+
+def bin_distribution(
+    pmf: np.ndarray,
+    werner: np.ndarray,
+    edges: np.ndarray,
+) -> BinnedSeries:
+    """Average PMF density and condition Werner values in shared time bins."""
+    if len(edges) < 2 or edges[0] < 0 or np.any(np.diff(edges) <= 0):
+        raise ValueError("bin edges must be strictly increasing and non-negative")
+    if edges[-1] > len(pmf) or edges[-1] > len(werner):
+        raise ValueError("bin edges extend past the supplied distribution")
+
+    widths = np.diff(edges).astype(float)
+    pmf_density = np.empty(len(widths), dtype=float)
+    binned_werner = np.full(len(widths), np.nan, dtype=float)
+    for index, (start, end) in enumerate(zip(edges[:-1], edges[1:])):
+        bin_pmf = pmf[start:end]
+        mass = float(np.sum(bin_pmf))
+        pmf_density[index] = mass / widths[index]
+        finite = np.isfinite(werner[start:end])
+        finite_mass = float(np.sum(bin_pmf[finite]))
+        if finite_mass > 0.0:
+            binned_werner[index] = float(
+                np.sum(bin_pmf[finite] * werner[start:end][finite]) / finite_mass
+            )
+
+    time_points = (edges[:-1] + edges[1:] - 1) / 2.0
+    return BinnedSeries(
+        time=time_points,
+        pmf=pmf_density,
+        werner=binned_werner,
+        widths=widths,
+    )
+
+
+def bin_monte_carlo_samples(
+    protocol: str,
+    times: np.ndarray,
+    werner: np.ndarray,
+    edges: np.ndarray,
+    shots: int,
+    runtime_seconds: float,
+) -> MonteCarloSeries:
+    """Bin samples using the same edges and PMF-density convention as exact data."""
+    if len(times) != shots or len(werner) != shots:
+        raise ValueError("Monte Carlo sample arrays must contain exactly `shots` entries")
+
+    valid = (times >= edges[0]) & (times < edges[-1])
+    positions = np.searchsorted(edges, times[valid], side="right") - 1
+    bin_count = np.bincount(positions, minlength=len(edges) - 1)
+    werner_sum = np.bincount(
+        positions,
+        weights=werner[valid],
+        minlength=len(edges) - 1,
+    )
+    widths = np.diff(edges).astype(float)
+    pmf_density = bin_count.astype(float) / (shots * widths)
+    binned_werner = np.divide(
+        werner_sum,
+        bin_count,
+        out=np.full(len(bin_count), np.nan, dtype=float),
+        where=bin_count > 0,
+    )
+    return MonteCarloSeries(
+        protocol=protocol,
+        time=(edges[:-1] + edges[1:] - 1) / 2.0,
+        pmf=pmf_density,
+        werner=binned_werner,
+        widths=widths,
+        sample_count=bin_count,
+        shots=shots,
+        runtime_seconds=runtime_seconds,
+        coverage=float(np.sum(bin_count) / shots),
+    )
+
+
+def write_monte_carlo_csv(path: Path, series: MonteCarloSeries) -> None:
+    edges_left = series.time - (series.widths - 1.0) / 2.0
+    edges_right = edges_left + series.widths
+    with open(path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            [
+                "bin_start",
+                "bin_end_exclusive",
+                "bin_center",
+                "pmf_per_timestep",
+                "mean_werner",
+                "sample_count",
+            ]
+        )
+        writer.writerows(
+            zip(
+                edges_left.astype(int),
+                edges_right.astype(int),
+                series.time,
+                series.pmf,
+                series.werner,
+                series.sample_count,
+            )
+        )
+
+
+def run_monte_carlo_validation(
+    args: Any,
+    series_by_protocol: dict[str, ProtocolSeries],
+    edges: np.ndarray,
+    output_dir: Path,
+) -> tuple[dict[str, MonteCarloSeries], list[dict[str, Any]]]:
+    from scripts.validation.swap_scheme_monte_carlo import simulate, warm_up
+
+    protocols = plotted_protocols(series_by_protocol)
+    if not protocols:
+        print("--include-mc: no doubling or sequential protocol is selected.")
+        return {}, []
+
+    print("[progress] Monte Carlo: compiling sampling kernels", flush=True)
+    warm_up()
+    print("[progress] Monte Carlo: sampling kernels ready", flush=True)
+
+    mc_by_protocol: dict[str, MonteCarloSeries] = {}
+    timing_rows: list[dict[str, Any]] = []
+    summary: dict[str, Any] = {
+        "parameters": {
+            "shots_per_protocol": args.mc_shots,
+            "links": MC_LINKS,
+            "p_gen": args.p_gen,
+            "p_swap": args.p_swap,
+            "w0": args.w0,
+            "t_coh_per_memory": args.reference_t_coh,
+            "decay_factor": MC_DECAY_FACTOR,
+            "seed": args.mc_seed,
+            "bin_width": args.bin_width,
+            "horizon_exclusive": int(edges[-1]),
+        },
+        "timing_note": "Numba compilation is warmed up and excluded.",
+        "protocols": {},
+    }
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for protocol in protocols:
+        scheme = "doubling" if protocol == "doubling" else "sequential"
+        seed = args.mc_seed if scheme == "doubling" else args.mc_seed + 1
+        started = time.perf_counter()
+        times, werner = simulate(
+            scheme,
+            n_links=MC_LINKS,
+            sample_size=args.mc_shots,
+            p_gen=args.p_gen,
+            p_swap=args.p_swap,
+            w0=args.w0,
+            t_coh=float(args.reference_t_coh),
+            seed=seed,
+            decay_factor=MC_DECAY_FACTOR,
+        )
+        elapsed = time.perf_counter() - started
+        mc_series = bin_monte_carlo_samples(
+            protocol,
+            times,
+            werner,
+            edges,
+            args.mc_shots,
+            elapsed,
+        )
+        mc_by_protocol[protocol] = mc_series
+
+        csv_path = (
+            output_dir
+            / f"{args.file_prefix}_{protocol_tag(protocol)}_mc_binned.csv"
+        )
+        write_monte_carlo_csv(csv_path, mc_series)
+        protocol_name = "doubling" if protocol == "doubling" else "sequential"
+        timing_rows.append(
+            {
+                "method": "Monte Carlo",
+                "protocol": protocol_name,
+                "event": "simulation",
+                "seconds": f"{elapsed:.6f}",
+                "details": (
+                    f"{args.mc_shots} shots; Numba warm-up excluded; {csv_path}"
+                ),
+            }
+        )
+        summary["protocols"][protocol_name] = {
+            "seed": seed,
+            "runtime_seconds": elapsed,
+            "coverage_at_horizon": mc_series.coverage,
+            "mean_completion_time": float(np.mean(times)),
+            "mean_werner": float(np.mean(werner)),
+            "binned_csv": str(csv_path),
+        }
+        print(
+            f"[progress] MC {protocol_name}: {args.mc_shots} shots finished "
+            f"in {elapsed:.2f}s; coverage={mc_series.coverage:.9f}",
+            flush=True,
+        )
+
+    summary_path = output_dir / "monte_carlo_summary.json"
+    with open(summary_path, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2)
+        handle.write("\n")
+    print(f"Monte Carlo summary: {summary_path}")
+    return mc_by_protocol, timing_rows
+
+
+def compare_monte_carlo(
+    series: ProtocolSeries,
+    mc_series: MonteCarloSeries,
+    edges: np.ndarray,
+) -> dict[str, float | int]:
+    model = bin_distribution(series.pmf, series.werner, edges)
+    model_mass = model.pmf * model.widths
+    mc_mass = mc_series.pmf * mc_series.widths
+    cdf_diff = np.cumsum(model_mass) - np.cumsum(mc_mass)
+
+    supported = (
+        (mc_series.sample_count > 0)
+        & np.isfinite(model.werner)
+        & np.isfinite(mc_series.werner)
+    )
+    if np.any(supported):
+        werner_abs_diff = np.abs(
+            model.werner[supported] - mc_series.werner[supported]
+        )
+        werner_weighted_mae = float(
+            np.average(
+                werner_abs_diff,
+                weights=mc_series.sample_count[supported],
+            )
+        )
+        werner_max_abs_diff = float(np.max(werner_abs_diff))
+    else:
+        werner_weighted_mae = math.nan
+        werner_max_abs_diff = math.nan
+
+    return {
+        "mc_shots": mc_series.shots,
+        "mc_runtime_seconds": mc_series.runtime_seconds,
+        "mc_coverage": mc_series.coverage,
+        "mc_cdf_max_abs_diff": float(np.max(np.abs(cdf_diff))),
+        "mc_pmf_l1_diff": float(np.sum(np.abs(model_mass - mc_mass))),
+        "mc_werner_weighted_mae": werner_weighted_mae,
+        "mc_werner_max_abs_diff": werner_max_abs_diff,
+        "mc_dkw_95_half_width": math.sqrt(
+            math.log(2.0 / 0.05) / (2.0 * mc_series.shots)
+        ),
+    }
+
+
 def plot_validation(
     plt: Any,
     figure_dir: Path,
@@ -542,6 +926,8 @@ def plot_validation(
     plot_profile_name: str,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
     skip_werner_legend: bool = False,
 ) -> dict[str, Path]:
     plot_profile = get_plot_profile(plot_profile_name)
@@ -555,8 +941,22 @@ def plot_validation(
         ),
         gridspec_kw={"width_ratios": (1.0, 1.0), "wspace": JOINT_PLOTS_WSPACE},
     )
-    plot_validation_curves(pmf_ax, "pmf", series_by_protocol, references)
-    plot_validation_curves(werner_ax, "werner", series_by_protocol, references)
+    plot_validation_curves(
+        pmf_ax,
+        "pmf",
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
+    plot_validation_curves(
+        werner_ax,
+        "werner",
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
 
     pmf_ax.set_ylabel("Probability")
     werner_ax.set_ylabel("Werner parameter")
@@ -574,9 +974,14 @@ def plot_validation(
     )
     pmf_ax.margins(x=0)
     werner_ax.margins(x=0)
-    pmf_ax.set_xlim(left=0)
+    if bin_edges is None:
+        pmf_ax.set_xlim(left=0)
+    else:
+        pmf_ax.set_xlim(0, int(bin_edges[-1]))
     style_axes(pmf_ax)
     style_axes(werner_ax)
+    use_informative_y_ticks(pmf_ax)
+    use_informative_y_ticks(werner_ax)
 
     handles, labels = pmf_ax.get_legend_handles_labels()
     if handles:
@@ -587,10 +992,10 @@ def plot_validation(
             loc="upper center",
             bbox_to_anchor=(0.5, SWAP_COMPARISON_JOINT_LEGEND_Y),
             ncol=len(handles),
-            columnspacing=0.8,
-            handletextpad=0.4,
-            handlelength=1.5,
-            fontsize=8,
+            columnspacing=0.55 if monte_carlo else 0.8,
+            handletextpad=0.3 if monte_carlo else 0.4,
+            handlelength=1.2 if monte_carlo else 1.5,
+            fontsize=6.5 if monte_carlo else 8,
         )
 
     fig.subplots_adjust(
@@ -614,6 +1019,8 @@ def plot_validation(
         plot_profile,
         series_by_protocol,
         references,
+        monte_carlo,
+        bin_edges,
     )
     werner_path = plot_werner_validation(
         plt,
@@ -622,6 +1029,8 @@ def plot_validation(
         plot_profile,
         series_by_protocol,
         references,
+        monte_carlo,
+        bin_edges,
         skip_legend=skip_werner_legend,
     )
     return {
@@ -655,23 +1064,33 @@ def plot_validation_curves(
     attribute: str,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
 ) -> None:
     protocols = plotted_protocols(series_by_protocol)
     for protocol in protocols:
         color = PROTOCOL_COLORS[protocol]
         series = series_by_protocol[protocol]
-        values = getattr(series, attribute)
-        start = WERNER_START_TIME if attribute == "werner" else 0
+        if bin_edges is None:
+            values = getattr(series, attribute)
+            start = WERNER_START_TIME if attribute == "werner" else 0
+            time_points = np.arange(start, len(values))
+            values = values[start:]
+        else:
+            binned = bin_distribution(series.pmf, series.werner, bin_edges)
+            time_points = binned.time
+            values = getattr(binned, attribute)
         ax.plot(
-            np.arange(start, len(values)),
-            values[start:],
+            time_points,
+            values,
             color=color,
             linestyle=QBKAT_LINESTYLE,
             label=VALIDATION_LABELS[(protocol, "qbkat")],
+            zorder=3,
         )
 
-    # Draw references last so their dashed curves remain visible over QBKAT's
-    # nearly identical solid curves.
+    # Draw references after QBKAT so their dashed curves remain visible over
+    # QBKAT's nearly identical solid curves.
     for protocol in protocols:
         reference = references.get(protocol)
         if reference is None:
@@ -680,14 +1099,55 @@ def plot_validation_curves(
         values = getattr(reference, attribute)
         if values is None:
             continue
-        start = WERNER_START_TIME if attribute == "werner" else 0
+        if bin_edges is None:
+            start = WERNER_START_TIME if attribute == "werner" else 0
+            time_points = np.arange(start, len(values))
+            values = values[start:]
+        else:
+            if reference.pmf is None:
+                continue
+            reference_werner = (
+                reference.werner
+                if reference.werner is not None
+                else np.zeros_like(reference.pmf)
+            )
+            binned = bin_distribution(
+                reference.pmf,
+                reference_werner,
+                bin_edges,
+            )
+            time_points = binned.time
+            values = getattr(binned, attribute)
         ax.plot(
-            np.arange(start, len(values)),
-            values[start:],
+            time_points,
+            values,
             color=color,
             linestyle=REFERENCE_LINESTYLE,
             linewidth=REFERENCE_LINEWIDTH,
             label=VALIDATION_LABELS[(protocol, "reference")],
+            zorder=4,
+        )
+
+    # As in Li et al. Figure 4, show Monte Carlo estimates as marker-only
+    # samples. Keep them above the deterministic curves so they remain visible
+    # where the estimates agree, while low opacity leaves those curves legible.
+    for protocol in protocols:
+        mc_series = monte_carlo.get(protocol)
+        if mc_series is None:
+            continue
+        values = getattr(mc_series, attribute)
+        supported = np.isfinite(values)
+        ax.plot(
+            mc_series.time[supported],
+            values[supported],
+            color=MC_COLORS[protocol],
+            marker=MC_MARKERS[protocol],
+            linestyle="none",
+            markersize=MC_MARKERSIZE,
+            markeredgewidth=0.0,
+            alpha=MC_ALPHA,
+            label=VALIDATION_LABELS[(protocol, "mc")],
+            zorder=5,
         )
 
 
@@ -695,17 +1155,34 @@ def plot_pmf_curves(
     ax: Any,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
 ) -> None:
-    plot_validation_curves(ax, "pmf", series_by_protocol, references)
-
+    plot_validation_curves(
+        ax,
+        "pmf",
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
 
 
 def plot_werner_curves(
     ax: Any,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
 ) -> None:
-    plot_validation_curves(ax, "werner", series_by_protocol, references)
+    plot_validation_curves(
+        ax,
+        "werner",
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
 
 
 def plot_pmf_validation(
@@ -715,15 +1192,26 @@ def plot_pmf_validation(
     plot_profile: Any,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
 ) -> Path:
     fig, ax = plt.subplots(
         figsize=(VALIDATION_LINE_WIDTH_INCHES, VALIDATION_HEIGHT_INCHES)
     )
-    plot_pmf_curves(ax, series_by_protocol, references)
+    plot_pmf_curves(
+        ax,
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Probability")
+    if bin_edges is not None:
+        ax.set_xlim(0, int(bin_edges[-1]))
     ax.legend(loc="best")
     style_axes(ax)
+    use_informative_y_ticks(ax)
     path = output_path(figure_dir, file_prefix, "validation_pmf", plot_profile)
     save_figure(fig, path, tight_layout=True, bbox_inches=None)
     plt.close(fig)
@@ -737,18 +1225,29 @@ def plot_werner_validation(
     plot_profile: Any,
     series_by_protocol: dict[str, ProtocolSeries],
     references: dict[str, ReferenceSeries],
+    monte_carlo: dict[str, MonteCarloSeries],
+    bin_edges: np.ndarray | None,
     *,
     skip_legend: bool = False,
 ) -> Path:
     fig, ax = plt.subplots(
         figsize=(VALIDATION_LINE_WIDTH_INCHES, VALIDATION_HEIGHT_INCHES)
     )
-    plot_werner_curves(ax, series_by_protocol, references)
+    plot_werner_curves(
+        ax,
+        series_by_protocol,
+        references,
+        monte_carlo,
+        bin_edges,
+    )
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Werner parameter")
+    if bin_edges is not None:
+        ax.set_xlim(0, int(bin_edges[-1]))
     if not skip_legend:
         ax.legend(loc="best")
     style_axes(ax)
+    use_informative_y_ticks(ax)
     path = output_path(figure_dir, file_prefix, "validation_werner", plot_profile)
     save_figure(fig, path, tight_layout=True, bbox_inches=None)
     plt.close(fig)
@@ -759,9 +1258,10 @@ def run_validation(args: Any) -> None:
     protocols = tuple(args.protocol or DEFAULT_PROTOCOLS)
     output_dir = Path(args.output_dir)
     figure_dir = Path(args.figure_dir)
+    timing_rows: list[dict[str, Any]] = []
 
     if not args.plots_only:
-        run_protocol_outputs(args, protocols, output_dir)
+        timing_rows = run_protocol_outputs(args, protocols, output_dir)
     elif not output_dir.is_dir():
         raise SystemExit(f"--plots-only requires an existing output directory: {output_dir}")
 
@@ -813,6 +1313,22 @@ def run_validation(args: Any) -> None:
         )
     references = {**li_references, **lacorte_references}
 
+    bin_edges: np.ndarray | None = None
+    monte_carlo: dict[str, MonteCarloSeries] = {}
+    if args.include_mc:
+        bin_edges = make_shared_bin_edges(
+            series_by_protocol,
+            references,
+            args.bin_width,
+        )
+        monte_carlo, mc_timing_rows = run_monte_carlo_validation(
+            args,
+            series_by_protocol,
+            bin_edges,
+            output_dir,
+        )
+        timing_rows.extend(mc_timing_rows)
+
     rows: list[dict[str, Any]] = []
     for protocol, series in series_by_protocol.items():
         base_row: dict[str, Any] = {
@@ -843,11 +1359,25 @@ def run_validation(args: Any) -> None:
                     werner_pmf_threshold=args.werner_pmf_threshold,
                 )
             )
+        if protocol in monte_carlo and bin_edges is not None:
+            base_row.update(
+                compare_monte_carlo(
+                    series,
+                    monte_carlo[protocol],
+                    bin_edges,
+                )
+            )
         rows.append(base_row)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "validation_summary.csv"
     write_summary_csv(summary_path, rows)
+    timings_path: Path | None = None
+    if timing_rows:
+        timings_path = output_dir / "validation_timings.csv"
+        if args.plots_only:
+            timing_rows = merge_timing_rows(timings_path, timing_rows)
+        write_summary_csv(timings_path, timing_rows)
 
     plt = configure_matplotlib(args.plot_profile)
     figure_paths = plot_validation(
@@ -857,6 +1387,8 @@ def run_validation(args: Any) -> None:
         args.plot_profile,
         series_by_protocol,
         references,
+        monte_carlo,
+        bin_edges,
         skip_werner_legend=args.skip_werner_legend,
     )
 
@@ -866,6 +1398,12 @@ def run_validation(args: Any) -> None:
         f"t_coh={args.t_coh}, reference_t_coh={args.reference_t_coh}, "
         f"truncation={args.truncation}"
     )
+    if bin_edges is not None:
+        print(
+            f"Monte Carlo: {args.mc_shots} shots/protocol, "
+            f"shared bin width={args.bin_width}, "
+            f"horizon=[0,{int(bin_edges[-1])})"
+        )
     print(f"Goodenough E[Lambda_4] = {swap_asap_oracle:.15g}")
     for row in rows:
         print(
@@ -873,6 +1411,8 @@ def run_validation(args: Any) -> None:
             f"tail={row['tail']}"
         )
     print(f"Summary CSV: {summary_path}")
+    if timings_path is not None:
+        print(f"Timing CSV: {timings_path}")
     print(f"Combined validation figure: {figure_paths['combined']}")
     print(f"PMF validation figure: {figure_paths['pmf']}")
     print(f"Werner validation figure: {figure_paths['werner']}")

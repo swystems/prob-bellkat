@@ -219,8 +219,20 @@ computeExtremalReachability isGoal query ss = do
 
     let (minTable, resolvedBudget, coverageStatus, minChoices) =
             computeExtremalTable selectMinAction query states goalSet actions (ssInitial ss)
-        (maxTable, _, _, maxChoices) =
-            computeExtremalTable selectMaxAction (ExtremalBudget resolvedBudget) states goalSet actions (ssInitial ss)
+        deterministic = all ((<= 1) . length) (Map.elems actions)
+        (maxTable, maxChoices) =
+            if deterministic
+               then (minTable, minChoices)
+               else
+                    let (table, _, _, choices) =
+                            computeExtremalTable
+                                selectMaxAction
+                                (ExtremalBudget resolvedBudget)
+                                states
+                                goalSet
+                                actions
+                                (ssInitial ss)
+                     in (table, choices)
 
     pure $
         ExtremalResult

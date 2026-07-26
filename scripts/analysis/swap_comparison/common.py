@@ -26,6 +26,8 @@ from scripts.plot.config import (
     hide_overlapping_inner_x_tick_label,
     output_path,
     save_figure,
+    style_axes,
+    use_informative_y_ticks,
 )
 from scripts.plot.plot_extremal import (
     configure_matplotlib,
@@ -34,7 +36,6 @@ from scripts.plot.plot_extremal import (
     derive_pmf_series,
     load_extremal_payload,
     load_extremal_series,
-    style_axes,
     werner_to_fid,
 )
 from scripts.utils.utils import secret_key_rate
@@ -887,6 +888,22 @@ def add_pmf_detail_inset(
     from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 
     start, end = detail
+    # Resolve the parent scales and y-tick positions before formatting the
+    # inset. The paper style moves each exponent to its parent axis label, so
+    # the inset can use the same scaled units without repeating the notation.
+    style_axes(pmf_ax)
+    use_informative_y_ticks(pmf_ax)
+    pmf_ax.figure.canvas.draw()
+    parent_x_exponent = int(
+        getattr(pmf_ax.xaxis.get_major_formatter(), "orderOfMagnitude", 0) or 0
+    )
+    parent_y_exponent = int(
+        getattr(pmf_ax.yaxis.get_major_formatter(), "orderOfMagnitude", 0) or 0
+    )
+    parent_x_scale = 10.0**parent_x_exponent
+    parent_y_scale = 10.0**parent_y_exponent
+    parent_y_ticks = np.asarray(pmf_ax.get_yticks(), dtype=float)
+
     inset_ax = pmf_ax.inset_axes(SWAP_COMPARISON_DETAIL_INSET_BOUNDS)
     inset_values = []
 
@@ -939,11 +956,22 @@ def add_pmf_detail_inset(
 
     inset_ax.xaxis.set_major_locator(FixedLocator((start, end)))
     inset_ax.xaxis.set_major_formatter(
-        FuncFormatter(lambda value, _position: f"{value:g}")
+        FuncFormatter(
+            lambda value, _position: f"{value / parent_x_scale:.5g}"
+        )
     )
-    inset_ax.yaxis.set_major_locator(MaxNLocator(3))
+    inset_y_min, inset_y_max = inset_ax.get_ylim()
+    inset_y_ticks = parent_y_ticks[
+        (parent_y_ticks >= inset_y_min) & (parent_y_ticks <= inset_y_max)
+    ]
+    if len(inset_y_ticks) >= 2:
+        inset_ax.yaxis.set_major_locator(FixedLocator(inset_y_ticks))
+    else:
+        inset_ax.yaxis.set_major_locator(MaxNLocator(3))
     inset_ax.yaxis.set_major_formatter(
-        FuncFormatter(lambda value, _position: f"{value:.2g}")
+        FuncFormatter(
+            lambda value, _position: f"{value / parent_y_scale:.3g}"
+        )
     )
     inset_ax.tick_params(axis="both", labelsize=5.5, length=2.0, pad=1.0)
     inset_tick_labels = inset_ax.get_xticklabels()
@@ -1015,6 +1043,7 @@ def plot_combined_reachability(
     else:
         ax.set_ylabel("Probability")
     style_axes(ax)
+    use_informative_y_ticks(ax)
     ax.legend(frameon=False, loc="best", ncol=1 if show_skr else 2)
 
     figure_path = output_path(figure_dir, config.figure_prefix, f"mdp_{plot_kind}s", plot_profile)
@@ -1088,6 +1117,7 @@ def plot_combined_quality(
         suffix = "qmdp_ws"
 
     style_axes(ax)
+    use_informative_y_ticks(ax)
     if not skip_legend and ax.get_legend_handles_labels()[0]:
         ax.legend(frameon=False, loc="best", ncol=1 if show_skr else 2)
 
@@ -1213,6 +1243,8 @@ def plot_joint_pmf_quality(
 
     style_axes(pmf_ax)
     style_axes(quality_ax)
+    use_informative_y_ticks(pmf_ax)
+    use_informative_y_ticks(quality_ax)
 
     handles, labels = pmf_ax.get_legend_handles_labels()
     if handles:

@@ -167,6 +167,13 @@ def style_axes(ax):
     ax.grid(True, which="major", linestyle=":", linewidth=0.35, alpha=0.45)
 
 
+def use_informative_y_ticks(ax, *, nbins=5):
+    """Request a compact but informative number of automatic y-axis ticks."""
+    from matplotlib.ticker import MaxNLocator
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=nbins, min_n_ticks=4))
+
+
 def hide_overlapping_inner_x_tick_label(fig, left_ax, right_ax, padding_points=2.0):
     """Hide the left panel's last x label only when the two panels collide."""
     fig.canvas.draw()

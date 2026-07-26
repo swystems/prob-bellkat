@@ -520,6 +520,20 @@ executables:
       - OverloadedLists
     ghc-options:
       - -rtsopts
+  quantP_compare_nondet_schedulers:
+    dependencies:
+      - bellkat
+    main: P_compare_nondet_schedulers.hs
+    source-dirs:
+      - quantum-examples/infocom
+    other-modules:
+      - Common.NondetTopology
+      - Common.NetworkConfig
+    default-extensions:
+      - OverloadedStrings
+      - OverloadedLists
+    ghc-options:
+      - -rtsopts
   quantPa:
     dependencies: 
       - bellkat

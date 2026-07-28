@@ -195,6 +195,7 @@ def plot_pmf(
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Probability")
     ax.set_xlim(min(t), max(t))
+    ax.set_ylim(bottom=0.0)
     style_axes(ax)
     ax.legend(frameon=False, loc="best")
 

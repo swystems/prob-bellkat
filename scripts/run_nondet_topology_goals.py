@@ -396,6 +396,7 @@ def configure_probability_y_axis(
     no_y_axis_label=False,
     no_y_ticks=False,
 ):
+    ax.set_ylim(bottom=0.0)
     if plot_kind == "cdf":
         ax.set_ylim(0.0, 1.0)
         ax.set_yticks(CDF_Y_TICKS)

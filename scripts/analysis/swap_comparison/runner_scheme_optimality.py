@@ -68,9 +68,9 @@ EVALUATION_A_W0 = 0.955
 EVALUATION_B_W0 = 0.955
 LOG_AXES = {"generation-scaling", "edge-skew"}
 AXIS_LABELS = {
-    "generation-scaling": r"$p_{\mathrm{ge}}$ scaling",
+    "generation-scaling": r"$p_{\mathrm{ge}}$ scaling factor",
     "p-swap": r"$p_{\mathrm{sw}}$",
-    "edge-skew": r"$p_{\mathrm{ge}}^{ZE}$ scaling",
+    "edge-skew": r"$p_{\mathrm{ge}}^{ZE}$ scaling factor",
 }
 
 

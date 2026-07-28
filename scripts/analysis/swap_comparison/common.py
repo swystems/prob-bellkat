@@ -1039,9 +1039,9 @@ def plot_combined_reachability(
     ax.set_xlabel(TIME_AXIS_LABEL)
     if plot_kind == CDF_PLOT_KIND:
         ax.set_ylabel("Cumulative probability")
-        # ax.set_ylim(0.0, 1.0)
     else:
         ax.set_ylabel("Probability")
+    ax.set_ylim(bottom=0.0)
     style_axes(ax)
     use_informative_y_ticks(ax)
     ax.legend(frameon=False, loc="best", ncol=1 if show_skr else 2)
@@ -1113,9 +1113,9 @@ def plot_combined_quality(
         suffix = "qmdp_fids"
     else:
         ax.set_ylabel(r"Werner parameter")
-        # ax.set_ylim(0.0, 1.0)
         suffix = "qmdp_ws"
 
+    # ax.set_ylim(bottom=0.0)
     style_axes(ax)
     use_informative_y_ticks(ax)
     if not skip_legend and ax.get_legend_handles_labels()[0]:
@@ -1173,6 +1173,7 @@ def plot_joint_pmf_quality(
             only_non_binned=only_non_binned,
         )
 
+    pmf_ax.set_ylim(bottom=0.0)
     if show_detail is not None:
         add_pmf_detail_inset(
             pmf_ax,
@@ -1225,7 +1226,6 @@ def plot_joint_pmf_quality(
         suffix = "pmfs_fids"
     else:
         quality_ax.set_ylabel(r"Werner parameter")
-        # quality_ax.set_ylim(0.0, 1.0)
         suffix = "pmfs_ws"
     quality_ax.set_xlabel(TIME_AXIS_LABEL)
     quality_ax.yaxis.set_label_position("right")
@@ -1240,6 +1240,7 @@ def plot_joint_pmf_quality(
     pmf_ax.margins(x=0)
     quality_ax.margins(x=0)
     pmf_ax.set_xlim(left=0)
+    # quality_ax.set_ylim(bottom=0.0)
 
     style_axes(pmf_ax)
     style_axes(quality_ax)

@@ -67,9 +67,9 @@ MC_MARKERS = {
     "right-to-left": "s",
 }
 MC_COLORS = {
-    "doubling": "#008E74",
-    "left-to-right": "#D55E00",
-    "right-to-left": "#D55E00",
+    "doubling": "#00A6D6",
+    "left-to-right": "#E6007E",
+    "right-to-left": "#E6007E",
 }
 MC_MARKERSIZE = 1.35
 MC_ALPHA = 0.3
@@ -974,6 +974,8 @@ def plot_validation(
     )
     pmf_ax.margins(x=0)
     werner_ax.margins(x=0)
+    pmf_ax.set_ylim(bottom=0.0)
+    # werner_ax.set_ylim(bottom=0.0)
     if bin_edges is None:
         pmf_ax.set_xlim(left=0)
     else:
@@ -1207,6 +1209,7 @@ def plot_pmf_validation(
     )
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Probability")
+    ax.set_ylim(bottom=0.0)
     if bin_edges is not None:
         ax.set_xlim(0, int(bin_edges[-1]))
     ax.legend(loc="best")
@@ -1242,6 +1245,7 @@ def plot_werner_validation(
     )
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Werner parameter")
+    # ax.set_ylim(bottom=0.0)
     if bin_edges is not None:
         ax.set_xlim(0, int(bin_edges[-1]))
     if not skip_legend:

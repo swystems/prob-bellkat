@@ -603,7 +603,7 @@ def plot_ratio(
         cmap="PiYG",
         colorbar_label=r"$\mathrm{SKR}(\mathrm{wo.\ dist.}/\mathrm{w.\ dist.})$",
         xlabel=(
-            r"$t_{\mathrm{coh}}$ ($t_{\mathrm{unit}}$)"
+            r"$t_{\mathrm{coh}}$ in $t_{\mathrm{unit}}$"
             rf" ($10^{{{time_exponent}}}$)"
         ),
         ylabel=r"$w_0$",

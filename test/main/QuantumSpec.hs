@@ -33,8 +33,12 @@ import BellKAT.Implementations.MDPWerner
   )
 import BellKAT.Implementations.MDPExtremal
   ( CoverageStatus(..)
+  , ExtremalSeriesResult(..)
+  , ExtremalSummary(..)
   , ExtremalQuery(..)
   , computeExtremalReachability
+  , computeExtremalReachabilityRolling
+  , computeExtremalReachabilitySummary
   , erCoverageStatus
   , erInitialState
   , erMaxTable
@@ -334,6 +338,94 @@ spec = do
       IM.lookup 0 (ssTransitions minimized) `shouldBe` Nothing
       fmap (Map.keys) (IM.lookup 1 (ssTransitions minimized)) `shouldBe` Just [promoted]
 
+    it "uses a one-column rolling window for an all-zero-cost DAG" $ do
+      let terminal = ["A" ~ "C"] :: StaticBellPairs
+          afterGoal = ["B" ~ "C"] :: StaticBellPairs
+          ss = SS
+                { ssInitial = (0, mempty)
+                , ssTransitions = IM.fromList
+                    [ (0, Map.singleton mempty $
+                        fromGenerator [(((1, terminal), StepCost (Sum 0)), 1 :: Rational)])
+                    , (1, Map.singleton terminal $
+                        fromGenerator [(((2, afterGoal), StepCost (Sum 99)), 1 :: Rational)])
+                    ]
+                }
+          Right summary =
+            computeExtremalReachabilitySummary (== terminal) (ExtremalBudget 5) ss
+          deadEnd = SS
+                { ssInitial = (0, mempty :: StaticBellPairs)
+                , ssTransitions = IM.empty
+                }
+          Right unreachable =
+            computeExtremalReachabilitySummary (const False) (ExtremalCoverage 0.5) deadEnd
+
+      esCDFMin summary `shouldBe` 1
+      esCDFMax summary `shouldBe` 1
+      esMaxPositiveCost summary `shouldBe` 0
+      esRetainedColumns summary `shouldBe` 1
+      esResolvedBudget unreachable `shouldBe` 1
+      esMaxPositiveCost unreachable `shouldBe` 0
+      esRetainedColumns unreachable `shouldBe` 1
+      esCoverageStatus unreachable `shouldBe`
+        Just (CoverageUnreachable 0.5 1 (0 :: Rational))
+
+    it "rejects cyclic zero-cost dependencies before evaluating the recurrence" $ do
+      let selfLoop :: StateSystem (MDP Rational) StaticBellPairs
+          selfLoop = SS
+            { ssInitial = (0, mempty)
+            , ssTransitions = IM.singleton 0 $ Map.singleton mempty $
+                fromGenerator [(((0, mempty), StepCost (Sum 0)), 1)]
+            }
+
+      computeExtremalReachabilitySummary (const False) (ExtremalBudget 1) selfLoop
+        `shouldSatisfy` either (isInfixOf "acyclic zero-cost") (const False)
+
+    it "uses exact stabilization for Rational coverage queries" $ do
+      let terminal = ["A" ~ "C"] :: StaticBellPairs
+          oneStepChance = 1 % 10000000000000
+          geometric :: StateSystem (MDP Rational) StaticBellPairs
+          geometric = SS
+            { ssInitial = (0, mempty)
+            , ssTransitions = IM.singleton 0 $ Map.singleton mempty $
+                fromGenerator
+                  [ (((0, terminal), StepCost (Sum 1)), oneStepChance)
+                  , (((0, mempty), StepCost (Sum 1)), 1 - oneStepChance)
+                  ]
+            }
+          Right result =
+            computeExtremalReachabilitySummary
+              (== terminal)
+              (ExtremalCoverage 1.5e-13)
+              geometric
+
+      esResolvedBudget result `shouldBe` 2
+      case esCoverageStatus result of
+        Just CoverageReached { coverageBudget } -> coverageBudget `shouldBe` 2
+        _ -> expectationFailure "Expected the small Rational increment to reach coverage"
+
+    it "does not mistake small Double increments for stabilization" $ do
+      let terminal = ["A" ~ "C"] :: StaticBellPairs
+          oneStepChance = 1e-13
+          geometric :: StateSystem (MDP Double) StaticBellPairs
+          geometric = SS
+            { ssInitial = (0, mempty)
+            , ssTransitions = IM.singleton 0 $ Map.singleton mempty $
+                fromGenerator
+                  [ (((0, terminal), StepCost (Sum 1)), oneStepChance)
+                  , (((0, mempty), StepCost (Sum 1)), 1 - oneStepChance)
+                  ]
+            }
+          Right result =
+            computeExtremalReachabilitySummary
+              (== terminal)
+              (ExtremalCoverage 1.5e-13)
+              geometric
+
+      esResolvedBudget result `shouldBe` 2
+      case esCoverageStatus result of
+        Just CoverageReached { coverageBudget } -> coverageBudget `shouldBe` 2
+        _ -> expectationFailure "Expected the small Double increment to reach coverage"
+
   describe "static MDP" $ do
     it "builds a finite Pa MDP with per-distribution costs and elides empty labels" $ do
       let pac = PAC
@@ -439,12 +531,18 @@ spec = do
               pol
           Right resultBudget =
             computeExtremalReachability (holdsStaticTest ev) (ExtremalBudget 10) mdp
+          Right resultRollingBudget =
+            computeExtremalReachabilityRolling (holdsStaticTest ev) (ExtremalBudget 10) mdp
+          Right summaryBudget =
+            computeExtremalReachabilitySummary (holdsStaticTest ev) (ExtremalBudget 10) mdp
           Just cMin10 =
             Map.lookup (erInitialState resultBudget) (erMinTable resultBudget) >>= IM.lookup 10
           Just cMax10 =
             Map.lookup (erInitialState resultBudget) (erMaxTable resultBudget) >>= IM.lookup 10
           Right resultCoverage =
             computeExtremalReachability (holdsStaticTest ev) (ExtremalCoverage 0.9) mdp
+          Right resultRollingCoverage =
+            computeExtremalReachabilityRolling (holdsStaticTest ev) (ExtremalCoverage 0.9) mdp
           resolvedCoverageBudget = erResolvedBudget resultCoverage
           cMinAtResolved =
             Map.lookup (erInitialState resultCoverage) (erMinTable resultCoverage) >>= IM.lookup resolvedCoverageBudget
@@ -456,12 +554,28 @@ spec = do
           renderedDPTables = renderExtremalDPTables resultBudget
           Just (A.Object jsonExtremal) = A.decode (A.encode resultBudget)
           Just (A.Object jsonSeries) = AKM.lookup "series" jsonExtremal
+          Just (A.Object jsonSummary) = A.decode (A.encode summaryBudget)
           A.Object jsonDPTables = extremalDPTablesToJSON resultBudget
+          rollingWindowWidth = esMaxPositiveCost summaryBudget + 1
 
       erResolvedBudget resultBudget `shouldBe` 10
+      esrResolvedBudget resultRollingBudget `shouldBe` 10
       cMin10 `shouldSatisfy` (>= 0)
       cMax10 `shouldSatisfy` (<= 1)
       cMin10 `shouldSatisfy` (<= cMax10)
+      A.encode resultRollingBudget `shouldBe` A.encode resultBudget
+      esrCDFMin resultRollingBudget !! 10 `shouldBe` cMin10
+      esrCDFMax resultRollingBudget !! 10 `shouldBe` cMax10
+      length (esrCDFMin resultRollingBudget) `shouldBe` 11
+      length (esrCDFMax resultRollingBudget) `shouldBe` 11
+      esCDFMin summaryBudget `shouldBe` cMin10
+      esCDFMax summaryBudget `shouldBe` cMax10
+      esRetainedColumns summaryBudget `shouldBe` rollingWindowWidth
+      AKM.lookup "result_kind" jsonSummary `shouldBe` Just (A.String "rolling_summary")
+      AKM.lookup "schema_version" jsonSummary `shouldBe` Just (A.toJSON (1 :: Int))
+      jsonSummary `shouldSatisfy` AKM.member "cdf_min"
+      jsonSummary `shouldSatisfy` AKM.member "cdf_max"
+      jsonSummary `shouldSatisfy` not . AKM.member "series"
       renderedExtremal `shouldSatisfy` isInfixOf "t   pmf_min[t]"
       renderedDPTables `shouldSatisfy` isInfixOf "DP table dump"
       renderedDPTables `shouldSatisfy` isInfixOf "Min DP table:"
@@ -477,6 +591,8 @@ spec = do
       jsonDPTables `shouldSatisfy` AKM.member "max"
 
       erResolvedBudget resultCoverage `shouldSatisfy` (>= 10)
+      esrResolvedBudget resultRollingCoverage `shouldBe` erResolvedBudget resultCoverage
+      esrCoverageStatus resultRollingCoverage `shouldBe` erCoverageStatus resultCoverage
       case erCoverageStatus resultCoverage of
         Just CoverageReached { coverageTarget, coverageBudget, coverageValue } -> do
           coverageTarget `shouldApproxBe` 0.9

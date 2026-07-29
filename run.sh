@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Set any of these to 1 to regenerate only that experiment's plots.
-DISTILLATION_PLOTS_ONLY="${DISTILLATION_PLOTS_ONLY:-0}"
-OPTIMALITY_PLOTS_ONLY="${OPTIMALITY_PLOTS_ONLY:-0}"
-COMPARISON_PLOTS_ONLY="${COMPARISON_PLOTS_ONLY:-0}"
-SCHEDULER_PLOTS_ONLY="${SCHEDULER_PLOTS_ONLY:-0}"
-VALIDATION_PLOTS_ONLY="${VALIDATION_PLOTS_ONLY:-0}"
+# Set PLOTS_ONLY=1 to regenerate every evaluation plot from existing data.
+# The experiment-specific switches can still override the aggregate setting.
+PLOTS_ONLY="${PLOTS_ONLY:-0}"
+DISTILLATION_PLOTS_ONLY="${DISTILLATION_PLOTS_ONLY:-$PLOTS_ONLY}"
+OPTIMALITY_PLOTS_ONLY="${OPTIMALITY_PLOTS_ONLY:-$PLOTS_ONLY}"
+COMPARISON_PLOTS_ONLY="${COMPARISON_PLOTS_ONLY:-$PLOTS_ONLY}"
+SCHEDULER_PLOTS_ONLY="${SCHEDULER_PLOTS_ONLY:-$PLOTS_ONLY}"
+VALIDATION_PLOTS_ONLY="${VALIDATION_PLOTS_ONLY:-$PLOTS_ONLY}"
+NONDET_PROTOCOLS_PLOTS_ONLY="${NONDET_PROTOCOLS_PLOTS_ONLY:-$PLOTS_ONLY}"
 
-LOG_FILE="${LOG_FILE:-run-10.log}"
+LOG_FILE="${LOG_FILE:-run-13.log}"
 RUN_TMPDIR="${RUN_TMPDIR:-/private/tmp}"
 
 TRUNCATION="${TRUNCATION:-2000}"
@@ -22,7 +25,10 @@ EDGE_SKEW_VALUES="${EDGE_SKEW_VALUES:-1,2,4,8,16,32}"
 COVERAGE="${COVERAGE:-0.99}"
 DETAIL_RANGE="${DETAIL_RANGE:-8267,8277}"
 PLOT_PROFILE="${PLOT_PROFILE:-paper}"
-SCHEDULER_TRUNCATION="${SCHEDULER_TRUNCATION:-2000}" # 101347
+OPTIMALITY_OUTPUT_DIR="${OPTIMALITY_OUTPUT_DIR:-output/swap-scheme-optimality-surf-7}"
+NONDET_PROTOCOLS_OUTPUT_DIR="${NONDET_PROTOCOLS_OUTPUT_DIR:-output/nondet-topology-protocols}"
+NONDET_GOALS_DIR="${NONDET_GOALS_DIR:-output/nondet-topology-goals-adapt-loop}"
+SCHEDULER_TRUNCATION="${SCHEDULER_TRUNCATION:-8000}" # 101347
 SCHEDULER_QUALITY_TRUNCATION="${SCHEDULER_QUALITY_TRUNCATION:-$SCHEDULER_TRUNCATION}"
 SCHEDULER_T_COH="${SCHEDULER_T_COH:-1440000}"
 SCHEDULER_JOBS="${SCHEDULER_JOBS:-1}"
@@ -52,6 +58,8 @@ optimality=(
   --p-sw-values-a "$OPTIMALITY_P_SWAP_VALUES"
   --generation-scaling-values-b "$OPTIMALITY_SCALING_VALUES"
   --edge-skew-values-b "$EDGE_SKEW_VALUES"
+  --output-dir "$OPTIMALITY_OUTPUT_DIR"
+  --markdown "$OPTIMALITY_OUTPUT_DIR/swap-scheme-optimality.md"
   --plot-profile "$PLOT_PROFILE"
 )
 
@@ -73,6 +81,16 @@ schedulers=(
   --joint-protocols-cdf-werner
   --no-shade
   --figure-dir "$SCHEDULER_FIGURE_DIR"
+)
+
+nondet_protocols=(
+  .venv/bin/python scripts/run_nondet_topology_protocols.py
+  --output-dir "$NONDET_PROTOCOLS_OUTPUT_DIR"
+  --figure-dir "$NONDET_PROTOCOLS_OUTPUT_DIR"
+  --joint-goals-dir "$NONDET_GOALS_DIR"
+  --joint-layout side-by-side
+  --plot-profile "$PLOT_PROFILE"
+  --no-shade
 )
 
 validation=(
@@ -113,6 +131,12 @@ if [[ "$VALIDATION_PLOTS_ONLY" == 1 ]]; then
   validation+=(--plots-only)
 fi
 
+if [[ "$NONDET_PROTOCOLS_PLOTS_ONLY" == 1 ]]; then
+  nondet_protocols+=(--plots-only)
+else
+  nondet_protocols+=(--coverage "$COVERAGE")
+fi
+
 if [[ "$SCHEDULER_SKIP_UNION_QUALITY" == 1 ]]; then
   schedulers+=(--skip-union-quality)
 fi
@@ -125,6 +149,7 @@ quote_command() {
 
 pipeline=""
 pipeline+="$(quote_command "${schedulers[@]}")"
+pipeline+=" && $(quote_command "${nondet_protocols[@]}")"
 pipeline+=" && $(quote_command "${validation[@]}")"
 pipeline+=" && $(quote_command "${distillation[@]}")"
 pipeline+=" && $(quote_command "${comparison[@]}")"

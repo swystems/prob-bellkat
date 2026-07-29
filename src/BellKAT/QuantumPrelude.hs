@@ -68,9 +68,13 @@ import BellKAT.Implementations.ProbabilisticQuantumOps
 import BellKAT.Implementations.MDPExtremal
     ( ExtremalQuery(..)
     , computeExtremalReachability
+    , computeExtremalReachabilityRolling
+    , computeExtremalReachabilitySummary
     , extremalDPTablesToJSON
     , renderExtremalDPTables
     , renderExtremalResult
+    , renderExtremalSeriesResult
+    , renderExtremalSummary
     )
 import BellKAT.Implementations.Output (ListOutput, staticBellPairs, staticTag, OutputBellPairs)
 import BellKAT.Implementations.QuantumOps (QuantumOutput, QuantumTag(..), MaxClock(..), TimeUnit, isFresh, qtFidelity)
@@ -118,6 +122,7 @@ createNetworkState bps tMax = Mset.fromList bps Mset.@ tMax
 data MDPCLIOpts = MDPCLIOpts
     { mcoComputeExtremal :: Bool
     , mcoDumpDP :: Bool
+    , mcoSummaryOnly :: Bool
     , mcoCoverage :: Maybe Double
     , mcoBudget :: Maybe Int
     }
@@ -140,6 +145,10 @@ mdpCLIParser =
             ( OA.long "dump-dp"
                 <> OA.help "Dump the full extremal dynamic-programming table(s)"
             )
+        <*> OA.flag False True
+            ( OA.long "summary-only"
+                <> OA.help "Return only endpoint probabilities using bounded rolling DP storage"
+            )
         <*> OA.optional
             ( OA.option OA.auto
                 ( OA.long "coverage"
@@ -156,9 +165,11 @@ mdpCLIParser =
             )
 
 resolveExtremalQuery :: MDPCLIOpts -> Either String (Maybe ExtremalQuery)
-resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoDumpDP, mcoCoverage, mcoBudget}
+resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoDumpDP, mcoSummaryOnly, mcoCoverage, mcoBudget}
     | hasCoverage && hasBudget =
         Left "Use either --coverage or --truncation, not both."
+    | mcoSummaryOnly && mcoDumpDP =
+        Left "Use either --summary-only or --dump-dp, not both."
     | not wantsExtremal =
         Right Nothing
     | otherwise =
@@ -166,11 +177,11 @@ resolveExtremalQuery MDPCLIOpts{mcoComputeExtremal, mcoDumpDP, mcoCoverage, mcoB
             (Just coverage, Nothing) -> Right . Just $ ExtremalCoverage coverage
             (Nothing, Just budget) -> Right . Just $ ExtremalBudget budget
             _ ->
-                Left "Pass either --coverage or --truncation when requesting extremal solving or --dump-dp."
+                Left "Pass either --coverage or --truncation when requesting extremal solving, --summary-only, or --dump-dp."
   where
     hasCoverage = maybe False (const True) mcoCoverage
     hasBudget = maybe False (const True) mcoBudget
-    wantsExtremal = mcoComputeExtremal || mcoDumpDP || hasCoverage || hasBudget
+    wantsExtremal = mcoComputeExtremal || mcoDumpDP || mcoSummaryOnly || hasCoverage || hasBudget
 
 qcoParser :: OA.Parser QbkatCLIOpts
 qcoParser = QCO
@@ -249,33 +260,61 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                        else do
                             putStrLn (show mdp)
                             putStrLn ("Total transitions T: " <> show transitionCount)
-                Right (Just query) ->
-                    case computeExtremalReachability (holdsStaticTest ev) query mdp of
-                        Left err ->
-                            ioError (userError err)
-                        Right result ->
-                            if qcoJSON opts
-                               then
-                                    let fields =
+                Right (Just query)
+                    | mcoSummaryOnly mdpOpts ->
+                        case computeExtremalReachabilitySummary (holdsStaticTest ev) query mdp of
+                            Left err ->
+                                ioError (userError err)
+                            Right summary ->
+                                if qcoJSON opts
+                                   then BS.putStr . A.encode $
+                                        A.object
+                                            [ "mdp_rendered" A..= show mdp
+                                            , "transition_count" A..= transitionCount
+                                            , "extremal" A..= summary
+                                            ]
+                                   else do
+                                        putStrLn (show mdp)
+                                        putStrLn ("Total transitions T: " <> show transitionCount)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalSummary summary)
+                    | mcoDumpDP mdpOpts ->
+                        case computeExtremalReachability (holdsStaticTest ev) query mdp of
+                            Left err ->
+                                ioError (userError err)
+                            Right result ->
+                                if qcoJSON opts
+                                   then BS.putStr . A.encode $
+                                        A.object
                                             [ "mdp_rendered" A..= show mdp
                                             , "transition_count" A..= transitionCount
                                             , "extremal" A..= result
+                                            , "dp_tables" A..= extremalDPTablesToJSON result
                                             ]
-                                            <>
-                                            if mcoDumpDP mdpOpts
-                                               then [ "dp_tables" A..= extremalDPTablesToJSON result ]
-                                               else []
-                                     in BS.putStr . A.encode $ A.object fields
-                               else do
-                                    putStrLn (show mdp)
-                                    putStrLn ("Total transitions T: " <> show transitionCount)
-                                    putStrLn ""
-                                    putStrLn (renderExtremalResult result)
-                                    if mcoDumpDP mdpOpts
-                                       then do
+                                   else do
+                                        putStrLn (show mdp)
+                                        putStrLn ("Total transitions T: " <> show transitionCount)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalResult result)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalDPTables result)
+                    | otherwise ->
+                        case computeExtremalReachabilityRolling (holdsStaticTest ev) query mdp of
+                                Left err ->
+                                    ioError (userError err)
+                                Right result ->
+                                    if qcoJSON opts
+                                       then BS.putStr . A.encode $
+                                            A.object
+                                                [ "mdp_rendered" A..= show mdp
+                                                , "transition_count" A..= transitionCount
+                                                , "extremal" A..= result
+                                                ]
+                                       else do
+                                            putStrLn (show mdp)
+                                            putStrLn ("Total transitions T: " <> show transitionCount)
                                             putStrLn ""
-                                            putStrLn (renderExtremalDPTables result)
-                                       else pure ()
+                                            putStrLn (renderExtremalSeriesResult result)
           QMQMDP mdpOpts -> do
               initialQState <-
                   case initialWernerState ns of
@@ -296,33 +335,61 @@ qbkatMain' (_ :: Proxy p) pac nb ev protocol ns =
                        else do
                             putStrLn (show qmdp)
                             putStrLn ("Total transitions T: " <> show transitionCount)
-                Right (Just query) ->
-                    case computeExtremalReachability (holdsWernerTest ev) query qmdp of
-                        Left err ->
-                            ioError (userError err)
-                        Right result ->
-                            if qcoJSON opts
-                               then
-                                    let fields =
+                Right (Just query)
+                    | mcoSummaryOnly mdpOpts ->
+                        case computeExtremalReachabilitySummary (holdsWernerTest ev) query qmdp of
+                            Left err ->
+                                ioError (userError err)
+                            Right summary ->
+                                if qcoJSON opts
+                                   then BS.putStr . A.encode $
+                                        A.object
+                                            [ "mdp_rendered" A..= show qmdp
+                                            , "transition_count" A..= transitionCount
+                                            , "extremal" A..= summary
+                                            ]
+                                   else do
+                                        putStrLn (show qmdp)
+                                        putStrLn ("Total transitions T: " <> show transitionCount)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalSummary summary)
+                    | mcoDumpDP mdpOpts ->
+                        case computeExtremalReachability (holdsWernerTest ev) query qmdp of
+                            Left err ->
+                                ioError (userError err)
+                            Right result ->
+                                if qcoJSON opts
+                                   then BS.putStr . A.encode $
+                                        A.object
                                             [ "mdp_rendered" A..= show qmdp
                                             , "transition_count" A..= transitionCount
                                             , "extremal" A..= result
+                                            , "dp_tables" A..= extremalDPTablesToJSON result
                                             ]
-                                            <>
-                                            if mcoDumpDP mdpOpts
-                                               then [ "dp_tables" A..= extremalDPTablesToJSON result ]
-                                               else []
-                                     in BS.putStr . A.encode $ A.object fields
-                               else do
-                                    putStrLn (show qmdp)
-                                    putStrLn ("Total transitions T: " <> show transitionCount)
-                                    putStrLn ""
-                                    putStrLn (renderExtremalResult result)
-                                    if mcoDumpDP mdpOpts
-                                       then do
+                                   else do
+                                        putStrLn (show qmdp)
+                                        putStrLn ("Total transitions T: " <> show transitionCount)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalResult result)
+                                        putStrLn ""
+                                        putStrLn (renderExtremalDPTables result)
+                    | otherwise ->
+                        case computeExtremalReachabilityRolling (holdsWernerTest ev) query qmdp of
+                                Left err ->
+                                    ioError (userError err)
+                                Right result ->
+                                    if qcoJSON opts
+                                       then BS.putStr . A.encode $
+                                            A.object
+                                                [ "mdp_rendered" A..= show qmdp
+                                                , "transition_count" A..= transitionCount
+                                                , "extremal" A..= result
+                                                ]
+                                       else do
+                                            putStrLn (show qmdp)
+                                            putStrLn ("Total transitions T: " <> show transitionCount)
                                             putStrLn ""
-                                            putStrLn (renderExtremalDPTables result)
-                                       else pure ()
+                                            putStrLn (renderExtremalSeriesResult result)
           QMAutomaton ->
               runLoggedPipeline automatonPipeline protocol >>= print
           QMProbability -> do

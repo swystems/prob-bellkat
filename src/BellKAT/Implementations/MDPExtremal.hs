@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -9,13 +10,20 @@ module BellKAT.Implementations.MDPExtremal
     , SchedulerChoice(..)
     , SchedulerSelection(..)
     , ExtremalResult(..)
+    , ExtremalSeriesResult(..)
+    , ExtremalSummary(..)
     , computeExtremalReachability
+    , computeExtremalReachabilityRolling
+    , computeExtremalReachabilitySummary
     , extremalDPTablesToJSON
     , renderExtremalResult
+    , renderExtremalSeriesResult
+    , renderExtremalSummary
     , renderExtremalDPTables
     ) where
 
 import qualified Data.Aeson                  as A
+import           Data.Graph                  (SCC (..), stronglyConnComp)
 import           Data.List                   (foldl', intercalate, mapAccumL, transpose, zipWith5)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Monoid                 (Sum (..))
@@ -100,6 +108,50 @@ data ExtremalResult s p = ExtremalResult
     }
     deriving stock (Eq, Show)
 
+-- | CDF-compatible result produced with rolling per-state DP storage.
+--
+-- This deliberately exposes series rather than the partial internal tables,
+-- preventing callers from treating evicted cells as zero-valued DP entries.
+data ExtremalSeriesResult s p = ExtremalSeriesResult
+    { esrInitialState :: ConcreteMDPState s
+    , esrStates :: [ConcreteMDPState s]
+    , esrGoalStates :: [ConcreteMDPState s]
+    , esrResolvedBudget :: Int
+    , esrCDFMin :: [p]
+    , esrCDFMax :: [p]
+    , esrMinSchedulerChoices :: [SchedulerChoiceTrace s p]
+    , esrMaxSchedulerChoices :: [SchedulerChoiceTrace s p]
+    , esrCoverageStatus :: Maybe (CoverageStatus p)
+    }
+    deriving stock (Eq, Show)
+
+-- | Endpoint-only result for the rolling-window solver.
+--
+-- Unlike 'ExtremalResult', this type deliberately does not retain the CDF
+-- prefix, scheduler trace, or full per-state DP tables.  It can therefore be
+-- produced with O((c_max + 1) * N) DP storage.
+data ExtremalSummary s p = ExtremalSummary
+    { esInitialState :: !(ConcreteMDPState s)
+    , esStateCount :: !Int
+    , esGoalStateCount :: !Int
+    , esResolvedBudget :: !Int
+    , esCDFMin :: !p
+    , esCDFMax :: !p
+    , esCoverageStatus :: !(Maybe (CoverageStatus p))
+    , esMaxPositiveCost :: !Int
+    , esRetainedColumns :: !Int
+    }
+    deriving stock (Eq, Show)
+
+data TableRetention
+    = RetainFullTable
+    | RetainInitialStatePrefix
+    | RetainRollingWindow
+
+data ChoiceRetention
+    = RetainChoiceTrace
+    | DiscardChoiceTrace
+
 instance RationalOrDouble p => A.ToJSON (CoverageStatus p) where
     toJSON status =
         case status of
@@ -137,6 +189,42 @@ instance (Ord s, Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) =>
                         , "max" A..= fmap schedulerChoiceTraceToJSON (erMaxSchedulerChoices result)
                         ]
                 ]
+
+instance (Show s, IsList s, Show (Item s), Show p, RationalOrDouble p) => A.ToJSON (ExtremalSeriesResult s p) where
+    toJSON result =
+        A.object
+            [ "initial_state" A..= stateToJSON (esrInitialState result)
+            , "states" A..= fmap stateToJSON (esrStates result)
+            , "goal_states" A..= fmap stateToJSON (esrGoalStates result)
+            , "resolved_budget" A..= esrResolvedBudget result
+            , "coverage_status" A..= esrCoverageStatus result
+            , "series" A..=
+                A.object
+                    [ "cdf_min" A..= fmap toDouble (esrCDFMin result)
+                    , "cdf_max" A..= fmap toDouble (esrCDFMax result)
+                    ]
+            , "scheduler_choices" A..=
+                A.object
+                    [ "min" A..= fmap schedulerChoiceTraceToJSON (esrMinSchedulerChoices result)
+                    , "max" A..= fmap schedulerChoiceTraceToJSON (esrMaxSchedulerChoices result)
+                    ]
+            ]
+
+instance (Show s, IsList s, Show (Item s), RationalOrDouble p) => A.ToJSON (ExtremalSummary s p) where
+    toJSON summary =
+        A.object
+            [ "result_kind" A..= ("rolling_summary" :: String)
+            , "schema_version" A..= (1 :: Int)
+            , "initial_state" A..= stateToJSON (esInitialState summary)
+            , "state_count" A..= esStateCount summary
+            , "goal_state_count" A..= esGoalStateCount summary
+            , "resolved_budget" A..= esResolvedBudget summary
+            , "coverage_status" A..= esCoverageStatus summary
+            , "cdf_min" A..= toDouble (esCDFMin summary)
+            , "cdf_max" A..= toDouble (esCDFMax summary)
+            , "max_positive_cost" A..= esMaxPositiveCost summary
+            , "retained_columns" A..= esRetainedColumns summary
+            ]
 
 extremalDPTablesToJSON
     :: (Ord s, Show s, IsList s, Show (Item s), RationalOrDouble p)
@@ -208,7 +296,42 @@ computeExtremalReachability
     -> ExtremalQuery
     -> StateSystem (MDP p) s
     -> Either String (ExtremalResult s p)
-computeExtremalReachability isGoal query ss = do
+computeExtremalReachability =
+    computeExtremalReachabilityWith RetainFullTable
+
+-- | Compute the ordinary CDF series while retaining only the rolling DP window
+-- for non-initial states.  The distinct result type exposes the complete
+-- initial-state series without exposing the evicted internal table cells.
+computeExtremalReachabilityRolling
+    :: (Ord s, Show s, RationalOrDouble p)
+    => (s -> Bool)
+    -> ExtremalQuery
+    -> StateSystem (MDP p) s
+    -> Either String (ExtremalSeriesResult s p)
+computeExtremalReachabilityRolling isGoal query ss = do
+    result <- computeExtremalReachabilityWith RetainInitialStatePrefix isGoal query ss
+    let (cdfMin, cdfMax) = initialStateCDFSeries result
+    pure $
+        ExtremalSeriesResult
+            { esrInitialState = erInitialState result
+            , esrStates = erStates result
+            , esrGoalStates = erGoalStates result
+            , esrResolvedBudget = erResolvedBudget result
+            , esrCDFMin = cdfMin
+            , esrCDFMax = cdfMax
+            , esrMinSchedulerChoices = erMinSchedulerChoices result
+            , esrMaxSchedulerChoices = erMaxSchedulerChoices result
+            , esrCoverageStatus = erCoverageStatus result
+            }
+
+computeExtremalReachabilityWith
+    :: (Ord s, Show s, RationalOrDouble p)
+    => TableRetention
+    -> (s -> Bool)
+    -> ExtremalQuery
+    -> StateSystem (MDP p) s
+    -> Either String (ExtremalResult s p)
+computeExtremalReachabilityWith tableRetention isGoal query ss = do
     validateExtremalQuery query
     let states = collectConcreteStates ss
         goalStates = filter (isGoal . snd) states
@@ -216,9 +339,18 @@ computeExtremalReachability isGoal query ss = do
         actions = buildActionMap ss states
 
     validateNonNegativeCosts goalSet actions
+    validateZeroCostAcyclic goalSet actions
 
     let (minTable, resolvedBudget, coverageStatus, minChoices) =
-            computeExtremalTable selectMinAction query states goalSet actions (ssInitial ss)
+            computeExtremalTable
+                tableRetention
+                RetainChoiceTrace
+                selectMinAction
+                query
+                states
+                goalSet
+                actions
+                (ssInitial ss)
         deterministic = all ((<= 1) . length) (Map.elems actions)
         (maxTable, maxChoices) =
             if deterministic
@@ -226,6 +358,8 @@ computeExtremalReachability isGoal query ss = do
                else
                     let (table, _, _, choices) =
                             computeExtremalTable
+                                tableRetention
+                                RetainChoiceTrace
                                 selectMaxAction
                                 (ExtremalBudget resolvedBudget)
                                 states
@@ -245,6 +379,66 @@ computeExtremalReachability isGoal query ss = do
             , erMinSchedulerChoices = minChoices
             , erMaxSchedulerChoices = maxChoices
             , erCoverageStatus = coverageStatus
+            }
+
+-- | Compute only the two endpoint probabilities.  This omits CDF prefixes and
+-- scheduler traces so every state row can use the bounded rolling window.
+computeExtremalReachabilitySummary
+    :: (Ord s, Show s, RationalOrDouble p)
+    => (s -> Bool)
+    -> ExtremalQuery
+    -> StateSystem (MDP p) s
+    -> Either String (ExtremalSummary s p)
+computeExtremalReachabilitySummary isGoal query ss = do
+    validateExtremalQuery query
+    let states = collectConcreteStates ss
+        goalStates = filter (isGoal . snd) states
+        goalSet = Set.fromList goalStates
+        actions = buildActionMap ss states
+        initialState = ssInitial ss
+        maxPositiveCost = largestPositiveCost goalSet actions
+
+    validateNonNegativeCosts goalSet actions
+    validateZeroCostAcyclic goalSet actions
+
+    let (minTable, resolvedBudget, coverageStatus, _) =
+            computeExtremalTable
+                RetainRollingWindow
+                DiscardChoiceTrace
+                selectMinAction
+                query
+                states
+                goalSet
+                actions
+                initialState
+        deterministic = all ((<= 1) . length) (Map.elems actions)
+        maxTable =
+            if deterministic
+               then minTable
+               else
+                    let (table, _, _, _) =
+                            computeExtremalTable
+                                RetainRollingWindow
+                                DiscardChoiceTrace
+                                selectMaxAction
+                                (ExtremalBudget resolvedBudget)
+                                states
+                                goalSet
+                                actions
+                                initialState
+                     in table
+
+    pure $
+        ExtremalSummary
+            { esInitialState = initialState
+            , esStateCount = length states
+            , esGoalStateCount = length goalStates
+            , esResolvedBudget = resolvedBudget
+            , esCDFMin = tableValue minTable initialState resolvedBudget
+            , esCDFMax = tableValue maxTable initialState resolvedBudget
+            , esCoverageStatus = coverageStatus
+            , esMaxPositiveCost = maxPositiveCost
+            , esRetainedColumns = maximum (0 : fmap IM.size (Map.elems minTable))
             }
 
 renderExtremalResult :: (Ord s, RationalOrDouble p, Show s) => ExtremalResult s p -> String
@@ -270,6 +464,54 @@ renderExtremalResult result =
            , ""
            , renderSchedulerChoices "Worst scheduler choices (min CDF):" (erMinSchedulerChoices result)
            , renderSchedulerChoices "Best scheduler choices (max CDF):" (erMaxSchedulerChoices result)
+           ]
+
+renderExtremalSeriesResult
+    :: (RationalOrDouble p, Show s)
+    => ExtremalSeriesResult s p
+    -> String
+renderExtremalSeriesResult result =
+    unlines $
+        [ "Extremal cost-bounded reachability"
+        , "Initial state: " <> show (esrInitialState result)
+        , "Goal states: " <> renderStateList (esrGoalStates result)
+        , "Computed up to budget: " <> show (esrResolvedBudget result)
+        ]
+        <> maybe [] (pure . renderCoverageStatus) (esrCoverageStatus result)
+        <> [ ""
+           , renderTable
+                ["t", "pmf_min[t]", "pmf_max[t]", "cdf_min[t]", "cdf_max[t]"]
+                [ [ show t
+                  , show pmfMin
+                  , show pmfMax
+                  , show cdfMin
+                  , show cdfMax
+                  ]
+                | (t, pmfMin, pmfMax, cdfMin, cdfMax) <- seriesResultRows result
+                ]
+           , ""
+           , renderSchedulerChoices
+                "Worst scheduler choices (min CDF):"
+                (esrMinSchedulerChoices result)
+           , renderSchedulerChoices
+                "Best scheduler choices (max CDF):"
+                (esrMaxSchedulerChoices result)
+           ]
+
+renderExtremalSummary :: (Show s, RationalOrDouble p) => ExtremalSummary s p -> String
+renderExtremalSummary summary =
+    unlines $
+        [ "Extremal cost-bounded reachability (rolling summary)"
+        , "Initial state: " <> show (esInitialState summary)
+        , "States: " <> show (esStateCount summary)
+        , "Goal states: " <> show (esGoalStateCount summary)
+        , "Computed up to budget: " <> show (esResolvedBudget summary)
+        ]
+        <> maybe [] (pure . renderCoverageStatus) (esCoverageStatus summary)
+        <> [ "CDF minimum: " <> show (esCDFMin summary)
+           , "CDF maximum: " <> show (esCDFMax summary)
+           , "Largest positive transition cost: " <> show (esMaxPositiveCost summary)
+           , "Retained DP columns: " <> show (esRetainedColumns summary)
            ]
 
 renderExtremalDPTables :: (Ord s, RationalOrDouble p, Show s) => ExtremalResult s p -> String
@@ -386,6 +628,17 @@ initialStateRows result =
     (pmfMin, pmfMax) = initialStatePMFSeries result
     rows t pmfMin' pmfMax' cdfMin' cdfMax' = (t, pmfMin', pmfMax', cdfMin', cdfMax')
 
+seriesResultRows :: Num p => ExtremalSeriesResult s p -> [(Int, p, p, p, p)]
+seriesResultRows result =
+    zipWith5 rows ts pmfMin pmfMax cdfMin cdfMax
+  where
+    ts = [0 .. esrResolvedBudget result]
+    cdfMin = esrCDFMin result
+    cdfMax = esrCDFMax result
+    pmfMin = pmfFromCDF cdfMin
+    pmfMax = pmfFromCDF cdfMax
+    rows t pmfMin' pmfMax' cdfMin' cdfMax' = (t, pmfMin', pmfMax', cdfMin', cdfMax')
+
 cdfRow :: Ord s => Num p => ExtremalTable s p -> ConcreteMDPState s -> Int -> [p]
 cdfRow table st budget =
     [ tableValue table st t
@@ -462,16 +715,63 @@ validateNonNegativeCosts goalStates actions =
                 "The extremal DP solver requires non-negative step costs; "
                     <> "encountered cost " <> show cost <> " in state " <> show st
 
+validateZeroCostAcyclic
+    :: (Ord s, Ord p, Num p, Show s)
+    => Set.Set (ConcreteMDPState s)
+    -> Map.Map (ConcreteMDPState s) [Action s p]
+    -> Either String ()
+validateZeroCostAcyclic goalStates actions =
+    case [cycleStates | CyclicSCC cycleStates <- stronglyConnComp vertices] of
+        [] -> Right ()
+        cycleStates : _ ->
+            Left $
+                "The extremal DP solver requires acyclic zero-cost dependencies; "
+                    <> "encountered a cycle containing " <> show cycleStates
+  where
+    vertices =
+        [ (st, st, zeroCostSuccessors st gens)
+        | (st, gens) <- Map.toList actions
+        ]
+
+    zeroCostSuccessors st gens
+        | st `Set.member` goalStates = []
+        | otherwise =
+            [ nextState
+            | gen <- gens
+            , ((nextState, stepCost), probability) <- D.toListD gen
+            , getSum (getStepCost stepCost) == 0
+            , probability > 0
+            ]
+
+largestPositiveCost
+    :: Ord s
+    => Set.Set (ConcreteMDPState s)
+    -> Map.Map (ConcreteMDPState s) [Action s p]
+    -> Int
+largestPositiveCost goalStates actions =
+    maximum $
+        0 :
+        [ cost
+        | (st, gens) <- Map.toList actions
+        , st `Set.notMember` goalStates
+        , gen <- gens
+        , ((_, stepCost), _) <- D.toListD gen
+        , let cost = getSum (getStepCost stepCost)
+        , cost > 0
+        ]
+
 computeExtremalTable
     :: (Ord s, RationalOrDouble p)
-    => ([(Int, Action s p, p)] -> (Int, Action s p, p))
+    => TableRetention
+    -> ChoiceRetention
+    -> ([(Int, Action s p, p)] -> (Int, Action s p, p))
     -> ExtremalQuery
     -> [ConcreteMDPState s]
     -> Set.Set (ConcreteMDPState s)
     -> Map.Map (ConcreteMDPState s) [Action s p]
     -> ConcreteMDPState s
     -> (ExtremalTable s p, Int, Maybe (CoverageStatus p), [SchedulerChoiceTrace s p])
-computeExtremalTable selectAction query states goalStates actions initialState =
+computeExtremalTable tableRetention choiceRetention selectAction query states goalStates actions initialState =
     go 0 0 initialTable Map.empty
   where
     initialTable =
@@ -480,22 +780,24 @@ computeExtremalTable selectAction query states goalStates actions initialState =
             | st <- states
             ]
 
-    maxObservedCost =
-        maximum $
-            1 :
-            [ getSum (getStepCost stepCost)
-            | gens <- Map.elems actions
-            , gen <- gens
-            , ((_, stepCost), _) <- D.toListD gen
-            ]
+    maxPositiveCost = largestPositiveCost goalStates actions
 
-    go budget stableSteps table choices =
-        let (table', budgetChoices) = appendBudget budget table
+    stabilitySpan = max 1 maxPositiveCost
+
+    retainChoices =
+        case choiceRetention of
+            RetainChoiceTrace -> True
+            DiscardChoiceTrace -> False
+
+    go budget !stableSteps !table !choices =
+        let (table', budgetChoices, sameAsPrevious) = appendBudget budget table
             choices' = recordSchedulerChoices choices budgetChoices
             stableSteps' =
-                if budget > 0 && columnsApproxEqual table' budget (budget - 1)
-                   then stableSteps + 1
-                   else 0
+                case query of
+                    ExtremalBudget _ -> 0
+                    ExtremalCoverage _
+                        | budget > 0 && sameAsPrevious -> stableSteps + 1
+                        | otherwise -> 0
             currentInitial = tableValue table' initialState budget
          in case query of
                 ExtremalBudget maxBudget
@@ -508,7 +810,7 @@ computeExtremalTable selectAction query states goalStates actions initialState =
                         , Just (CoverageReached target budget currentInitial)
                         , schedulerChoiceTraces choices'
                         )
-                    | stableSteps' >= maxObservedCost ->
+                    | stableSteps' >= stabilitySpan ->
                         ( table'
                         , budget
                         , Just (CoverageUnreachable target budget currentInitial)
@@ -519,17 +821,36 @@ computeExtremalTable selectAction query states goalStates actions initialState =
 
     appendBudget budget table =
         let cells = foldl' (\memo st -> snd (resolveCell budget table memo st)) Map.empty states
-            choicesForBudget = foldMap (maybe [] pure . bcChoice) (Map.elems cells)
+            choicesForBudget =
+                if retainChoices
+                   then foldMap (maybe [] pure . bcChoice) (Map.elems cells)
+                   else []
+            sameAsPrevious =
+                all
+                    (\(st, cell) -> stabilityEqual (bcValue cell) (tableValue table st (budget - 1)))
+                    (Map.toList cells)
+            expiredBudget = budget - maxPositiveCost - 1
             table' =
                 foldl'
-                    (\acc (st, cell) -> Map.adjust (IM.insert budget (bcValue cell)) st acc)
+                    (\acc (st, cell) -> Map.adjust (updateRow budget expiredBudget st cell) st acc)
                     table
                     (Map.toList cells)
-         in (table', choicesForBudget)
+         in (table', choicesForBudget, sameAsPrevious)
 
-    -- TODO: zero-cost dependencies are assumed acyclic. Under that user-side
-    -- precondition, recursive same-budget evaluation terminates; zero-cost
-    -- loops should be rejected by a future validation pass.
+    updateRow budget expiredBudget st cell row =
+        let row' = IM.insert budget (bcValue cell) row
+         in if shouldDiscardExpired st && expiredBudget >= 0
+               then IM.delete expiredBudget row'
+               else row'
+      where
+        shouldDiscardExpired state =
+            case tableRetention of
+                RetainFullTable -> False
+                RetainInitialStatePrefix -> state /= initialState
+                RetainRollingWindow -> True
+
+    -- Zero-cost dependencies are validated as acyclic before this recursion,
+    -- so recursive same-budget evaluation terminates.
     resolveCell budget table memo st
         | Just cell <- Map.lookup st memo = (cell, memo)
         | st `Set.member` goalStates =
@@ -549,7 +870,7 @@ computeExtremalTable selectAction query states goalStates actions initialState =
                             | (idx, _, actionValue) <- scoredActions
                             ]
                         choice =
-                            if length gens > 1
+                            if retainChoices && length gens > 1
                                then Just
                                     ( st
                                     , SchedulerChoice
@@ -579,7 +900,7 @@ computeExtremalTable selectAction query states goalStates actions initialState =
                     let (cell, memo') = resolveCell budget table memo nextState
                      in (total + prob * bcValue cell, memo')
                else
-                    ( total + prob * tableValue table nextState (budget - costValue)
+                    ( total + prob * requiredTableValue table nextState (budget - costValue)
                     , memo
                     )
 
@@ -642,14 +963,22 @@ tableValue table st budget =
     fromMaybe 0 $
         Map.lookup st table >>= IM.lookup budget
 
-columnsApproxEqual :: (Ord s, RationalOrDouble p) => ExtremalTable s p -> Int -> Int -> Bool
-columnsApproxEqual table left right =
-    all approxEntry (Map.keys table)
-  where
-    approxEntry st = approxEqual (tableValue table st left) (tableValue table st right)
+requiredTableValue :: Ord s => Num p => ExtremalTable s p -> ConcreteMDPState s -> Int -> p
+requiredTableValue _ _ budget | budget < 0 = 0
+requiredTableValue table st budget =
+    fromMaybe
+        (error $ "requiredTableValue: missing retained DP budget " <> show budget)
+        (Map.lookup st table >>= IM.lookup budget)
 
 approxEqual :: RationalOrDouble p => p -> p -> Bool
 approxEqual x y = abs (toDouble (x - y)) <= 1e-12
+
+-- Approximate equality is not sound here: a small but genuine increment can
+-- cross the coverage target at a later budget.  Exact equality is conservative
+-- for floating-point probabilities (it may postpone an unreachable verdict),
+-- but it cannot create a false one.
+stabilityEqual :: Eq p => p -> p -> Bool
+stabilityEqual = (==)
 
 meetsCoverage :: RationalOrDouble p => Double -> p -> Bool
 meetsCoverage target value = toDouble value >= target

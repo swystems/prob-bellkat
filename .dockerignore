@@ -2,3 +2,9 @@ Dockerfile*
 output/
 dist-newstyle/
 .direnv/
+.git/
+.venv/
+.stack-work/
+.pytest_cache/
+__pycache__/
+run-*.log

@@ -13,7 +13,14 @@
           overlays = [ self.overlays.default ];
         };
         python = pkgs.python3.withPackages
-          (ps: [ ps.click ps.python-lsp-server ps.pylint ]);
+          (ps: [
+            ps.click
+            ps.matplotlib
+            ps.numba
+            ps.numpy
+            ps.python-lsp-server
+            ps.pylint
+          ]);
         latex = pkgs.texlive.combine { inherit (pkgs.texlive) 
            scheme-basic collection-latexrecommended stmaryrd booktabs collection-luatex
            newunicodechar; };

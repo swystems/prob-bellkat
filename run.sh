@@ -1,6 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: ./run.sh [--cluster]
+
+Without arguments, run in the background on macOS using caffeinate and nohup.
+
+  --cluster  Run in the foreground for a cluster batch scheduler. The scheduler
+             owns the process and captures its output, so nohup and caffeinate
+             are not used.
+  -h, --help Show this help.
+EOF
+}
+
+run_mode="local"
+while (($# > 0)); do
+  case "$1" in
+    --cluster)
+      run_mode="cluster"
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
 # Set PLOTS_ONLY=1 to regenerate every evaluation plot from existing data.
 # The experiment-specific switches can still override the aggregate setting.
 PLOTS_ONLY="${PLOTS_ONLY:-0}"
@@ -12,7 +44,11 @@ VALIDATION_PLOTS_ONLY="${VALIDATION_PLOTS_ONLY:-$PLOTS_ONLY}"
 NONDET_PROTOCOLS_PLOTS_ONLY="${NONDET_PROTOCOLS_PLOTS_ONLY:-$PLOTS_ONLY}"
 
 LOG_FILE="${LOG_FILE:-run-13.log}"
-RUN_TMPDIR="${RUN_TMPDIR:-/private/tmp}"
+if [[ "$run_mode" == "cluster" ]]; then
+  RUN_TMPDIR="${RUN_TMPDIR:-${SLURM_TMPDIR:-${TMPDIR:-/tmp}}}"
+else
+  RUN_TMPDIR="${RUN_TMPDIR:-/private/tmp}"
+fi
 
 TRUNCATION="${TRUNCATION:-2000}"
 GENERATION_SCALING="${GENERATION_SCALING:-128}"
@@ -40,8 +76,14 @@ VALIDATION_BIN_WIDTH="${VALIDATION_BIN_WIDTH:-100}"
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_dir"
 
+if [[ -x "$repo_dir/.venv/bin/python" ]]; then
+  PYTHON_BIN="${PYTHON_BIN:-$repo_dir/.venv/bin/python}"
+else
+  PYTHON_BIN="${PYTHON_BIN:-python3}"
+fi
+
 distillation=(
-  .venv/bin/python scripts/run_distillation_comparison.py
+  "$PYTHON_BIN" scripts/run_distillation_comparison.py
   --truncation "$TRUNCATION"
   --generation-scaling "$GENERATION_SCALING"
   --uniform-w0-values "$UNIFORM_W0_VALUES"
@@ -51,7 +93,7 @@ distillation=(
 )
 
 optimality=(
-  .venv/bin/python -m scripts.run_swap_scheme_optimality
+  "$PYTHON_BIN" -m scripts.run_swap_scheme_optimality
   --experiment doubling-asap
   --experiment sequential-asap
   --generation-scaling-values-a "$OPTIMALITY_SCALING_VALUES"
@@ -64,14 +106,14 @@ optimality=(
 )
 
 comparison=(
-  .venv/bin/python -m scripts.run_swap_scheme_comparison
+  "$PYTHON_BIN" -m scripts.run_swap_scheme_comparison
   --joint-plots
   --show-detail "$DETAIL_RANGE"
   --show-detail-link
 )
 
 schedulers=(
-  .venv/bin/python scripts/run_nondet_topology_schedulers.py
+  "$PYTHON_BIN" scripts/run_nondet_topology_schedulers.py
   --truncation "$SCHEDULER_TRUNCATION"
   --plot-truncation "$SCHEDULER_TRUNCATION"
   --quality-truncation "$SCHEDULER_QUALITY_TRUNCATION"
@@ -84,7 +126,7 @@ schedulers=(
 )
 
 nondet_protocols=(
-  .venv/bin/python scripts/run_nondet_topology_protocols.py
+  "$PYTHON_BIN" scripts/run_nondet_topology_protocols.py
   --output-dir "$NONDET_PROTOCOLS_OUTPUT_DIR"
   --figure-dir "$NONDET_PROTOCOLS_OUTPUT_DIR"
   --joint-goals-dir "$NONDET_GOALS_DIR"
@@ -94,7 +136,7 @@ nondet_protocols=(
 )
 
 validation=(
-  .venv/bin/python scripts/run_swap_scheme_validation.py
+  "$PYTHON_BIN" scripts/run_swap_scheme_validation.py
   --protocol doubling
   --protocol left-to-right
   --include-mc
@@ -155,9 +197,16 @@ pipeline+=" && $(quote_command "${distillation[@]}")"
 pipeline+=" && $(quote_command "${comparison[@]}")"
 pipeline+=" && $(quote_command "${optimality[@]}")"
 
+if [[ "$run_mode" == "cluster" ]]; then
+  printf 'Starting cluster run in the foreground; temporary directory: %s\n' "$RUN_TMPDIR"
+  exec env \
+    PYTHONUNBUFFERED=1 TMPDIR="$RUN_TMPDIR" TMP="$RUN_TMPDIR" TEMP="$RUN_TMPDIR" \
+    nix develop -c bash -lc "$pipeline"
+fi
+
 nohup caffeinate -dims env \
   PYTHONUNBUFFERED=1 TMPDIR="$RUN_TMPDIR" TMP="$RUN_TMPDIR" TEMP="$RUN_TMPDIR" \
-  nix develop -c zsh -lc "$pipeline" >"$LOG_FILE" 2>&1 &
+  nix develop -c bash -lc "$pipeline" >"$LOG_FILE" 2>&1 &
 
 pid=$!
 printf 'Started run as PID %s; logging to %s/%s\n' "$pid" "$repo_dir" "$LOG_FILE"

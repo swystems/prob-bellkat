@@ -37,6 +37,7 @@ from scripts.plot.plot_extremal import (
     load_extremal_series,
     style_axes,
 )
+from scripts.plot.scheme_labels import scheme_plot_label
 from scripts.run_nondet_topology_goals import (
     GOAL_BY_NAME,
     MAX_BOUNDARY_LINEWIDTH,
@@ -66,15 +67,28 @@ NONDET_STACKED_HSPACE = 0.025
 @dataclass(frozen=True)
 class Protocol:
     name: str
-    label: str
     color: str
     linestyle: str
     hatch: str
 
+    @property
+    def label(self) -> str:
+        return scheme_plot_label(self.name)
+
 
 PROTOCOLS = (
-    Protocol("left-to-right", "L2R", "#005AB5", "-", ""),
-    Protocol("right-to-left", "R2L", "#DC3220", "--", "."),
+    Protocol(
+        "left-to-right",
+        "#005AB5",
+        "-",
+        "",
+    ),
+    Protocol(
+        "right-to-left",
+        "#DC3220",
+        "--",
+        ".",
+    ),
 )
 PROTOCOL_BY_NAME = {protocol.name: protocol for protocol in PROTOCOLS}
 

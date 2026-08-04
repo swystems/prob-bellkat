@@ -26,6 +26,7 @@ from scripts.analysis.swap_comparison.common import (
 from scripts.plot.config import (
     DEFAULT_PROFILE,
     JOINT_PLOTS_WSPACE,
+    LINE_WIDTH_INCHES,
     NONDET_HEIGHT_INCHES,
     NONDET_LINE_WIDTH_INCHES,
     PLOT_SETTINGS,
@@ -36,6 +37,7 @@ from scripts.plot.config import (
     hide_overlapping_inner_x_tick_label,
     output_path,
     save_figure,
+    use_informative_y_ticks,
 )
 from scripts.plot.plot_extremal import (
     configure_matplotlib,
@@ -45,7 +47,14 @@ from scripts.plot.plot_extremal import (
     load_extremal_series,
     style_axes,
 )
-from scripts.run_nondet_topology_goals import GOAL_BY_NAME, goal_legend_handles
+from scripts.plot.scheme_labels import scheme_math_acronym
+from scripts.run_nondet_topology_goals import (
+    GOAL_BY_NAME,
+    MAX_BOUNDARY_LINEWIDTH,
+    MIN_BOUNDARY_LINEWIDTH,
+    configure_probability_y_axis,
+    goal_legend_handles,
+)
 from scripts.run_nondet_topology_protocols import (
     PROTOCOLS,
     PROTOCOL_BY_NAME,
@@ -69,7 +78,15 @@ DEFAULT_EXECUTABLE = "quantP_compare_nondet_schedulers"
 DEFAULT_VERIFICATION_ATOL = 1e-10
 DEFAULT_WERNER_BINNING = 10
 DEFAULT_T_COH = 1440000
+WERNER_PMF_SUPPORT_ATOL = 1e-15
 LINE_ALPHA = 0.82
+UNIFIED_GOAL_LINEWIDTH = 1.05
+JOINED_XLABEL_Y = -0.19
+JOINED_SINGLE_COLUMN_HEIGHT_INCHES = 1.38
+JAIN_MARKERS = "markers"
+JAIN_BARS = "bars"
+JAIN_LOLLIPOPS = "lollipops"
+JAIN_PLOT_STYLES = (JAIN_MARKERS, JAIN_BARS, JAIN_LOLLIPOPS)
 
 
 @dataclass(frozen=True)
@@ -79,10 +96,49 @@ class Priority:
 
 
 PRIORITIES = (
-    Priority("a-c", r"prioritize $A\sim C$"),
-    Priority("b-d", r"prioritize $B\sim D$"),
+    Priority("a-c", r"prioritize $A\simeq C$"),
+    Priority("b-d", r"prioritize $B\simeq D$"),
 )
 PRIORITY_BY_NAME = {priority.name: priority for priority in PRIORITIES}
+
+
+@dataclass(frozen=True)
+class PolicyMetric:
+    name: str
+    title: str
+    ylabel: str
+    a_c_field: str | None
+    b_d_field: str | None
+    scale: float = 1.0
+    ylim: tuple[float, float] | None = None
+
+
+SKR_METRIC = PolicyMetric(
+    "skr",
+    r"\mathrm{SKR}\ (10^{-6})",
+    r"\mathrm{SKR}\ (10^{-6}\,t_{\mathrm{unit}}^{-1})",
+    "skr_a_c",
+    "skr_b_d",
+    scale=1e6,
+    ylim=(0.0, 10.5),
+)
+MEAN_WERNER_METRIC = PolicyMetric(
+    "mean_werner",
+    r"\overline{w}_R",
+    r"\overline{w}_R",
+    "mean_werner_a_c",
+    "mean_werner_b_d",
+    ylim=(0.864, 0.873),
+)
+JAIN_SKR_METRIC = PolicyMetric(
+    "jain_skr",
+    r"J_{\mathrm{SKR}}",
+    r"J_{\mathrm{SKR}}",
+    None,
+    None,
+    ylim=(0.5, 1.0),
+)
+POLICY_METRICS = (SKR_METRIC, MEAN_WERNER_METRIC, JAIN_SKR_METRIC)
 
 
 def parse_args():
@@ -259,6 +315,29 @@ def parse_args():
         help="Load existing ordered-policy and nondeterministic JSON files.",
     )
     parser.add_argument(
+        "--split-skr-plots",
+        action="store_true",
+        help=(
+            "Separate the SKR and Jain panels slightly and place both of their "
+            "y-axes on the left."
+        ),
+    )
+    parser.add_argument(
+        "--jain-bars",
+        action="store_true",
+        help=(
+            "Plot Jain's index as outlined bars whose strokes follow each "
+            "protocol's line style."
+        ),
+    )
+    parser.add_argument(
+        "--jain-lollipops",
+        action="store_true",
+        help=(
+            "Plot Jain's index as diamonds on protocol-styled vertical stems."
+        ),
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help=(
@@ -307,6 +386,15 @@ def validate_args(args):
 def unique_selected(values, defaults, lookup):
     names = list(dict.fromkeys(values or defaults))
     return [lookup[name] for name in names]
+
+
+def selected_jain_plot_styles(args):
+    styles = []
+    if args.jain_bars:
+        styles.append(JAIN_BARS)
+    if args.jain_lollipops:
+        styles.append(JAIN_LOLLIPOPS)
+    return tuple(styles) or (JAIN_MARKERS,)
 
 
 def selected_protocols(args):
@@ -471,35 +559,50 @@ def obtain_static_case(args, case, truncation):
     return protocol, priority, goal, path, elapsed
 
 
-def obtain_quality_case(args, case):
-    protocol, priority, goal = case
-    pure_path, pure_elapsed = obtain_result(
+def expand_quality_tasks(cases):
+    return [
+        (*case, event)
+        for case in cases
+        for event in (PURE_EVENT, MIXED_EVENT)
+    ]
+
+
+def obtain_quality_result(args, task):
+    protocol, priority, goal, event = task
+    path, elapsed = obtain_result(
         args,
         protocol,
         priority,
         goal,
         QMDP_MODE,
-        PURE_EVENT,
-        args.quality_truncation,
-    )
-    mixed_path, mixed_elapsed = obtain_result(
-        args,
-        protocol,
-        priority,
-        goal,
-        QMDP_MODE,
-        MIXED_EVENT,
+        event,
         args.quality_truncation,
     )
     return (
         protocol,
         priority,
         goal,
-        pure_path,
-        pure_elapsed,
-        mixed_path,
-        mixed_elapsed,
+        event,
+        path,
+        elapsed,
     )
+
+
+def index_quality_results(results):
+    return {
+        (protocol.name, priority.name, goal.name, event): (
+            path,
+            elapsed,
+        )
+        for (
+            protocol,
+            priority,
+            goal,
+            event,
+            path,
+            elapsed,
+        ) in results
+    }
 
 
 def maximum_absolute_difference(left, right, description):
@@ -690,7 +793,10 @@ def supported_werner_series(pure_path, mixed_path, bin_size):
     supported = [
         (time, value)
         for time, value, probability in zip(t, werner, pmf)
-        if time > 0 and probability > 0.0
+        # CDF differencing can leave tiny positive residues at impossible
+        # early completion times. Their pure/mixed ratio is numerically
+        # meaningless and otherwise distorts the automatically scaled y-axis.
+        if time > 0 and probability > WERNER_PMF_SUPPORT_ATOL
     ]
     if not supported:
         return [], []
@@ -736,7 +842,7 @@ def draw_werner(
 
     ax.set_xlabel(TIME_AXIS_LABEL)
     ax.set_ylabel("Werner parameter")
-    ax.set_ylim(0.0, 1.0)
+    # ax.set_ylim(0.0, 1.0)
     ax.margins(x=0)
     ax.set_xlim(left=0)
     if plot_truncation is not None:
@@ -898,6 +1004,775 @@ def jain_index(values):
     if denominator == 0.0:
         return 0.0
     return sum(values) ** 2 / denominator
+
+
+def ordered_policy_metric_rows(quality_rows):
+    quality_by_policy = {}
+    for row in quality_rows:
+        if row["goal"] not in INDIVIDUAL_GOAL_NAMES:
+            continue
+        quality_by_policy.setdefault(
+            (row["protocol"], row["priority"]),
+            {},
+        )[row["goal"]] = row
+
+    rows = []
+    for protocol in PROTOCOLS:
+        for priority in PRIORITIES:
+            key = (protocol.name, priority.name)
+            goal_rows = quality_by_policy.get(key, {})
+            missing = [
+                goal_name
+                for goal_name in INDIVIDUAL_GOAL_NAMES
+                if goal_name not in goal_rows
+            ]
+            if missing:
+                continue
+
+            a_c = goal_rows["a-c"]
+            b_d = goal_rows["b-d"]
+            skrs = (float(a_c["skr"]), float(b_d["skr"]))
+            rows.append(
+                {
+                    "protocol": protocol.name,
+                    "priority": priority.name,
+                    "resolved_budget": a_c["resolved_budget"],
+                    "skr_a_c": skrs[0],
+                    "skr_b_d": skrs[1],
+                    "skr_sum": sum(skrs),
+                    "mean_werner_a_c": float(a_c["mean_werner"]),
+                    "mean_werner_b_d": float(b_d["mean_werner"]),
+                    "jain_skr": jain_index(skrs),
+                }
+            )
+    return rows
+
+
+def policy_tick_label(protocol_name, priority_name):
+    priority = "1" if priority_name == "a-c" else "2"
+    return rf"${scheme_math_acronym(protocol_name)}_{{{priority}}}$"
+
+
+def policy_plot_positions(policy_rows):
+    positions = (0.0, 1.0, 2.35, 3.35)
+    if len(policy_rows) != len(positions):
+        positions = tuple(float(index) for index in range(len(policy_rows)))
+    labels = [
+        policy_tick_label(row["protocol"], row["priority"])
+        for row in policy_rows
+    ]
+    return positions, labels
+
+
+def ordered_cdf_goals(protocols, priorities, static_paths):
+    return [
+        GOAL_BY_NAME[goal_name]
+        for goal_name in ALL_GOAL_NAMES
+        if all(
+            (protocol.name, priority.name, goal_name) in static_paths
+            for protocol in protocols
+            for priority in priorities
+        )
+    ]
+
+
+def draw_ordered_policy_cdfs(
+    ax,
+    protocols,
+    priorities,
+    static_paths,
+    truncation,
+    *,
+    show_y_axis_label=True,
+    show_legend=True,
+):
+    goals = ordered_cdf_goals(protocols, priorities, static_paths)
+    for goal in goals:
+        for protocol in protocols:
+            for priority in priorities:
+                path = static_paths[(protocol.name, priority.name, goal.name)]
+                cdf = load_extremal_series(path)["cdf_max"][: truncation + 1]
+                if goal.name == "either":
+                    linewidth = UNIFIED_GOAL_LINEWIDTH
+                else:
+                    linewidth = (
+                        MAX_BOUNDARY_LINEWIDTH
+                        if priority.name == goal.name
+                        else MIN_BOUNDARY_LINEWIDTH
+                    )
+                ax.plot(
+                    range(len(cdf)),
+                    cdf,
+                    color=goal.color,
+                    alpha=LINE_ALPHA,
+                    linestyle=protocol.linestyle,
+                    linewidth=linewidth,
+                )
+
+    ax.set_xlabel(TIME_AXIS_LABEL)
+    configure_probability_y_axis(
+        ax,
+        "cdf",
+        no_y_axis_label=not show_y_axis_label,
+    )
+    ax.set_xlim(0, truncation)
+    ax.margins(x=0)
+    style_axes(ax)
+
+    if show_legend:
+        order_legend = ax.legend(
+            handles=protocol_band_handles(
+                protocols,
+                lambda _protocol: "#777777",
+                no_shades=True,
+            ),
+            frameon=False,
+            loc="upper left",
+        )
+        ax.add_artist(order_legend)
+        ax.legend(
+            handles=goal_legend_handles(goals),
+            frameon=False,
+            loc="lower right",
+        )
+
+
+def plot_ordered_policy_cdfs(
+    plt,
+    figure_dir,
+    protocols,
+    priorities,
+    static_paths,
+    truncation,
+    plot_profile,
+):
+    fig, ax = plt.subplots(
+        figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES)
+    )
+    draw_ordered_policy_cdfs(
+        ax,
+        protocols,
+        priorities,
+        static_paths,
+        truncation,
+    )
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_ordered",
+        "cdfs",
+        plot_profile,
+    )
+    save_figure(fig, figure_path, bbox_inches=None)
+    plt.close(fig)
+    print(f"Saved ordered-policy CDF figure to {figure_path}")
+    return figure_path
+
+
+def goal_metric_handles():
+    from matplotlib.lines import Line2D
+
+    return [
+        Line2D(
+            [0],
+            [0],
+            color=GOAL_BY_NAME["a-c"].color,
+            marker="o",
+            linestyle="none",
+            markersize=4,
+            label=GOAL_BY_NAME["a-c"].label,
+        ),
+        Line2D(
+            [0],
+            [0],
+            color=GOAL_BY_NAME["b-d"].color,
+            marker="s",
+            linestyle="none",
+            markersize=4,
+            label=GOAL_BY_NAME["b-d"].label,
+        ),
+    ]
+
+
+def ordered_performance_legend_handles(protocols, goals=None):
+    from matplotlib.lines import Line2D
+
+    if goals is None:
+        goals = [GOAL_BY_NAME[name] for name in ALL_GOAL_NAMES]
+    goal_handles = [
+        Line2D(
+            [0],
+            [0],
+            color=goal.color,
+            linestyle="-",
+            linewidth=1.5,
+            label=goal.label,
+        )
+        for goal in goals
+    ]
+    order_handles = protocol_band_handles(
+        protocols,
+        lambda _protocol: "#777777",
+        no_shades=True,
+    )
+    return [*goal_handles, *order_handles]
+
+
+def draw_policy_metric(
+    ax,
+    policy_rows,
+    metric,
+    *,
+    compact=False,
+    show_legend=False,
+):
+    positions, labels = policy_plot_positions(policy_rows)
+    protocol_by_name = {protocol.name: protocol for protocol in PROTOCOLS}
+
+    for x, row in zip(positions, policy_rows):
+        protocol = protocol_by_name[row["protocol"]]
+        priority_color = GOAL_BY_NAME[row["priority"]].color
+        if metric.name == "jain_skr":
+            ax.scatter(
+                [x],
+                [float(row["jain_skr"])],
+                s=18 if not compact else 12,
+                marker="D",
+                facecolor=priority_color,
+                edgecolor="white",
+                linewidth=0.35,
+                zorder=4,
+            )
+            continue
+
+        a_c = float(row[metric.a_c_field]) * metric.scale
+        b_d = float(row[metric.b_d_field]) * metric.scale
+        ax.plot(
+            [x, x],
+            [a_c, b_d],
+            color=priority_color,
+            alpha=0.78,
+            linestyle=protocol.linestyle,
+            linewidth=1.35 if not compact else 1.1,
+            zorder=2,
+        )
+        ax.scatter(
+            [x],
+            [a_c],
+            s=20 if not compact else 13,
+            marker="o",
+            facecolor=GOAL_BY_NAME["a-c"].color,
+            edgecolor="white",
+            linewidth=0.35,
+            zorder=4,
+        )
+        ax.scatter(
+            [x],
+            [b_d],
+            s=20 if not compact else 13,
+            marker="s",
+            facecolor=GOAL_BY_NAME["b-d"].color,
+            edgecolor="white",
+            linewidth=0.35,
+            zorder=4,
+        )
+
+    if len(positions) == 4:
+        ax.axvline(
+            (positions[1] + positions[2]) / 2.0,
+            color="#A0A0A0",
+            linestyle=":",
+            linewidth=0.45,
+            zorder=0,
+        )
+    style_axes(ax)
+    ax.set_xticks(positions, labels)
+    ax.set_xlim(
+        min(positions, default=0.0) - 0.5,
+        max(positions, default=0.0) + 0.5,
+    )
+    ax.tick_params(
+        axis="x",
+        which="both",
+        length=0,
+        labelsize=6.5 if compact else 7.5,
+        pad=1.5,
+    )
+    ax.set_xlabel("" if compact else r"Policy")
+    if compact:
+        ax.set_title(rf"${metric.title}$", pad=2.0)
+        ax.set_ylabel("")
+    else:
+        ax.set_ylabel(rf"${metric.ylabel}$")
+
+    if metric.ylim is not None:
+        ax.set_ylim(*metric.ylim)
+    use_informative_y_ticks(ax, nbins=4)
+    ax.xaxis.grid(False)
+    if metric.name == "jain_skr":
+        ax.axhline(
+            1.0,
+            color="#777777",
+            linestyle=":",
+            linewidth=0.55,
+            zorder=0,
+        )
+    if show_legend and metric.name != "jain_skr":
+        ax.legend(
+            handles=goal_metric_handles(),
+            frameon=False,
+            loc="best",
+            ncol=2,
+            handletextpad=0.35,
+            columnspacing=0.7,
+        )
+
+
+def plot_policy_metric(
+    plt,
+    figure_dir,
+    policy_rows,
+    metric,
+    plot_profile,
+):
+    fig, ax = plt.subplots(
+        figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES)
+    )
+    draw_policy_metric(
+        ax,
+        policy_rows,
+        metric,
+        show_legend=True,
+    )
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_ordered",
+        metric.name,
+        plot_profile,
+    )
+    save_figure(fig, figure_path, bbox_inches=None)
+    plt.close(fig)
+    print(f"Saved ordered-policy {metric.name} figure to {figure_path}")
+    return figure_path
+
+
+def plot_policy_metrics_joint(
+    plt,
+    figure_dir,
+    policy_rows,
+    metrics,
+    plot_profile,
+    *,
+    suffix,
+):
+    fig, axes = plt.subplots(
+        1,
+        len(metrics),
+        figsize=(NONDET_LINE_WIDTH_INCHES, NONDET_HEIGHT_INCHES),
+    )
+    axes = np.atleast_1d(axes)
+    for ax, metric in zip(axes, metrics):
+        draw_policy_metric(
+            ax,
+            policy_rows,
+            metric,
+            compact=True,
+        )
+    fig.subplots_adjust(
+        left=0.09,
+        right=0.995,
+        bottom=0.20,
+        top=0.88,
+        wspace=0.58 if len(metrics) == 3 else 0.42,
+    )
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_ordered",
+        suffix,
+        plot_profile,
+    )
+    save_figure(
+        fig,
+        figure_path,
+        tight_layout=False,
+        bbox_inches=None,
+    )
+    plt.close(fig)
+    print(f"Saved ordered-policy metric panel to {figure_path}")
+    return figure_path
+
+
+def plot_ordered_cdf_and_metrics(
+    plt,
+    figure_dir,
+    protocols,
+    priorities,
+    static_paths,
+    truncation,
+    policy_rows,
+    metrics,
+    plot_profile,
+    *,
+    suffix,
+):
+    metric_width = 1.0 / len(metrics)
+    fig, axes = plt.subplots(
+        1,
+        1 + len(metrics),
+        figsize=(
+            SWAP_COMPARISON_COMBINED_LINE_WIDTH_INCHES,
+            SWAP_COMPARISON_COMBINED_HEIGHT_INCHES,
+        ),
+        gridspec_kw={
+            "width_ratios": (1.0, *([metric_width] * len(metrics))),
+        },
+    )
+    cdf_ax, *metric_axes = axes
+    draw_ordered_policy_cdfs(
+        cdf_ax,
+        protocols,
+        priorities,
+        static_paths,
+        truncation,
+    )
+    for ax, metric in zip(metric_axes, metrics):
+        draw_policy_metric(
+            ax,
+            policy_rows,
+            metric,
+            compact=True,
+        )
+    fig.subplots_adjust(
+        left=0.08,
+        right=0.995,
+        bottom=0.21,
+        top=0.91,
+        wspace=0.48 if len(metrics) == 3 else 0.38,
+    )
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_ordered",
+        suffix,
+        plot_profile,
+    )
+    save_figure(
+        fig,
+        figure_path,
+        tight_layout=False,
+        bbox_inches=None,
+    )
+    plt.close(fig)
+    print(f"Saved ordered-policy CDF/metric figure to {figure_path}")
+    return figure_path
+
+
+def draw_joined_skr_jain_by_order(
+    skr_ax,
+    jain_ax,
+    policy_rows,
+    *,
+    split_skr_plots=False,
+    jain_plot_style=JAIN_MARKERS,
+):
+    if jain_plot_style not in JAIN_PLOT_STYLES:
+        raise ValueError(f"Unknown Jain plot style: {jain_plot_style}")
+
+    protocol_positions = {
+        protocol.name: float(index)
+        for index, protocol in enumerate(PROTOCOLS)
+    }
+    priority_offsets = {"a-c": -0.13, "b-d": 0.13}
+    protocol_by_name = {protocol.name: protocol for protocol in PROTOCOLS}
+
+    for row in policy_rows:
+        protocol = protocol_by_name[row["protocol"]]
+        x = (
+            protocol_positions[protocol.name]
+            + priority_offsets[row["priority"]]
+        )
+        priority_color = GOAL_BY_NAME[row["priority"]].color
+        skr_values = (
+            float(row["skr_a_c"]) * SKR_METRIC.scale,
+            float(row["skr_b_d"]) * SKR_METRIC.scale,
+        )
+        skr_ax.plot(
+            [x, x],
+            [min(skr_values), max(skr_values)],
+            color=priority_color,
+            alpha=0.82,
+            linestyle=protocol.linestyle,
+            linewidth=1.25,
+            zorder=3,
+        )
+        jain_value = float(row["jain_skr"])
+        jain_baseline = JAIN_SKR_METRIC.ylim[0]
+        if jain_plot_style == JAIN_BARS:
+            from matplotlib.colors import to_rgba
+
+            jain_ax.bar(
+                [x],
+                [jain_value - jain_baseline],
+                bottom=jain_baseline,
+                width=0.18,
+                facecolor=to_rgba(priority_color, 0.18),
+                edgecolor=priority_color,
+                linestyle=protocol.linestyle,
+                linewidth=1.05,
+                zorder=3,
+            )
+        else:
+            if jain_plot_style == JAIN_LOLLIPOPS:
+                jain_ax.plot(
+                    [x, x],
+                    [jain_baseline, jain_value],
+                    color=priority_color,
+                    alpha=0.82,
+                    linestyle=protocol.linestyle,
+                    linewidth=1.15,
+                    zorder=3,
+                )
+            jain_ax.scatter(
+                [x],
+                [jain_value],
+                s=14,
+                marker="D",
+                facecolor=priority_color,
+                edgecolor="white",
+                linewidth=0.35,
+                zorder=4,
+            )
+
+    positions = tuple(protocol_positions[protocol.name] for protocol in PROTOCOLS)
+    labels = tuple(protocol.label for protocol in PROTOCOLS)
+    for ax in (skr_ax, jain_ax):
+        style_axes(ax)
+        ax.set_xticks(positions, labels)
+        ax.set_xlim(-0.42, len(positions) - 0.58)
+        ax.tick_params(
+            axis="x",
+            which="both",
+            length=0,
+            labelsize=6.4,
+            pad=1.5,
+        )
+        ax.tick_params(axis="y", labelsize=6.2, pad=1.5)
+        ax.xaxis.grid(False)
+
+    skr_ax.set_ylim(*SKR_METRIC.ylim)
+    skr_ax.set_yticks((0.0, 3.0, 6.0, 9.0))
+    skr_ax.set_xlabel(
+        rf"${SKR_METRIC.title}$",
+        fontsize=7.0,
+        labelpad=3.0,
+    )
+
+    jain_ax.set_ylim(*JAIN_SKR_METRIC.ylim)
+    jain_ax.set_yticks((0.5, 0.75, 1.0))
+    jain_ax.set_xlabel(
+        rf"${JAIN_SKR_METRIC.title}$",
+        fontsize=7.0,
+        labelpad=3.0,
+    )
+    if split_skr_plots:
+        jain_ax.yaxis.tick_left()
+        jain_ax.yaxis.set_label_position("left")
+        jain_ax.tick_params(
+            axis="y",
+            which="both",
+            left=True,
+            labelleft=True,
+            right=False,
+            labelright=False,
+        )
+    else:
+        jain_ax.yaxis.tick_right()
+        jain_ax.yaxis.set_label_position("right")
+        jain_ax.tick_params(
+            axis="y",
+            which="both",
+            left=False,
+            labelleft=False,
+            right=True,
+            labelright=True,
+        )
+    jain_ax.axhline(
+        1.0,
+        color="#777777",
+        linestyle=":",
+        linewidth=0.55,
+        zorder=0,
+    )
+
+
+def plot_ordered_cdf_skr_jain_single_column(
+    plt,
+    figure_dir,
+    protocols,
+    priorities,
+    static_paths,
+    truncation,
+    policy_rows,
+    plot_profile,
+    *,
+    layout,
+    split_skr_plots=False,
+    jain_plot_style=JAIN_MARKERS,
+):
+    joined_metrics = layout == "joined"
+    if not joined_metrics and jain_plot_style != JAIN_MARKERS:
+        raise ValueError("Jain plot styles are supported only by the joined layout")
+    if joined_metrics:
+        fig = plt.figure(
+            figsize=(LINE_WIDTH_INCHES, JOINED_SINGLE_COLUMN_HEIGHT_INCHES)
+        )
+        outer_grid = fig.add_gridspec(
+            1,
+            2,
+            width_ratios=(1.36, 1.0),
+            wspace=0.22 if split_skr_plots else 0.30,
+        )
+        cdf_ax = fig.add_subplot(outer_grid[0, 0])
+        metric_grid = outer_grid[0, 1].subgridspec(
+            1,
+            2,
+            wspace=0.68 if split_skr_plots else 0.0,
+        )
+        metric_axes = (
+            fig.add_subplot(metric_grid[0, 0]),
+            fig.add_subplot(metric_grid[0, 1]),
+        )
+        subplots_adjust = {
+            "left": 0.11,
+            "right": 0.98 if split_skr_plots else 0.93,
+            "bottom": 0.22,
+            "top": 0.85,
+        }
+    elif layout == "stacked":
+        fig = plt.figure(figsize=(LINE_WIDTH_INCHES, 3.20))
+        grid = fig.add_gridspec(
+            2,
+            2,
+            height_ratios=(1.18, 0.82),
+        )
+        cdf_ax = fig.add_subplot(grid[0, :])
+        metric_axes = (
+            fig.add_subplot(grid[1, 0]),
+            fig.add_subplot(grid[1, 1]),
+        )
+        subplots_adjust = {
+            "left": 0.145,
+            "right": 0.985,
+            "bottom": 0.105,
+            "top": 0.865,
+            "hspace": 0.60,
+            "wspace": 0.48,
+        }
+    elif layout == "horizontal":
+        fig, axes = plt.subplots(
+            1,
+            3,
+            figsize=(LINE_WIDTH_INCHES, 1.72),
+            gridspec_kw={"width_ratios": (1.55, 0.78, 0.78)},
+        )
+        cdf_ax, *metric_axes = axes
+        subplots_adjust = {
+            "left": 0.145,
+            "right": 0.99,
+            "bottom": 0.22,
+            "top": 0.72,
+            "wspace": 0.62,
+        }
+    else:
+        raise ValueError(f"Unknown single-column layout: {layout}")
+
+    draw_ordered_policy_cdfs(
+        cdf_ax,
+        protocols,
+        priorities,
+        static_paths,
+        truncation,
+        show_legend=False,
+    )
+    cdf_goals = ordered_cdf_goals(protocols, priorities, static_paths)
+    if joined_metrics:
+        cdf_ax.set_xticks((0, 20000, 40000))
+        cdf_ax.tick_params(
+            axis="x",
+            which="both",
+            length=0,
+            labelsize=6.4,
+            pad=1.5,
+        )
+        cdf_ax.tick_params(axis="y", labelsize=6.4, pad=1.5)
+        cdf_ax.xaxis.label.set_size(7.0)
+        cdf_ax.yaxis.label.set_size(7.0)
+        fig.legend(
+            handles=ordered_performance_legend_handles(
+                protocols,
+                cdf_goals,
+            ),
+            frameon=False,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.865),
+            ncol=len(cdf_goals) + len(protocols),
+            fontsize=7.5,
+            handlelength=1.55,
+            handletextpad=0.30,
+            columnspacing=0.85,
+            borderaxespad=0.0,
+        )
+        draw_joined_skr_jain_by_order(
+            *metric_axes,
+            policy_rows,
+            split_skr_plots=split_skr_plots,
+            jain_plot_style=jain_plot_style,
+        )
+        for ax in (cdf_ax, *metric_axes):
+            ax.xaxis.set_label_coords(0.5, JOINED_XLABEL_Y)
+    else:
+        for ax, metric in zip(metric_axes, (SKR_METRIC, JAIN_SKR_METRIC)):
+            draw_policy_metric(
+                ax,
+                policy_rows,
+                metric,
+                compact=True,
+            )
+        fig.legend(
+            handles=ordered_performance_legend_handles(
+                protocols,
+                cdf_goals,
+            ),
+            frameon=False,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.995),
+            ncol=4,
+            fontsize=6.4,
+            handlelength=1.35,
+            handletextpad=0.30,
+            columnspacing=0.62,
+            borderaxespad=0.0,
+        )
+    fig.subplots_adjust(**subplots_adjust)
+    style_suffix = (
+        "" if jain_plot_style == JAIN_MARKERS else f"_jain_{jain_plot_style}"
+    )
+    figure_path = output_path(
+        figure_dir,
+        "nondet_topology_ordered",
+        f"cdfs_skr_jain_single_column_{layout}{style_suffix}",
+        plot_profile,
+    )
+    save_figure(
+        fig,
+        figure_path,
+        tight_layout=False,
+        bbox_inches=None,
+    )
+    plt.close(fig)
+    print(
+        "Saved single-column ordered-policy CDF/SKR/Jain figure "
+        f"to {figure_path}"
+    )
+    return figure_path
 
 
 def conditional_latency_quantile(cdf, quantile):
@@ -1184,75 +2059,76 @@ def main():
             for priority in priorities
             for goal in quality_goals
         ]
+        quality_tasks = expand_quality_tasks(quality_cases)
         with ThreadPoolExecutor(max_workers=args.jobs) as executor:
             quality_results = executor.map(
-                lambda case: obtain_quality_case(args, case),
-                quality_cases,
+                lambda task: obtain_quality_result(args, task),
+                quality_tasks,
             )
-            for (
-                protocol,
-                priority,
-                goal,
+            quality_result_by_key = index_quality_results(quality_results)
+
+        for protocol, priority, goal in quality_cases:
+            pure_path, pure_elapsed = quality_result_by_key[
+                (protocol.name, priority.name, goal.name, PURE_EVENT)
+            ]
+            mixed_path, mixed_elapsed = quality_result_by_key[
+                (protocol.name, priority.name, goal.name, MIXED_EVENT)
+            ]
+            assert_extrema_coincide(
+                f"{protocol.name}/{priority.name}/{goal.name}",
+                QMDP_MODE,
+                PURE_EVENT,
                 pure_path,
-                pure_elapsed,
+            )
+            assert_extrema_coincide(
+                f"{protocol.name}/{priority.name}/{goal.name}",
+                QMDP_MODE,
+                MIXED_EVENT,
                 mixed_path,
-                mixed_elapsed,
-            ) in quality_results:
-                assert_extrema_coincide(
-                        f"{protocol.name}/{priority.name}/{goal.name}",
-                        QMDP_MODE,
-                        PURE_EVENT,
-                        pure_path,
-                )
-                assert_extrema_coincide(
-                        f"{protocol.name}/{priority.name}/{goal.name}",
-                        QMDP_MODE,
-                        MIXED_EVENT,
-                        mixed_path,
-                )
-                split_difference = certify_static_quality_split(
-                    static_paths[(protocol.name, priority.name, goal.name)],
-                    pure_path,
-                    mixed_path,
-                    f"{protocol.name}/{priority.name}/{goal.name}",
-                    args.verification_atol,
-                )
-                metrics = quality_metrics(pure_path, mixed_path)
-                quality_paths[
-                    (protocol.name, priority.name, goal.name)
-                ] = (pure_path, mixed_path)
-                quality_rows.append(
-                    {
-                        "protocol": protocol.name,
-                        "priority": priority.name,
-                        "goal": goal.name,
-                        "resolved_budget": args.quality_truncation,
-                        "split_status": "exact",
-                        "split_max_abs_diff": f"{split_difference:.15g}",
-                        "coverage": f"{metrics['coverage']:.15g}",
-                        "mean_waiting_time": f"{metrics['mean_waiting_time']:.15g}",
-                        "mean_werner": f"{metrics['mean_werner']:.15g}",
-                        "skr": f"{metrics['skr']:.15g}",
-                        "pure_json_path": str(pure_path),
-                        "mixed_json_path": str(mixed_path),
-                    }
-                )
-                for mode, event, elapsed, path in (
-                    (QMDP_MODE, PURE_EVENT, pure_elapsed, pure_path),
-                    (QMDP_MODE, MIXED_EVENT, mixed_elapsed, mixed_path),
-                ):
-                    if elapsed is not None:
-                        timing_rows.append(
-                            {
-                                "protocol": protocol.name,
-                                "priority": priority.name,
-                                "goal": goal.name,
-                                "mode": mode,
-                                "event": event,
-                                "seconds": f"{elapsed:.6f}",
-                                "json_path": str(path),
-                            }
-                        )
+            )
+            split_difference = certify_static_quality_split(
+                static_paths[(protocol.name, priority.name, goal.name)],
+                pure_path,
+                mixed_path,
+                f"{protocol.name}/{priority.name}/{goal.name}",
+                args.verification_atol,
+            )
+            metrics = quality_metrics(pure_path, mixed_path)
+            quality_paths[
+                (protocol.name, priority.name, goal.name)
+            ] = (pure_path, mixed_path)
+            quality_rows.append(
+                {
+                    "protocol": protocol.name,
+                    "priority": priority.name,
+                    "goal": goal.name,
+                    "resolved_budget": args.quality_truncation,
+                    "split_status": "exact",
+                    "split_max_abs_diff": f"{split_difference:.15g}",
+                    "coverage": f"{metrics['coverage']:.15g}",
+                    "mean_waiting_time": f"{metrics['mean_waiting_time']:.15g}",
+                    "mean_werner": f"{metrics['mean_werner']:.15g}",
+                    "skr": f"{metrics['skr']:.15g}",
+                    "pure_json_path": str(pure_path),
+                    "mixed_json_path": str(mixed_path),
+                }
+            )
+            for mode, event, elapsed, path in (
+                (QMDP_MODE, PURE_EVENT, pure_elapsed, pure_path),
+                (QMDP_MODE, MIXED_EVENT, mixed_elapsed, mixed_path),
+            ):
+                if elapsed is not None:
+                    timing_rows.append(
+                        {
+                            "protocol": protocol.name,
+                            "priority": priority.name,
+                            "goal": goal.name,
+                            "mode": mode,
+                            "event": event,
+                            "seconds": f"{elapsed:.6f}",
+                            "json_path": str(path),
+                        }
+                    )
 
         write_csv(
             args.output_dir / "quality_skr_summary.csv",
@@ -1272,6 +2148,24 @@ def main():
                 "mixed_json_path",
             ),
         )
+
+        policy_quality_rows = ordered_policy_metric_rows(quality_rows)
+        if policy_quality_rows:
+            write_csv(
+                args.output_dir / "ordered_policy_metrics_detailed.csv",
+                policy_quality_rows,
+                (
+                    "protocol",
+                    "priority",
+                    "resolved_budget",
+                    "skr_a_c",
+                    "skr_b_d",
+                    "skr_sum",
+                    "mean_werner_a_c",
+                    "mean_werner_b_d",
+                    "jain_skr",
+                ),
+            )
 
         aggregate_quality = {
             (row["protocol"], row["priority"]): row
@@ -1319,6 +2213,79 @@ def main():
 
         plt = configure_matplotlib(args.plot_profile)
         plot_profile = get_plot_profile(args.plot_profile)
+        if policy_quality_rows:
+            plot_ordered_policy_cdfs(
+                plt,
+                args.figure_dir,
+                protocols,
+                priorities,
+                static_paths,
+                truncation,
+                plot_profile,
+            )
+            for metric in POLICY_METRICS:
+                plot_policy_metric(
+                    plt,
+                    args.figure_dir,
+                    policy_quality_rows,
+                    metric,
+                    plot_profile,
+                )
+            plot_policy_metrics_joint(
+                plt,
+                args.figure_dir,
+                policy_quality_rows,
+                POLICY_METRICS,
+                plot_profile,
+                suffix="metrics",
+            )
+            plot_policy_metrics_joint(
+                plt,
+                args.figure_dir,
+                policy_quality_rows,
+                (SKR_METRIC, JAIN_SKR_METRIC),
+                plot_profile,
+                suffix="skr_jain",
+            )
+            plot_ordered_cdf_and_metrics(
+                plt,
+                args.figure_dir,
+                protocols,
+                priorities,
+                static_paths,
+                truncation,
+                policy_quality_rows,
+                POLICY_METRICS,
+                plot_profile,
+                suffix="cdfs_metrics",
+            )
+            plot_ordered_cdf_and_metrics(
+                plt,
+                args.figure_dir,
+                protocols,
+                priorities,
+                static_paths,
+                truncation,
+                policy_quality_rows,
+                (SKR_METRIC, JAIN_SKR_METRIC),
+                plot_profile,
+                suffix="cdfs_skr_jain",
+            )
+            for jain_plot_style in selected_jain_plot_styles(args):
+                plot_ordered_cdf_skr_jain_single_column(
+                    plt,
+                    args.figure_dir,
+                    protocols,
+                    priorities,
+                    static_paths,
+                    truncation,
+                    policy_quality_rows,
+                    plot_profile,
+                    layout="joined",
+                    split_skr_plots=args.split_skr_plots,
+                    jain_plot_style=jain_plot_style,
+                )
+
         werner_paths = goal_priority_quality_paths(quality_paths, protocols)
         if werner_paths:
             plot_werner(

@@ -42,8 +42,8 @@ STATIC_EVENT = "static"
 DEFAULT_TRUNCATION = 100
 LINE_ALPHA = 0.82
 BAND_ALPHA = 0.14
-MIN_BOUNDARY_LINEWIDTH = 0.8
-MAX_BOUNDARY_LINEWIDTH = 1.0
+MIN_BOUNDARY_LINEWIDTH = 0.65
+MAX_BOUNDARY_LINEWIDTH = 1.5
 PLOT_KINDS = ("pmf", "cdf", "both")
 CDF_Y_TICKS = (0.0, 0.25, 0.5, 0.75, 1.0)
 
@@ -56,9 +56,13 @@ class Goal:
 
 
 GOALS = (
-    Goal("a-c", r"$A\sim C$", "#005AB5"),
-    Goal("b-d", r"$B\sim D$", "#DC3220"),
-    Goal("either", r"$A\sim C$ or $B\sim D$", "#111111"),
+    Goal("a-c", r"$A\simeq C$", "#005AB5"),
+    Goal("b-d", r"$B\simeq D$", "#DC3220"),
+    Goal(
+        "either",
+        r"$A\simeq C\ \mathrm{or}\ B\simeq D$",
+        "#111111",
+    ),
 )
 GOAL_BY_NAME = {goal.name: goal for goal in GOALS}
 

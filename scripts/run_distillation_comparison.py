@@ -39,15 +39,12 @@ from scripts.plot.config import (
     save_figure,
 )
 from scripts.plot.contour import draw_ratio_contour, thinned_ticks
+from scripts.plot.scheme_labels import scheme_math_acronym, scheme_plot_label
 
 
 PROTOCOLS = ("swap", "dist-swap", "swap-dist")
 BASELINE_PROTOCOL = "swap"
 DISTILL_PROTOCOLS = ("dist-swap", "swap-dist")
-PROTOCOL_PLOT_LABELS = {
-    "dist-swap": "D-S",
-    "swap-dist": "S-D",
-}
 # Keep the new data namespace separate from cached results for the previous
 # X-Y-only experiment.
 FILE_PREFIX = "distillation_order_comparison"
@@ -542,7 +539,7 @@ def annotate_best_distillation(
         ax.text(
             label_x,
             label_y,
-            PROTOCOL_PLOT_LABELS[protocol],
+            scheme_plot_label(protocol),
             ha="center",
             va="center",
             fontsize=5.5,
@@ -550,6 +547,61 @@ def annotate_best_distillation(
             color="#202020",
             bbox={"facecolor": "white", "alpha": 0.72, "edgecolor": "none", "pad": 0.7},
             zorder=4,
+        )
+
+
+def annotate_nan_regions(
+    plt,
+    ax,
+    ratios: list[list[float]],
+) -> None:
+    """Hatch undefined 0/0 ratios and explain them without expanding the figure."""
+    import numpy as np
+    from matplotlib.patches import Patch, Rectangle
+
+    ratio = np.asarray(ratios, dtype=float)
+    invalid = ~np.isfinite(ratio)
+    if not np.any(invalid):
+        return
+
+    with plt.rc_context({"hatch.linewidth": 0.3}):
+        # The filled contour is opaque wherever the ratio is finite. A hatched
+        # axes-sized underlay therefore shows through exactly where contourf
+        # leaves its masked (NaN) regions blank, including boundary-only NaNs.
+        ax.add_patch(
+            Rectangle(
+                (0, 0),
+                1,
+                1,
+                transform=ax.transAxes,
+                facecolor="white",
+                edgecolor="#707070",
+                linewidth=0,
+                hatch="////",
+                zorder=-1,
+            )
+        )
+
+        legend_handle = Patch(
+            facecolor="white",
+            edgecolor="#707070",
+            linewidth=0.3,
+            hatch="////",
+            label=r"All SKRs $=0$",
+        )
+        ax.legend(
+            handles=[legend_handle],
+            loc="upper left",
+            bbox_to_anchor=(0.015, 0.985),
+            borderaxespad=0,
+            borderpad=0.25,
+            handlelength=1.2,
+            handleheight=0.7,
+            fontsize=5.2,
+            frameon=True,
+            framealpha=0.88,
+            facecolor="white",
+            edgecolor="#707070",
         )
 
 
@@ -601,7 +653,11 @@ def plot_ratio(
         y_values,
         ratio,
         cmap="PiYG",
-        colorbar_label=r"$\mathrm{SKR}(\mathrm{wo.\ dist.}/\mathrm{w.\ dist.})$",
+        colorbar_label=(
+            rf"$\mathrm{{SKR}}({scheme_math_acronym(BASELINE_PROTOCOL)}/"
+            rf"\{{{scheme_math_acronym(DISTILL_PROTOCOLS[0])},"
+            rf"{scheme_math_acronym(DISTILL_PROTOCOLS[1])}\}})$"
+        ),
         xlabel=(
             r"$t_{\mathrm{coh}}$ in $t_{\mathrm{unit}}$"
             rf" ($10^{{{time_exponent}}}$)"
@@ -613,6 +669,7 @@ def plot_ratio(
         y_ticklabels=y_ticklabels,
         x_ticklabels=x_ticklabels,
     )
+    annotate_nan_regions(plt, ax, ratio)
     annotate_best_distillation(ax, x_values, y_values, protocol_grid)
 
     plot_profile = get_plot_profile(args.plot_profile)

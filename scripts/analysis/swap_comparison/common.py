@@ -38,6 +38,7 @@ from scripts.plot.plot_extremal import (
     load_extremal_series,
     werner_to_fid,
 )
+from scripts.plot.scheme_labels import scheme_plot_label
 from scripts.utils.utils import secret_key_rate
 
 
@@ -49,12 +50,6 @@ PURE_EVENT = "pure"
 MIXED_EVENT = "mixed"
 COLORS = ("#cddb87","#ee7833", "#7c0006", "#cc9cff", "#01b56c")
 LINE_ALPHA = 0.65
-PROTOCOL_LEGEND_LABELS = {
-    "swap-asap": "asap",
-    "left-to-right": "L2R",
-    "right-to-left": "R2L",
-}
-
 PMF_ASSERTION_TOLERANCE = 1e-4
 PMF_PLOT_KIND = "pmf"
 CDF_PLOT_KIND = "cdf"
@@ -789,13 +784,16 @@ def compute_secret_key_rate_from_split(pure_path, mixed_path):
 
 
 def protocol_legend_label(protocol, skr_by_protocol, show_skr):
-    label = PROTOCOL_LEGEND_LABELS.get(protocol, protocol)
+    try:
+        label = scheme_plot_label(protocol)
+    except KeyError:
+        label = protocol
     if not show_skr:
         return f"{label}"
     skr = skr_by_protocol.get(protocol)
     if skr is None:
         return label
-    return f"{label} SKR={skr:.2e}"
+    return f"{label} SKR={skr / 1e-6:.2f}e-06"
 
 
 def bin_time_series(t, values, bin_size):

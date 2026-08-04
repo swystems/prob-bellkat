@@ -42,16 +42,17 @@ from scripts.plot.config import (
     save_figure,
 )
 from scripts.plot.contour import RATIO_CONTOUR_LEVELS, draw_ratio_contour, thinned_ticks
+from scripts.plot.scheme_labels import (
+    scheme_acronym,
+    scheme_math_acronym,
+    scheme_plot_label,
+)
 
 
 BASELINE_PROTOCOL = "swap-asap"
 DOUBLING_PROTOCOL = "doubling"
 SEQUENTIAL_PROTOCOLS = ("left-to-right", "right-to-left")
 PROTOCOLS = (BASELINE_PROTOCOL, DOUBLING_PROTOCOL, *SEQUENTIAL_PROTOCOLS)
-PROTOCOL_PLOT_LABELS = {
-    "left-to-right": "L2R",
-    "right-to-left": "R2L",
-}
 FILE_PREFIX = "swap_scheme_optimality"
 FIGURE_PREFIX = "swap_scheme_optimality"
 DEFAULT_OUTPUT_DIR = Path("output/swap-scheme-optimality")
@@ -88,7 +89,7 @@ class RatioJob:
     cmap: str
     numerator_protocols: tuple[str, ...]
     numerator_label: str
-    caption: str
+    caption_schemes: tuple[str, str]
     contour_levels: int = RATIO_CONTOUR_LEVELS
 
 
@@ -129,8 +130,8 @@ DEFAULT_JOBS = (
         fixed_axes=(("edge-skew", EVALUATION_A_EDGE_SKEW), ("w0", EVALUATION_A_W0)),
         cmap="RdBu",
         numerator_protocols=(DOUBLING_PROTOCOL,),
-        numerator_label="doubling",
-        caption=r"$\mathrm{SKR}(\mathrm{doubling}/\mathrm{asap})$",
+        numerator_label=scheme_acronym(DOUBLING_PROTOCOL),
+        caption_schemes=(DOUBLING_PROTOCOL, BASELINE_PROTOCOL),
         contour_levels=301,
     ),
     RatioJob(
@@ -145,8 +146,8 @@ DEFAULT_JOBS = (
         fixed_axes=(("w0", EVALUATION_B_W0),),
         cmap="BrBG",
         numerator_protocols=SEQUENTIAL_PROTOCOLS,
-        numerator_label="sequential",
-        caption=r"$\mathrm{SKR}(\mathrm{sequential}/\mathrm{asap})$",
+        numerator_label=scheme_acronym("sequential"),
+        caption_schemes=("sequential", BASELINE_PROTOCOL),
     ),
 )
 
@@ -751,7 +752,7 @@ def annotate_best_protocol(
         ax.text(
             label_x,
             label_y,
-            PROTOCOL_PLOT_LABELS[protocol],
+            scheme_plot_label(protocol),
             ha="center",
             va="center",
             fontsize=5.5,
@@ -782,6 +783,10 @@ def draw_ratio(fig, ax, job: RatioJob, results: dict[SchemePoint, PointResult], 
         protocol_grid.reverse()
     x_ticks, x_ticklabels = thinned_ticks(plotted_x, x_ticklabels, 5)
     y_ticks, y_ticklabels = thinned_ticks(plotted_y, y_ticklabels, 4)
+    numerator_label = ", ".join(
+        scheme_math_acronym(protocol) for protocol in job.numerator_protocols
+    )
+    ratio_label = rf"$\mathrm{{SKR}}(\{{{numerator_label}\}}/{scheme_math_acronym(BASELINE_PROTOCOL)})$"
     draw_ratio_contour(
         fig,
         ax,
@@ -789,7 +794,9 @@ def draw_ratio(fig, ax, job: RatioJob, results: dict[SchemePoint, PointResult], 
         plotted_y,
         plotted_grid,
         cmap=job.cmap,
-        colorbar_label=job.caption,
+        colorbar_label=(
+            ratio_label
+        ),
         xlabel=axis_label(job.x_axis),
         ylabel=axis_label(job.y_axis),
         log_x=job.x_axis in LOG_AXES,

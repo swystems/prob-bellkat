@@ -39,6 +39,7 @@ from scripts.plot.plot_extremal import (
     derive_pmf_series,
     load_extremal_series,
 )
+from scripts.plot.scheme_labels import scheme_plot_label
 
 
 PROTOCOLS = ("swap-asap", "doubling", "left-to-right", "right-to-left")
@@ -76,21 +77,22 @@ MC_ALPHA = 0.3
 MC_DECAY_FACTOR = 2.0
 MC_LINKS = 4
 WERNER_START_TIME = 1  # The conditional Werner value is undefined at t=0.
-VALIDATION_LABELS = {
-    ("doubling", "qbkat"): "QBKAT doubling",
-    ("doubling", "reference"): r"Li $\mathit{et\ al.}$ doubling",
-    ("doubling", "mc"): "MC doubling",
-    ("left-to-right", "qbkat"): "QBKAT L2R",
-    ("left-to-right", "reference"): r"La Corte $\mathit{et\ al.}$ L2R",
-    ("left-to-right", "mc"): "MC sequential",
-    ("right-to-left", "qbkat"): "QBKAT R2L",
-    ("right-to-left", "reference"): r"La Corte $\mathit{et\ al.}$ R2L",
-    ("right-to-left", "mc"): "MC sequential",
-}
 PMF_KEYS = ("pmf", "delivery_pmf", "probabilities", "probability")
 CDF_KEYS = ("cdf", "delivery_cdf")
 WERNER_KEYS = ("werner", "w_out", "lambda", "lambda_series", "average_werner")
 FINAL_LAMBDA_KEYS = ("e_lambda", "E_Lambda", "average_lambda", "final_lambda")
+
+
+def validation_label(protocol: str, source: str) -> str:
+    acronym = scheme_plot_label(protocol)
+    if source == "qbkat":
+        return f"QBKAT {acronym}"
+    if source == "mc":
+        return f"MC {acronym}"
+    if source == "reference":
+        author = "Li" if protocol == "doubling" else "La Corte"
+        return rf"{author} $\mathit{{et\ al.}}$ {acronym}"
+    raise KeyError(source)
 
 
 @dataclass(frozen=True)
@@ -994,10 +996,10 @@ def plot_validation(
             loc="upper center",
             bbox_to_anchor=(0.5, SWAP_COMPARISON_JOINT_LEGEND_Y),
             ncol=len(handles),
-            columnspacing=0.55 if monte_carlo else 0.8,
-            handletextpad=0.3 if monte_carlo else 0.4,
-            handlelength=1.2 if monte_carlo else 1.5,
-            fontsize=6.5 if monte_carlo else 8,
+            columnspacing=0.12 if monte_carlo else 0.8,
+            handletextpad=0.14 if monte_carlo else 0.4,
+            handlelength=0.8 if monte_carlo else 1.5,
+            fontsize=8.5 if monte_carlo else 8,
         )
 
     fig.subplots_adjust(
@@ -1087,7 +1089,7 @@ def plot_validation_curves(
             values,
             color=color,
             linestyle=QBKAT_LINESTYLE,
-            label=VALIDATION_LABELS[(protocol, "qbkat")],
+            label=validation_label(protocol, "qbkat"),
             zorder=3,
         )
 
@@ -1126,7 +1128,7 @@ def plot_validation_curves(
             color=color,
             linestyle=REFERENCE_LINESTYLE,
             linewidth=REFERENCE_LINEWIDTH,
-            label=VALIDATION_LABELS[(protocol, "reference")],
+            label=validation_label(protocol, "reference"),
             zorder=4,
         )
 
@@ -1148,7 +1150,7 @@ def plot_validation_curves(
             markersize=MC_MARKERSIZE,
             markeredgewidth=0.0,
             alpha=MC_ALPHA,
-            label=VALIDATION_LABELS[(protocol, "mc")],
+            label=validation_label(protocol, "mc"),
             zorder=5,
         )
 
